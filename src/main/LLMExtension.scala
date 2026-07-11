@@ -55,7 +55,11 @@ class LLMExtension extends DefaultClassManager {
   
   // Per-agent conversation history
   private val messageHistory: WeakHashMap[Agent, ArrayBuffer[ChatMessage]] = WeakHashMap()
-  
+
+  // Guards messageHistory and every contained buffer. Never held across Await
+  // or provider calls; critical sections are small snapshots/appends only.
+  private val historyLock = new Object
+
   // Execution context for async operations
   implicit private val ec: ExecutionContext = ExecutionContext.global
   
@@ -122,7 +126,7 @@ class LLMExtension extends DefaultClassManager {
    * Called when NetLogo calls clear-all or when the model is reset
    */
   override def clearAll(): Unit = {
-    messageHistory.clear()
+    historyLock.synchronized { messageHistory.clear() }
   }
   
   /**
@@ -143,11 +147,31 @@ class LLMExtension extends DefaultClassManager {
   }
   
   /**
-   * Get or create conversation history for an agent
+   * Get or create conversation history for an agent.
+   * Callers must hold historyLock — the buffer must not escape a locked section.
    */
   private def getAgentHistory(agent: Agent): ArrayBuffer[ChatMessage] = {
     messageHistory.getOrElseUpdate(agent, ArrayBuffer.empty[ChatMessage])
   }
+
+  /**
+   * Immutable snapshot of an agent's history, safe to build a request from
+   * while other threads mutate the live buffer.
+   */
+  private def snapshotHistory(agent: Agent): Seq[ChatMessage] =
+    historyLock.synchronized { getAgentHistory(agent).toSeq }
+
+  /**
+   * Append a user/assistant exchange to an agent's history atomically.
+   * Re-resolves the buffer by agent so a commit racing set-history lands in
+   * the current buffer, not a detached stale one.
+   */
+  private def commitExchange(agent: Agent, user: ChatMessage, assistant: ChatMessage): Unit =
+    historyLock.synchronized {
+      val h = getAgentHistory(agent)
+      h += user
+      h += assistant
+    }
 
   /**
    * Get timeout from config, falling back to 30 seconds
@@ -433,17 +457,15 @@ class LLMExtension extends DefaultClassManager {
 
       try {
         val provider = ensureProvider()
-        val history = getAgentHistory(agent)
 
         val userMessage = ChatMessage.user(inputText)
 
         // Send chat request with user message included, but don't mutate history yet
-        val responseFuture = provider.chat(history.toSeq :+ userMessage)
+        val responseFuture = provider.chat(snapshotHistory(agent) :+ userMessage)
         val responseMessage = Await.result(responseFuture, getTimeoutSeconds.seconds)
 
-        // Only append both messages after success
-        history += userMessage
-        history += responseMessage
+        // Only commit both messages after success
+        commitExchange(agent, userMessage, responseMessage)
 
         responseMessage.content
 
@@ -466,15 +488,13 @@ class LLMExtension extends DefaultClassManager {
 
       try {
         val provider = ensureProvider()
-        val history = getAgentHistory(agent)
 
         val userMessage = ChatMessage.user(inputText)
 
-        // Send with user message included, but don't mutate history yet
-        val responseFuture = provider.chat(history.toSeq :+ userMessage).map { responseMessage =>
-          // Append both atomically on success
-          history += userMessage
-          history += responseMessage
+        // Snapshot on the NetLogo thread; commit the pair atomically on success
+        // from the completion thread so overlapping async calls can't interleave.
+        val responseFuture = provider.chat(snapshotHistory(agent) :+ userMessage).map { responseMessage =>
+          commitExchange(agent, userMessage, responseMessage)
           responseMessage.content
         }
 
@@ -501,7 +521,6 @@ class LLMExtension extends DefaultClassManager {
 
       try {
         val provider = ensureProvider()
-        val history = getAgentHistory(agent)
 
         // Extract model directory from workspace
         val modelDir = Option(context.workspace.getModelPath).flatMap { path =>
@@ -521,23 +540,22 @@ class LLMExtension extends DefaultClassManager {
         val processedTemplate = substituteVariables(template.template, variables)
         
         // Build a copy so temporary prompt assembly never mutates permanent history.
-        val tempHistory = ArrayBuffer.from(history)
+        val tempHistory = ArrayBuffer.from(snapshotHistory(agent))
         if (template.system.nonEmpty) {
           tempHistory.prepend(ChatMessage.system(template.system))
         }
-        
+
         // Add user message with processed template
         val userMessage = ChatMessage.user(processedTemplate)
         tempHistory += userMessage
-        
+
         // Send chat request
         val responseFuture = provider.chat(tempHistory.toSeq)
         val responseMessage = Await.result(responseFuture, getTimeoutSeconds.seconds)
-        
-        // Add both template message and response to permanent history
-        history += userMessage
-        history += responseMessage
-        
+
+        // Commit both template message and response to permanent history on success
+        commitExchange(agent, userMessage, responseMessage)
+
         responseMessage.content
         
       } catch {
@@ -560,7 +578,6 @@ class LLMExtension extends DefaultClassManager {
 
       try {
         val provider = ensureProvider()
-        val history = getAgentHistory(agent)
 
         val choices = choicesList.map(_.toString).toList
 
@@ -578,7 +595,7 @@ class LLMExtension extends DefaultClassManager {
           "Your choice (one option, no other text):"
 
         // Build temp history with system prompt — don't mutate permanent history
-        val tempHistory = ArrayBuffer.from(history)
+        val tempHistory = ArrayBuffer.from(snapshotHistory(agent))
         tempHistory.prepend(ChatMessage.system(systemPrompt))
         tempHistory += ChatMessage.user(userPrompt)
 
@@ -602,8 +619,7 @@ class LLMExtension extends DefaultClassManager {
           }
 
         // Only on success: store clean messages in permanent history
-        history += ChatMessage.user(prompt)
-        history += ChatMessage.assistant(chosenOption)
+        commitExchange(agent, ChatMessage.user(prompt), ChatMessage.assistant(chosenOption))
 
         chosenOption
 
@@ -628,21 +644,18 @@ class LLMExtension extends DefaultClassManager {
 
       try {
         val provider = ensureProvider()
-        val history = getAgentHistory(agent)
 
-        // Add user message to history
         val userMessage = ChatMessage.user(inputText)
-        history += userMessage
 
-        // Send chat request and get full response with thinking
-        val responseFuture = provider.chatWithFullResponse(history.toSeq)
+        // Send with user message included, but don't mutate history yet
+        val responseFuture = provider.chatWithFullResponse(snapshotHistory(agent) :+ userMessage)
         val response = Await.result(responseFuture, getTimeoutSeconds.seconds)
 
         val answerText = response.firstContent.getOrElse("")
         val thinkingText = response.thinking.getOrElse("")
 
-        // Only add the clean answer to history (not thinking text)
-        history += ChatMessage.assistant(answerText)
+        // Only commit both messages after success (clean answer only, not thinking text)
+        commitExchange(agent, userMessage, ChatMessage.assistant(answerText))
 
         // Return [answer thinking] list — always 2 elements
         LogoList(answerText, thinkingText)
@@ -704,8 +717,8 @@ class LLMExtension extends DefaultClassManager {
     
     override def report(args: Array[Argument], context: Context): LogoList = {
       val agent = context.getAgent
-      val history = getAgentHistory(agent)
-      
+      val history = snapshotHistory(agent)
+
       LogoList.fromIterator(
         history.map { message =>
           LogoList(message.role, message.content)
@@ -728,9 +741,9 @@ class LLMExtension extends DefaultClassManager {
           case _ =>
             throw new ExtensionException("History items must be lists of [role content] pairs")
         }.to(ArrayBuffer)
-        
-        messageHistory.put(agent, messages)
-        
+
+        historyLock.synchronized { messageHistory.put(agent, messages) }
+
       } catch {
         case e: Exception if !e.isInstanceOf[ExtensionException] =>
           throw new ExtensionException(s"Invalid history format: ${e.getMessage}")
@@ -743,7 +756,7 @@ class LLMExtension extends DefaultClassManager {
     
     override def perform(args: Array[Argument], context: Context): Unit = {
       val agent = context.getAgent
-      messageHistory.remove(agent)
+      historyLock.synchronized { messageHistory.remove(agent) }
     }
   }
   
