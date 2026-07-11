@@ -6,10 +6,38 @@ import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse}
 import org.nlogo.extensions.llm.config.ConfigStore
 import sttp.client4._
 import sttp.client4.httpclient.HttpClientFutureBackend
-import sttp.model.Uri
+import sttp.model.{StatusCode, Uri}
 import ujson._
-import scala.concurrent.{Future, ExecutionContext}
+import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
+import scala.concurrent.{Future, ExecutionContext, Promise}
 import scala.util.{Try, Success, Failure}
+
+object BaseHttpProvider {
+  // Single daemon thread schedules retry attempts. Daemon so it never blocks JVM
+  // shutdown; one idle thread persists across extension reloads, which is fine.
+  private lazy val retryScheduler: ScheduledExecutorService =
+    Executors.newSingleThreadScheduledExecutor { (r: Runnable) =>
+      val t = new Thread(r, "llm-retry-scheduler")
+      t.setDaemon(true)
+      t
+    }
+
+  /**
+   * Run `f` after `delayMs`, off the caller and Future-pool threads, so backoff
+   * never blocks NetLogo's thread or starves the global execution context.
+   */
+  private[providers] def delayedFuture[A](delayMs: Long)(f: => Future[A])(
+    implicit ec: ExecutionContext
+  ): Future[A] = {
+    val p = Promise[A]()
+    retryScheduler.schedule(
+      new Runnable { def run(): Unit = p.completeWith(f) },
+      delayMs,
+      TimeUnit.MILLISECONDS
+    )
+    p.future
+  }
+}
 
 /**
  * Abstract base class for HTTP-based LLM providers
@@ -20,7 +48,15 @@ import scala.util.{Try, Success, Failure}
 abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvider {
 
   protected val configStore = new ConfigStore()
-  protected val backend = HttpClientFutureBackend()
+  // lazy + overridable so tests can substitute a stub backend without ever
+  // constructing the real HTTP client.
+  protected lazy val backend: Backend[Future] = HttpClientFutureBackend()
+
+  // Retry policy for rate-limit (HTTP 429) responses. retryBaseDelayMs is a
+  // protected def so tests can shrink the delays.
+  private val MaxRetries = 3
+  private val MaxDelayMs = 10000L
+  protected def retryBaseDelayMs: Long = 1000L
 
   // Initialize with provider-specific defaults
   initializeDefaults()
@@ -119,14 +155,48 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
       .body(requestBody)
       .post(apiUrl)
 
-    httpRequest.send(backend).map { response =>
-      response.body match {
-        case Right(responseBody) =>
-          parseProviderResponse(responseBody, request.model)
-        case Left(error) =>
-          throw new RuntimeException(s"HTTP request failed: $error")
-      }
+    executeWithRetry(httpRequest, request.model)
+  }
+
+  /**
+   * Send an HTTP request, retrying rate-limit (HTTP 429) responses with
+   * exponential backoff. Only rate-limit errors retry; all others fail
+   * immediately. Honors the server's Retry-After header when it asks for a
+   * longer wait than the backoff, capped so it can't exceed the request budget.
+   */
+  protected def executeWithRetry(
+    httpRequest: Request[Either[String, String]],
+    model: String
+  ): Future[ChatResponse] = {
+
+    def isRateLimited(code: StatusCode, error: String): Boolean =
+      code.code == 429 || error.toLowerCase.contains("rate_limit")
+
+    def delayFor(response: Response[?], attempt: Int): Long = {
+      val backoff = retryBaseDelayMs << attempt // 1s, 2s, 4s, ...
+      val retryAfterMs = response.header("Retry-After")
+        .flatMap(_.trim.toLongOption)
+        .map(_ * 1000L)
+      math.min(retryAfterMs.fold(backoff)(math.max(_, backoff)), MaxDelayMs)
     }
+
+    def attempt(n: Int): Future[ChatResponse] =
+      httpRequest.send(backend).flatMap { response =>
+        response.body match {
+          case Right(responseBody) =>
+            Future.successful(parseProviderResponse(responseBody, model))
+          case Left(error) if isRateLimited(response.code, error) && n < MaxRetries =>
+            BaseHttpProvider.delayedFuture(delayFor(response, n))(attempt(n + 1))
+          case Left(error) if isRateLimited(response.code, error) =>
+            Future.failed(new RuntimeException(
+              s"HTTP request failed after ${MaxRetries + 1} attempts " +
+              s"(rate limited, HTTP ${response.code.code}): $error"))
+          case Left(error) =>
+            Future.failed(new RuntimeException(s"HTTP request failed: $error"))
+        }
+      }
+
+    attempt(0)
   }
 
   override def setConfig(key: String, value: String): Unit = {

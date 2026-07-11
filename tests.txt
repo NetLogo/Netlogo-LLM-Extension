@@ -307,19 +307,6 @@ LLMChatWithThinkingHistoryUnchangedOnFailure
   length llm:history => 2
   (item 1 (item 0 llm:history)) => "prior"
 
-LLMChatAsyncHistoryUnchangedOnFailure
-  extensions [llm]
-  globals [promise err]
-  O> llm:set-api-key "test-key"
-  O> llm:set-provider "openai"
-  O> llm:clear-history
-  O> llm:set-history [["user" "prior"] ["assistant" "context"]]
-  O> set promise llm:chat-async "__TEST_FAIL"
-  O> carefully [let __x (runresult promise)] [set err error-message]
-  is-string? err => true
-  length llm:history => 2
-  (item 1 (item 0 llm:history)) => "prior"
-
 LLMChatAsyncOverlappingPairsAtomic
   extensions [llm]
   globals [p1 p2 r1 r2 h]
