@@ -1,801 +1,403 @@
 <?xml version="1.0" encoding="utf-8"?>
-<model version="NetLogo 7.0.3" snapToGrid="true">
-  <code><![CDATA[; ABOUTME: Emergent treasure hunt where agents discover what treasure is and where to find it through LLM-mediated communication in a maze
-; ABOUTME: Agents share partial knowledge clues and use collaborative reasoning to solve the mystery
+<model version="NetLogo 7.0.3" snapToGrid="false">
+  <code><![CDATA[;; ABOUTME: Live-provider reliability tests for history integrity and rate-limit retry.
+;; ABOUTME: Covers issues #33 (orphaned prompts), #32 (async races), #37 (429 backoff).
 
 extensions [ llm ]
 
-breed [treasure-hunters hunter]
-breed [treasures treasure]
+globals [ pass-count fail-count start-ms ]
 
-globals [
-  maze-width
-  maze-height
-  treasure-discovered?
-  treasure-definition
-  treasure-location
-  communication-pairs
-  ; Interface widget variables
-  ; num-hunters              ; Number of treasure hunters (slider)
-   ;communication-range      ; Range for agent communication (slider)
-  ; confidence-threshold     ; Confidence level needed to manifest treasure (slider)
-  ; show-trails?            ; Whether to show agent trails (switch)
-  ; show-communications?    ; Whether to show communication visuals (switch)
-  ; default-strategy        ; Default exploration strategy (chooser)
-  ; llm-config-file        ; Path to LLM configuration file (input)
+;; ---------------------------------------------------------------------------
+;; Helpers
+;; ---------------------------------------------------------------------------
 
-]
+to test-pass [ msg ]
+  set pass-count pass-count + 1
+  print (word "  PASS: " msg)
+end
 
-patches-own [
-  wall?                  ; true if this patch is a wall
-  explored?              ; true if an agent has been here
-  meeting-glow          ; visual effect when agents meet here
-  path-color            ; color for path visualization
-]
+to test-fail [ msg ]
+  set fail-count fail-count + 1
+  print (word "  FAIL: " msg)
+end
 
-treasure-hunters-own [
-  knowledge-fragment    ; the one clue each agent knows
-  learned-facts         ; accumulated knowledge from conversations
-  current-goal          ; what agent is trying to do now
-  confidence-level      ; how confident agent is in their understanding
-  last-communication   ; tick when last communicated
-  exploration-strategy  ; how this agent moves through maze
-  memory-trail         ; patches this agent has visited
-]
+to assert-true [ condition msg ]
+  ifelse condition [ test-pass msg ] [ test-fail msg ]
+end
 
-treasures-own [
-  glow-phase           ; for animation effect
-  discovered-by        ; which agents found it
-]
+to section [ name ]
+  print ""
+  print (word "=== " name " ===")
+end
+
+to reset-counts
+  set pass-count 0
+  set fail-count 0
+end
+
+to summary
+  print ""
+  print (word "TOTAL: " pass-count " passed, " fail-count " failed")
+  ifelse fail-count = 0
+    [ print "RESULT: ALL PASS" ]
+    [ print "RESULT: FAILURES PRESENT" ]
+end
+
+;; History is a list of [role content] pairs. A well-formed history always has
+;; an even length: every user message is matched by an assistant reply.
+to-report history-balanced?
+  report (length llm:history) mod 2 = 0
+end
+
+to-report roles-of [ hist ]
+  report map [ pair -> item 0 pair ] hist
+end
+
+;; Verify strict user/assistant alternation from the head of the history.
+to-report history-alternates?
+  let roles roles-of llm:history
+  let i 0
+  let ok? true
+  while [ i < length roles ] [
+    let expected ifelse-value (i mod 2 = 0) [ "user" ] [ "assistant" ]
+    if item i roles != expected [ set ok? false ]
+    set i i + 1
+  ]
+  report ok?
+end
+
+;; ---------------------------------------------------------------------------
+;; Setup
+;; ---------------------------------------------------------------------------
 
 to setup
   clear-all
-
-  ; Initialize interface variables with defaults if not set
-  if num-hunters = 0 [ set num-hunters 5 ]
-  if communication-range = 0 [ set communication-range 2 ]
-  if confidence-threshold = 0 [ set confidence-threshold 0.7 ]
-  if default-strategy = 0 [ set default-strategy "mixed" ]
-  ; For config file, try to use the one in the same directory as the model
-  if llm-config-file = 0 [
-    ; Try just the filename first (works if model saved and opened from same location)
-    set llm-config-file "demos/config"
-  ]
-  ; Initialize boolean switches (0 means not set by interface)
-  if show-trails? = 0 [ set show-trails? true ]
-  if show-communications? = 0 [ set show-communications? true ]
-
-  ; Initialize LLM extension with default configuration
-  setup-llm
-
-  ; Set world dimensions for good maze
-  set maze-width 21   ; odd number for proper maze generation
-  set maze-height 21
-  resize-world 0 (maze-width - 1) 0 (maze-height - 1)
-
-  ; Initialize global variables
-  set treasure-discovered? false
-  set treasure-definition ""
-  set treasure-location nobody
-  set communication-pairs []
-
-  ; Generate the maze
-  generate-maze
-
-  ; Create treasure-hunting agents with unique knowledge
-  create-treasure-hunters num-hunters [
-    setup-hunter
-  ]
-
-  ; Visual setup
-  setup-visual-appearance
-
+  reset-counts
+  llm:load-config "config.txt"
+  print (word "Provider: " llm:active)
   reset-ticks
 end
 
-to setup-llm
-  ; Load LLM configuration from file if it exists
-  if llm-config-file != 0 and llm-config-file != "" [
-    ; Try loading the config file
-    ; Note: The file should be in the same directory as the model
-    ; or you can use an absolute path
+;; ---------------------------------------------------------------------------
+;; Issue #33 — a failed call must not leave an orphaned prompt in history
+;;
+;; Before the fix, llm:chat appended the user message before the request and
+;; never rolled it back on failure, leaving an odd-length history where the
+;; last user message had no reply. Every later call then sent a malformed
+;; conversation.
+;;
+;; Forced failure here uses an impossible model name so the request errors at
+;; the provider rather than locally.
+;; ---------------------------------------------------------------------------
+
+to test-history-unchanged-on-failure
+  section "#33 history integrity on failure"
+
+  clear-turtles
+  create-turtles 1
+  ask turtle 0 [
+    llm:clear-history
+
+    ;; One good exchange: history should be exactly [user assistant].
+    let ok-reply llm:chat "Reply with the single word: ready"
+    assert-true (length llm:history = 2) "successful call commits one pair"
+    assert-true history-balanced? "history balanced after success"
+
+    let len-before length llm:history
+
+    ;; Force a provider-side failure.
+    let saved-model item 1 llm:active
+    llm:set-model "definitely-not-a-real-model-xyz"
     carefully [
-      llm:load-config llm-config-file
+      let doomed llm:chat "This request is expected to fail."
+      test-fail "expected failure did not occur (check model name is invalid)"
     ] [
-      ; If loading fails, use Ollama as default
-      print (word "Note: Could not load " llm-config-file ". Please configure your LLM provider.")
-      print "To use OpenAI: llm:set-provider \"openai\" and llm:set-api-key \"your-api-key\""
-      print "To use Ollama: llm:set-provider \"ollama\" (no API key needed)"
-      error "LLM configuration required - see instructions above"
+      test-pass "failed call raised an error as expected"
     ]
-  ]
-end
+    llm:set-model saved-model
 
-to generate-maze
-  ; Initialize all patches as walls
-  ask patches [
-    set wall? true
-    set explored? false
-    set meeting-glow 0
-    set path-color gray - 2
-    set pcolor gray - 2  ; dark gray walls
-  ]
+    assert-true (length llm:history = len-before) "history length unchanged after failure"
+    assert-true history-balanced? "no orphaned user message left behind"
+    assert-true history-alternates? "roles still alternate user/assistant"
 
-  ; Create a simple maze using recursive backtracking algorithm
-  ; Start with a grid of walls and carve out passages
-  let start-patch patch 1 1
-  ask start-patch [
-    set wall? false
-    set pcolor brown + 1  ; light tan path
-  ]
-
-  ; Carve maze paths
-  carve-maze-from start-patch
-
-  ; Ensure there are some open meeting areas
-  create-meeting-areas
-
-  ; Create dead ends and complexity
-  add-maze-complexity
-end
-
-to carve-maze-from [current-patch]
-  ; Recursive backtracking maze generation
-  ask current-patch [
-    set wall? false
-    set pcolor brown + 1
-
-    ; Get possible directions (2 patches away to maintain walls)
-    let possible-directions []
-
-    ; Check each cardinal direction
-    if pxcor + 2 < maze-width [
-      let east-patch patch (pxcor + 2) pycor
-      if east-patch != nobody and [wall?] of east-patch [
-        set possible-directions lput east-patch possible-directions
-      ]
-    ]
-
-    if pycor + 2 < maze-height [
-      let north-patch patch pxcor (pycor + 2)
-      if north-patch != nobody and [wall?] of north-patch [
-        set possible-directions lput north-patch possible-directions
-      ]
-    ]
-
-    if pxcor - 2 >= 0 [
-      let west-patch patch (pxcor - 2) pycor
-      if west-patch != nobody and [wall?] of west-patch [
-        set possible-directions lput west-patch possible-directions
-      ]
-    ]
-
-    if pycor - 2 >= 0 [
-      let south-patch patch pxcor (pycor - 2)
-      if south-patch != nobody and [wall?] of south-patch [
-        set possible-directions lput south-patch possible-directions
-      ]
-    ]
-
-    ; Randomly visit unvisited neighbors
-    while [length possible-directions > 0] [
-      let next-patch one-of possible-directions
-      set possible-directions remove next-patch possible-directions
-
-      if [wall?] of next-patch [
-        ; Carve path to next cell
-        let between-patch patch (([pxcor] of next-patch + pxcor) / 2) (([pycor] of next-patch + pycor) / 2)
-        ask between-patch [
-          set wall? false
-          set pcolor brown + 1
-        ]
-
-        ; Recursively carve from next cell
-        carve-maze-from next-patch
-      ]
-    ]
-  ]
-end
-
-to create-meeting-areas
-  ; Create some larger open areas where agents can meet
-  let meeting-spots []
-  repeat 3 [
-    let spot one-of patches with [not wall? and pxcor > 2 and pxcor < maze-width - 3 and pycor > 2 and pycor < maze-height - 3]
-    if spot != nobody [
-      ask spot [
-        ask patches in-radius 1 [
-          if wall? [
-            set wall? false
-            set pcolor brown + 2  ; slightly different color for meeting areas
-          ]
-        ]
-      ]
-      set meeting-spots lput spot meeting-spots
-    ]
-  ]
-end
-
-to add-maze-complexity
-  ; Add some additional paths to make the maze more interesting
-  repeat 5 [
-    let wall-patch one-of patches with [wall? and count neighbors with [not wall?] >= 2]
-    if wall-patch != nobody [
-      ask wall-patch [
-        set wall? false
-        set pcolor brown + 1
-      ]
-    ]
-  ]
-end
-
-to setup-hunter
-  ; Place hunter at a random open patch
-  let open-patches patches with [not wall?]
-  if any? open-patches [
-    move-to one-of open-patches
-  ]
-
-  ; Assign unique knowledge fragment
-  set knowledge-fragment assign-knowledge-fragment
-  set learned-facts []
-  set current-goal "explore"
-  set confidence-level 0
-  set last-communication 0
-  set memory-trail []
-
-  ; Visual appearance with unique shapes and colors
-  set shape one-of ["person" "circle" "triangle" "square" "star"]
-  set color one-of [red blue green yellow magenta cyan orange pink]
-  set size 0.9
-
-  ; Set exploration strategy
-  ifelse default-strategy = "mixed" [
-    set exploration-strategy one-of ["methodical" "random" "wall-follower"]
-  ] [
-    set exploration-strategy default-strategy
-  ]
-
-  ; Enable pen for trail with agent's color (based on switch)
-  ifelse show-trails? = true [
-    pen-down
-    set pen-size 2
-  ] [
-    pen-up
-  ]
-
-  ; Log agent creation
-  print (word "Hunter " who " created with clue: \"" knowledge-fragment "\"")
-  print (word "  Strategy: " exploration-strategy ", Starting at (" pxcor ", " pycor ")")
-end
-
-to-report assign-knowledge-fragment
-  ; Each agent gets one piece of the treasure puzzle
-  let fragments [
-    "The treasure is golden and round like the sun"
-    "Look where two main paths cross each other"
-    "The special place has coordinates that add up to exactly 15"
-    "It only appears when all clues are combined"
-    "The treasure glows and makes everyone happy"
-    "Find the spot furthest from any wall"
-  ]
-
-  ; Assign unique fragments (cycle through if more agents than fragments)
-  let my-index who mod length fragments
-  report item my-index fragments
-end
-
-to setup-visual-appearance
-  ; Set patch colors and visual effects
-  ask patches [
-    if not wall? [
-      set path-color brown + 1
-    ]
-  ]
-
-  ; Create visual border
-  ask patches with [pxcor = 0 or pxcor = maze-width - 1 or pycor = 0 or pycor = maze-height - 1] [
-    set pcolor black
-  ]
-end
-
-to go
-  ; Main simulation loop
-  if not any? treasure-hunters [ stop ]
-
-  ; Agent actions
-  ask treasure-hunters [
-    move-through-maze
-    detect-nearby-agents
-    analyze-current-situation
-    take-action-based-on-goal
-    update-exploration-memory
-    update-agent-appearance
-  ]
-
-  ; Update environment
-  update-visual-effects
-  check-treasure-conditions
-
-  tick
-
-  ; Stop if treasure is found and celebrated
-  if treasure-discovered? and any? treasures [
-    if ticks mod 30 = 0 [  ; celebration effect every 30 ticks
-      celebrate-success
-    ]
-  ]
-end
-
-to move-through-maze
-  ; Different movement strategies
-  if exploration-strategy = "random" [
-    let possible-moves patches with [not wall? and distance myself <= 1]
-    if any? possible-moves [
-      move-to one-of possible-moves
-    ]
-  ]
-
-  if exploration-strategy = "methodical" [
-    ; Try to explore unseen areas
-    let unexplored patches with [not wall? and not explored? and distance myself <= 1]
-    ifelse any? unexplored [
-      move-to one-of unexplored
-    ] [
-      ; If no unexplored nearby, move randomly
-      let possible-moves patches with [not wall? and distance myself <= 1]
-      if any? possible-moves [
-        move-to one-of possible-moves
-      ]
-    ]
-  ]
-
-  if exploration-strategy = "wall-follower" [
-    ; Follow walls (right-hand rule) - safe implementation
-    right 90
-    while [patch-ahead 1 = nobody or [wall?] of patch-ahead 1] [
-      right 90
-    ]
-    ; Only move if destination is valid and not a wall
-    let target-patch patch-ahead 1
-    if target-patch != nobody and not [wall?] of target-patch [
-      move-to target-patch
-    ]
-  ]
-
-  ; Mark current location as explored
-  ask patch-here [
-    set explored? true
-    set pcolor path-color + 0.5  ; slightly brighter for explored areas
-  ]
-end
-
-to detect-nearby-agents
-  ; Check for other agents within communication range
-  let nearby-hunters other treasure-hunters in-radius communication-range
-
-  if any? nearby-hunters and (ticks - last-communication) > 5 [
-    let communication-partner one-of nearby-hunters
-
-    ; Enhanced visual effect for communication
-    ask patch-here [
-      set meeting-glow 15  ; bright glow effect
-      set pcolor yellow
-    ]
-
-    ; Create spreading communication effect
-    ask patches in-radius 1.5 [
-      if not wall? [
-        set meeting-glow 8
-        set pcolor yellow - 1
-      ]
-    ]
-
-    ; Visual connection between communicating agents
-    ask communication-partner [
-      set color color + 3  ; brighten communicating agent
-      pen-up
-      move-to patch-here
-      pen-down
-      move-to [patch-here] of myself
-      pen-up
-    ]
-
-    ; Initiate LLM-based conversation
-    communicate-with communication-partner
-    set last-communication ticks
-  ]
-end
-
-to communicate-with [partner]
-  ; Share knowledge using LLM
-  let my-info (word knowledge-fragment ". I have learned: " learned-facts)
-  let partner-info (word [knowledge-fragment] of partner ". They have learned: " [learned-facts] of partner)
-  let combined-info (word "I know: " my-info ". My partner knows: " partner-info)
-
-  ; Log the interaction
-  print (word "=== AGENT INTERACTION at tick " ticks " ===")
-  print (word "Hunter " who " meets Hunter " [who] of partner)
-  print (word "Location: (" pxcor ", " pycor ")")
-  print "Sharing knowledge..."
-
-  ; Use LLM to synthesize information
-  let conversation-result ""
-  carefully [
-    print "Consulting LLM for insights..."
-    set conversation-result llm:chat (word combined-info ". What can we conclude about finding a treasure? Give me new insights.")
-    print (word "LLM Response: " conversation-result)
-  ] [
-    ; If LLM call fails, log the error details
-    print (word "ERROR: LLM call failed with: " error-message)
-    print "Falling back to simple combination"
-    set conversation-result (word "Combining clues: " [knowledge-fragment] of partner)
-  ]
-
-  ; Update learned facts
-  if conversation-result != "" [
-    set learned-facts lput conversation-result learned-facts
-    print (word "Hunter " who " learned: " conversation-result)
-
-    ; Partner also learns
-    ask partner [
-      set learned-facts lput conversation-result learned-facts
-      print (word "Hunter " who " also learned this insight")
-    ]
-  ]
-
-  ; Update confidence based on information gained
-  set confidence-level confidence-level + 0.2
-  if confidence-level > 1 [ set confidence-level 1 ]
-  print (word "Confidence levels updated. Hunter " who ": " precision confidence-level 2)
-  print "================================"
-end
-
-to analyze-current-situation
-  ; Use LLM to determine next goal based on current knowledge
-  if length learned-facts > 1 and confidence-level > 0.3 [
-    let situation-summary (word "My original clue: " knowledge-fragment
-                               ". What I've learned from others: " learned-facts
-                               ". I'm currently at coordinates " pxcor " " pycor
-                               ". What should be my next goal?")
-
-    let possible-goals ["explore-more" "find-center" "find-crossing" "search-systematically" "gather-more-info"]
-
+    ;; The next call must still succeed — proof the history was not corrupted.
     carefully [
-      print (word "Hunter " who " analyzing situation...")
-      let old-goal current-goal
-      set current-goal llm:choose situation-summary possible-goals
-      if current-goal != old-goal [
-        print (word "Hunter " who " changed goal from '" old-goal "' to '" current-goal "'")
-      ]
+      let recovery llm:chat "Reply with the single word: recovered"
+      assert-true (is-string? recovery and not empty? recovery) "next call succeeds after a failure"
+      assert-true history-balanced? "history balanced after recovery"
     ] [
-      ; Fallback if LLM fails
-      print (word "ERROR in goal analysis: " error-message)
-      set current-goal one-of possible-goals
-      print (word "Hunter " who " randomly selected goal: " current-goal)
+      test-fail (word "call after failure errored: " error-message)
     ]
   ]
 end
 
-to take-action-based-on-goal
-  ; Act based on current goal
-  if current-goal = "find-center" [
-    ; Move toward center of maze
-    let center-patch patch (maze-width / 2) (maze-height / 2)
-    if center-patch != nobody [
-      face center-patch
-    ]
-  ]
+;; ---------------------------------------------------------------------------
+;; Issue #33 — same guarantee for llm:chat-with-thinking
+;;
+;; This primitive had the same defect and its own code path, so it needs its
+;; own check.
+;; ---------------------------------------------------------------------------
 
-  if current-goal = "find-crossing" [
-    ; Look for intersection points
-    let crossings patches with [not wall? and count neighbors with [not wall?] >= 3]
-    if any? crossings [
-      let nearest-crossing min-one-of crossings [distance myself]
-      face nearest-crossing
-    ]
-  ]
+to test-thinking-history-unchanged-on-failure
+  section "#33 thinking-primitive history integrity"
 
-  if current-goal = "search-systematically" [
-    ; Check if current location matches learned criteria
-    check-treasure-location
-  ]
-end
+  clear-turtles
+  create-turtles 1
+  ask turtle 0 [
+    llm:clear-history
+    let len-before length llm:history
 
-to check-treasure-location
-  ; Check if current location might be treasure location based on accumulated knowledge
-  let location-matches? false
-
-  ; Analyze learned facts to see if current location fits
-  if length learned-facts > 2 [
-    let location-description (word "I am at coordinates " pxcor " " pycor
-                                  ". The sum is " (pxcor + pycor)
-                                  ". This location has " count neighbors with [not wall?] " open neighbors."
-                                  ". Based on what I know: " learned-facts
-                                  ". Could this be the treasure location?")
-
+    let saved-model item 1 llm:active
+    llm:set-model "definitely-not-a-real-model-xyz"
     carefully [
-      let location-assessment llm:choose location-description ["yes-likely" "no-unlikely" "need-more-info"]
-      if location-assessment = "yes-likely" [
-        set location-matches? true
-      ]
+      let doomed llm:chat-with-thinking "This request is expected to fail."
+      test-fail "expected failure did not occur"
     ] [
-      ; Simple fallback check
-      if (pxcor + pycor) = 15 and count neighbors with [not wall?] >= 3 [
-        set location-matches? true
-      ]
+      test-pass "chat-with-thinking failure raised as expected"
     ]
-  ]
+    llm:set-model saved-model
 
-  ; If location seems right and we have enough knowledge, try to manifest treasure
-  if location-matches? and confidence-level > confidence-threshold [
-    attempt-treasure-manifestation
+    assert-true (length llm:history = len-before) "thinking: history unchanged after failure"
+    assert-true history-balanced? "thinking: no orphaned prompt"
   ]
 end
 
-to attempt-treasure-manifestation
-  ; Try to make treasure appear based on collective knowledge
-  if not treasure-discovered? [
-    print "=== TREASURE MANIFESTATION ATTEMPT ==="
-    print (word "Hunter " who " attempting to manifest treasure at (" pxcor ", " pycor ")")
+;; ---------------------------------------------------------------------------
+;; Issue #32 — overlapping async calls must commit atomic user/assistant pairs
+;;
+;; Before the fix, two async calls in flight for the same agent could interleave
+;; as user1, user2, assistant2, assistant1 — silently scrambling the transcript.
+;; Ordering across pairs follows completion order by design; what must hold is
+;; that each pair stays contiguous and roles alternate.
+;; ---------------------------------------------------------------------------
 
-    let all-knowledge []
-    ask treasure-hunters [
-      set all-knowledge lput knowledge-fragment all-knowledge
-      set all-knowledge sentence all-knowledge learned-facts
-    ]
+to test-async-overlapping-atomic
+  section "#32 overlapping async pairs stay atomic"
 
-    let combined-knowledge reduce word all-knowledge
-    print "Combining all collective knowledge..."
+  clear-turtles
+  create-turtles 1
+  ask turtle 0 [
+    llm:clear-history
 
+    ;; Fire both before awaiting either — this is what forces the overlap.
+    let p1 llm:chat-async "Reply with the single word: alpha"
+    let p2 llm:chat-async "Reply with the single word: beta"
+
+    assert-true (is-anonymous-reporter? p1) "async returns an anonymous reporter"
+
+    let r1 runresult p1
+    let r2 runresult p2
+
+    assert-true (is-string? r1 and not empty? r1) "first async call returned a reply"
+    assert-true (is-string? r2 and not empty? r2) "second async call returned a reply"
+    assert-true (length llm:history = 4) "both pairs committed (4 messages)"
+    assert-true history-balanced? "async history balanced"
+    assert-true history-alternates? "async pairs did not interleave"
+  ]
+end
+
+;; ---------------------------------------------------------------------------
+;; Issue #32 — mixed sync and async on the same agent
+;; ---------------------------------------------------------------------------
+
+to test-mixed-sync-async-atomic
+  section "#32 mixed sync/async integrity"
+
+  clear-turtles
+  create-turtles 1
+  ask turtle 0 [
+    llm:clear-history
+
+    let pending llm:chat-async "Reply with the single word: async"
+    let sync-reply llm:chat "Reply with the single word: sync"
+    let async-reply runresult pending
+
+    assert-true (is-string? sync-reply and not empty? sync-reply) "sync call returned"
+    assert-true (is-string? async-reply and not empty? async-reply) "async call returned"
+    assert-true (length llm:history = 4) "both exchanges committed"
+    assert-true history-alternates? "mixed sync/async roles alternate"
+  ]
+end
+
+;; ---------------------------------------------------------------------------
+;; Multi-agent isolation — each turtle keeps its own history
+;; ---------------------------------------------------------------------------
+
+to test-multi-agent-history-isolation
+  section "per-agent history isolation"
+
+  clear-turtles
+  create-turtles 3
+  ask turtles [
+    llm:clear-history
+    let r llm:chat (word "Reply with the single word: agent" who)
+  ]
+  ask turtles [
+    assert-true (length llm:history = 2) (word "turtle " who " has exactly its own pair")
+    assert-true history-balanced? (word "turtle " who " history balanced")
+  ]
+end
+
+;; ---------------------------------------------------------------------------
+;; Issue #37 — rate-limit (429) retry with exponential backoff
+;;
+;; This is the test that cannot be covered by the deterministic suite: it needs
+;; a real provider actually returning 429. Use a free-tier key (Gemini or Groq)
+;; and enough concurrent agents to exceed the per-minute quota.
+;;
+;; Before the fix a 429 halted the run. After it, requests retry with backoff
+;; (1s, 2s, 4s, capped at 10s, honouring Retry-After) and the run completes.
+;;
+;; Set burst-size high enough to trip the quota for your provider.
+;; ---------------------------------------------------------------------------
+
+to test-rate-limit-retry [ burst-size ]
+  section (word "#37 rate-limit retry (burst of " burst-size ")")
+
+  clear-turtles
+  create-turtles burst-size
+  set start-ms timer
+
+  let errors 0
+  let replies 0
+
+  ask turtles [
+    llm:clear-history
     carefully [
-      print "Asking LLM to describe the treasure..."
-      let treasure-description llm:chat (word "Based on all our clues: " combined-knowledge
-                                             ". What exactly is the treasure and what does it look like?")
-      print (word "LLM treasure description: " treasure-description)
-
-      if length treasure-description > 10 [  ; Got a substantial description
-        set treasure-definition treasure-description
-        set treasure-location patch-here
-        print (word "TREASURE MANIFESTED! " treasure-definition)
-        manifest-treasure
-      ]
+      let r llm:chat "Reply with one word: ok"
+      if is-string? r and not empty? r [ set replies replies + 1 ]
     ] [
-      ; Fallback treasure manifestation
-      print (word "ERROR in treasure description: " error-message)
-      print "Checking if we have enough clues for fallback..."
-      if length all-knowledge > 4 [  ; Enough clues gathered
-        set treasure-definition "A glowing golden orb that brings joy"
-        set treasure-location patch-here
-        print "TREASURE MANIFESTED using fallback description!"
-        manifest-treasure
-      ]
-    ]
-    print "================================"
-  ]
-end
-
-to manifest-treasure
-  ; Create the treasure at the determined location
-  set treasure-discovered? true
-
-  ask treasure-location [
-    sprout-treasures 1 [
-      set shape "circle"
-      set color yellow
-      set size 1.2
-      set glow-phase 0
-      set discovered-by nobody
-    ]
-    set pcolor (yellow + 2)  ; golden color
-  ]
-
-  ; Visual celebration
-  ask treasure-hunters [
-    set color color + 2  ; brighten colors
-    face treasure-location
-  ]
-end
-
-to update-exploration-memory
-  ; Track where agent has been
-  if not member? patch-here memory-trail [
-    set memory-trail lput patch-here memory-trail
-  ]
-
-  ; Keep memory manageable
-  if length memory-trail > 50 [
-    set memory-trail but-first memory-trail
-  ]
-end
-
-to update-agent-appearance
-  ; Visual feedback based on confidence level
-  let base-color color
-
-  ; Size increases with confidence
-  set size (0.9 + 0.4 * confidence-level)
-
-  ; Brightness increases with confidence
-  if confidence-level > 0.5 [
-    set color (base-color + 2)
-  ]
-
-  ; High-confidence agents get special effects
-  if confidence-level > 0.8 [
-    ; Create halo effect around high-confidence agents
-    ask patches in-radius 1 [
-      if not wall? and meeting-glow <= 0 [
-        set pcolor (pcolor + 0.5)
-      ]
-    ]
-  ]
-end
-
-to update-visual-effects
-  ; Update meeting glow effects
-  ask patches with [meeting-glow > 0] [
-    set meeting-glow meeting-glow - 1
-    if meeting-glow <= 0 [
-      set pcolor path-color
-      if explored? [ set pcolor path-color + 0.5 ]
+      set errors errors + 1
+      print (word "  error on turtle " who ": " error-message)
     ]
   ]
 
-  ; Enhanced treasure glow and surrounding effects
-  if any? treasures [
-    ask treasures [
-      set glow-phase glow-phase + 0.3
-      ; Pulsing treasure colors
-      set color (yellow + 2 + 2 * sin(glow-phase * 180))  ; pulsing golden
-      set size (1.2 + 0.3 * sin(glow-phase * 90))
+  let elapsed timer - start-ms
+  print (word "  " replies "/" burst-size " replies in " (precision elapsed 1) "s")
 
-      ; Treasure radiates light to surrounding patches
-      ask patches in-radius 2 [
-        if not wall? [
-          let distance-from-treasure distance myself
-          let glow-intensity (3 - distance-from-treasure) / 3
-          set pcolor (yellow + glow-intensity * 2)  ; golden glow
-        ]
-      ]
+  assert-true (errors = 0) "no agent aborted with a rate-limit error"
+  assert-true (replies = burst-size) "every agent received a reply"
 
-      ; Sparkle effect
-      if random 10 < 3 [
-        ask one-of patches in-radius 1.5 with [not wall?] [
-          set pcolor white
-          set meeting-glow 3
-        ]
-      ]
-    ]
+  ;; Backoff makes a rate-limited burst measurably slower than an unthrottled
+  ;; one. This is informational, not a pass/fail signal.
+  if elapsed > burst-size [
+    print "  (elapsed time suggests backoff was exercised)"
   ]
 end
 
-to check-treasure-conditions
-  ; Check if treasure has been found by agents
-  if treasure-discovered? and any? treasures [
-    let treasure-patch [patch-here] of one-of treasures
-    let hunters-at-treasure treasure-hunters-on treasure-patch
-
-    if any? hunters-at-treasure [
-      ask one-of treasures [
-        set discovered-by hunters-at-treasure
-      ]
-    ]
-  ]
+;; Convenience wrappers for interface buttons.
+to test-rate-limit-small
+  test-rate-limit-retry 10
 end
 
-to celebrate-success
-  ; Visual celebration when treasure is found
-  if any? treasures [
-    ask one-of treasures [
-      ask patches in-radius 3 [
-        set pcolor (pcolor + random 3 - 1)
-      ]
-    ]
-
-    ask treasure-hunters [
-      right random 60 - 30  ; dance movement
-    ]
-  ]
+to test-rate-limit-large
+  test-rate-limit-retry 50
 end
 
-; Utility reporters
-to-report knowledge-summary
-  ; Report summary of all agent knowledge
-  let summary ""
-  ask treasure-hunters [
-    set summary (word summary "Agent " who ": " knowledge-fragment " | ")
-  ]
-  report summary
+;; ---------------------------------------------------------------------------
+;; Runners
+;; ---------------------------------------------------------------------------
+
+;; Everything except the rate-limit burst — safe on any provider, low quota use.
+to run-history-tests
+  setup
+  test-history-unchanged-on-failure
+  test-thinking-history-unchanged-on-failure
+  test-async-overlapping-atomic
+  test-mixed-sync-async-atomic
+  test-multi-agent-history-isolation
+  summary
 end
 
-to-report treasure-status
-  ; Report current treasure discovery status
-  if treasure-discovered? [
-    report (word "DISCOVERED: " treasure-definition)
-  ]
-  report "Still searching..."
-end]]></code>
+;; Full suite including the rate-limit burst. Uses significant quota.
+to run-all-tests
+  setup
+  test-history-unchanged-on-failure
+  test-thinking-history-unchanged-on-failure
+  test-async-overlapping-atomic
+  test-mixed-sync-async-atomic
+  test-multi-agent-history-isolation
+  test-rate-limit-small
+  summary
+end
+]]></code>
   <widgets>
-    <view x="368" wrappingAllowedX="true" y="10" frameRate="30.0" minPycor="0" height="273" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="true" width="273" tickCounterLabel="ticks" maxPycor="20" updateMode="0" maxPxcor="20" minPxcor="0"></view>
-    <button x="25" y="35" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="60" display="setup">setup</button>
-    <button x="100" y="35" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55" display="go">go</button>
-    <button x="165" y="35" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="66" display="go-once">go</button>
-    <monitor x="20" precision="17" y="120" height="60" fontSize="11" width="100" display="Treasure Status">treasure-status</monitor>
-    <monitor x="135" precision="17" y="120" height="60" fontSize="11" width="100" display="Ticks">ticks</monitor>
-    <monitor x="20" precision="17" y="205" height="60" fontSize="11" width="100" display="Active Hunters">count treasure-hunters</monitor>
-    <monitor x="135" precision="17" y="205" height="60" fontSize="11" width="100" display="Agent Knowledge">knowledge-summary</monitor>
-    <slider x="25" step="1" y="385" max="10" width="250" display="num-hunters" height="50" min="2" direction="Horizontal" default="5.0" variable="num-hunters"></slider>
-    <slider x="25" step="0.5" y="460" max="5" width="250" display="communication-range" height="50" min="1" direction="Horizontal" default="2.0" variable="communication-range"></slider>
-    <slider x="25" step="0.1" y="535" max="1" width="250" display="confidence-threshold" height="50" min="0.5" direction="Horizontal" default="1.0" variable="confidence-threshold"></slider>
-    <switch x="345" y="385" height="40" on="false" variable="show-trails?" width="101" display="show-trails?"></switch>
-    <switch x="350" y="450" height="40" on="false" variable="show-communications?" width="171" display="show-communications?"></switch>
-    <plot x="675" autoPlotX="true" yMax="1.0" autoPlotY="true" yAxis="Avg Confidence" y="370" xMin="0.0" height="175" legend="false" xMax="500.0" yMin="0.0" width="230" xAxis="Time" display="Agent Confidence">
-      <setup></setup>
-      <update></update>
-      <pen interval="1.0" mode="0" display="default" color="-16777216" legend="true">
-        <setup>set-current-plot "Agent Confidence"
-create-temporary-plot-pen "confidence"
-set-plot-pen-color blue</setup>
-        <update>if any? treasure-hunters [
-  plot mean [confidence-level] of treasure-hunters
-]</update>
-      </pen>
-    </plot>
-    <plot x="995" autoPlotX="true" yMax="100.0" autoPlotY="true" yAxis="Total Facts" y="370" xMin="0.0" height="175" legend="false" xMax="500.0" yMin="0.0" width="230" xAxis="Time" display="Knowledge Graph">
-      <setup></setup>
-      <update></update>
-      <pen interval="1.0" mode="0" display="default" color="-16777216" legend="true">
-        <setup></setup>
-        <update>if any? treasure-hunters [
-  plot sum [length learned-facts] of treasure-hunters
-]</update>
-      </pen>
-    </plot>
-    <chooser x="760" y="75" height="60" variable="default-strategy" current="0" width="250" display="default-strategy">
-      <choice type="string" value="random"></choice>
-      <choice type="string" value="methodical"></choice>
-      <choice type="string" value="wall-follower"></choice>
-      <choice type="string" value="mixed"></choice>
-    </chooser>
-    <input x="765" multiline="false" y="170" height="60" variable="llm-config-file" type="string" width="250">demos/config</input>
-    <output x="1150" y="75" height="61" fontSize="12" width="216"></output>
+    <view x="330" wrappingAllowedX="true" y="10" frameRate="30.0" minPycor="-8" height="229" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="true" width="229" tickCounterLabel="ticks" maxPycor="8" updateMode="0" maxPxcor="8" minPxcor="-8"></view>
+    <button x="15" y="10" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="140" display="Setup">setup</button>
+    <button x="165" y="10" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="150" display="Run history tests">run-history-tests</button>
+    <button x="15" y="60" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="140" display="Run all tests">run-all-tests</button>
+    <button x="165" y="60" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="150" display="Rate limit (10)">test-rate-limit-small</button>
+    <button x="165" y="110" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="150" display="Rate limit (50)">test-rate-limit-large</button>
+    <monitor x="15" precision="0" y="110" height="60" fontSize="11" width="65" display="passed">pass-count</monitor>
+    <monitor x="90" precision="0" y="110" height="60" fontSize="11" width="65" display="failed">fail-count</monitor>
   </widgets>
   <info>## WHAT IS IT?
 
-(a general understanding of what the model is trying to show or explain)
+Live-provider reliability tests for the NetLogo LLM extension. This model exercises
+the three reliability fixes in PR #44 against a **real** provider, covering the
+behaviour the deterministic `sbt test` suite cannot reach.
+
+- **#33** - a failed call must not leave an orphaned prompt in an agent's history
+- **#32** - overlapping async calls must not race or scramble per-agent history
+- **#37** - rate-limit (HTTP 429) errors must retry with backoff, not halt the run
 
 ## HOW IT WORKS
 
-(what rules the agents use to create the overall behavior of the model)
+Each test drives the extension through a scenario and asserts on `llm:history`.
+
+A well-formed history always has an even length and strictly alternates
+`user` / `assistant`. Both invariants break under the bugs above, so they are
+what the assertions check.
+
+The #33 tests force a provider-side failure by temporarily setting an invalid
+model name, then confirm the history is byte-for-byte unchanged and that the
+next call still succeeds.
+
+The #32 tests fire two async calls before awaiting either, forcing the overlap,
+then confirm both user/assistant pairs committed contiguously. Note that
+ordering *across* pairs follows completion order by design - the guarantee is
+that each pair stays atomic, not that call order is preserved.
+
+The #37 test issues a burst of concurrent requests large enough to exceed a
+free-tier quota. Before the fix the run aborted on the first 429; after it,
+requests retry with exponential backoff and every agent receives a reply.
 
 ## HOW TO USE IT
 
-(how to use the model, including a description of each of the items in the Interface tab)
+1. Build and install the extension (`./build.sh`).
+2. Copy `config.txt.example` to `config.txt` and set a provider plus a real key.
+3. Click **setup**, then **run history tests** for the low-quota checks.
+4. For #37, use a rate-limited free tier (Gemini or Groq) and click
+   **rate limit (10)** or **rate limit (50)**. Ollama will not produce 429s.
+
+Results print to the Command Center. The run ends with a PASS/FAIL total.
 
 ## THINGS TO NOTICE
 
-(suggested things for the user to notice while running the model)
+The rate-limit test prints elapsed time. A burst that trips the quota takes
+noticeably longer than one that does not - that gap is the backoff working.
+Watch for retry messages on stderr.
 
 ## THINGS TO TRY
 
-(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
+Check out the branch before PR #44 and run the same tests: #33 leaves an
+odd-length history, and #37 aborts the run on the first 429.
+
+Raise the burst size until the quota trips, and confirm the run still completes.
 
 ## EXTENDING THE MODEL
 
-(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
-
-## NETLOGO FEATURES
-
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
+Add cases for `llm:chat-with-template` failure paths, or for history behaviour
+under `clear-all` mid-run.
 
 ## RELATED MODELS
 
-(models in the NetLogo Models Library and elsewhere which are of related interest)
+`demos/tests/tests.nlogox` - broader manual integration suite covering provider
+registry, config, and primitive coverage across all six providers.
 
 ## CREDITS AND REFERENCES
 
-(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+NetLogo LLM Extension, Center for Connected Learning, Northwestern University.
 </info>
   <turtleShapes>
     <shape name="default" rotatable="true" editableColorIndex="0">
@@ -1630,5 +1232,5 @@ set-plot-pen-color blue</setup>
       </indicator>
     </shape>
   </linkShapes>
-  <previewCommands>setup repeat 75 [ go ]</previewCommands>
+  <previewCommands>setup</previewCommands>
 </model>

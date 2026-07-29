@@ -17,6 +17,7 @@ class DeterministicTestProvider(implicit ec: ExecutionContext) extends LLMProvid
   private val firstOptionRegex = """(?m)^(.+?)$""".r
   private val testRespondRegex = """__TEST_RESPOND:(.+)""".r
   private val testThinkingRegex = """__TEST_THINKING:(.+)""".r
+  private val testDelayRegex = """__TEST_DELAY:(\d+):(.*)""".r.unanchored
 
   override def chat(request: ChatRequest): Future[ChatResponse] = {
     chat(request.messages).map { message =>
@@ -57,12 +58,28 @@ class DeterministicTestProvider(implicit ec: ExecutionContext) extends LLMProvid
     }
   }
 
-  override def chat(messages: Seq[ChatMessage]): Future[ChatMessage] = Future.successful {
+  override def chat(messages: Seq[ChatMessage]): Future[ChatMessage] = {
     val lastUserMessage = messages.reverseIterator
       .find(_.role == "user")
       .map(_.content)
       .getOrElse("")
 
+    // Simulate a provider failure so failure-path history handling can be tested
+    if (lastUserMessage.contains("__TEST_FAIL")) {
+      return Future.failed(new RuntimeException("simulated provider failure"))
+    }
+
+    // Simulate latency so overlapping async calls can be tested deterministically.
+    // __TEST_DELAY:<ms>:<rest> sleeps <ms> then responds as if prompted with <rest>.
+    lastUserMessage match {
+      case testDelayRegex(ms, rest) =>
+        Future { Thread.sleep(ms.toLong) }.map(_ => respond(rest))
+      case _ =>
+        Future.successful(respond(lastUserMessage))
+    }
+  }
+
+  private def respond(lastUserMessage: String): ChatMessage = {
     val content = if (lastUserMessage.contains("__TEST_RESPOND:")) {
       // Return exactly the specified text
       testRespondRegex.findFirstMatchIn(lastUserMessage).map(_.group(1).trim).getOrElse("")

@@ -58,14 +58,7 @@ class GeminiProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
       .body(requestBody)
       .post(apiUrl)
 
-    httpRequest.send(backend).map { response =>
-      response.body match {
-        case Right(responseBody) =>
-          parseProviderResponse(responseBody, request.model)
-        case Left(error) =>
-          throw new RuntimeException(s"HTTP request failed: $error")
-      }
-    }
+    executeWithRetry(httpRequest, request.model)
   }
 
   /**

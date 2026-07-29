@@ -1,47 +1,188 @@
-# NetLogo LLM Extension — Test Configuration (Template)
+# =============================================================================
+# NetLogo LLM Extension — Configuration
+# =============================================================================
 #
-# Copy this file to `config.txt` in the same directory and fill in
-# the API key for whichever provider you want to test:
+# SETUP
+#   1. cp config.txt.example config.txt      (config.txt is gitignored)
+#   2. Pick ONE provider block below, uncomment its lines
+#   3. Paste your key. No quotes around the value.
 #
-#     cp config.txt.example config.txt
+# RULES
+#   - Exactly ONE provider block active at a time.
+#   - Lines starting with # are ignored.
+#   - Do NOT quote values.   gemini_api_key=abc123   NOT   gemini_api_key="abc123"
+#   - Later duplicate keys win, so leave unused blocks commented out.
 #
-# `config.txt` is gitignored so your real key stays local.
+# CHECK IT WORKED
+#   print llm:active           => [provider model]
+#   print llm:provider-status  => which providers are ready
+#   print llm:list-models      => models known for the active provider
+#   print llm:config           => full config, API keys masked
 #
-# To switch providers: change `provider=` and `model=` below, then
-# uncomment the matching api_key line. Only one provider runs at a time.
+# =============================================================================
 
-provider=openrouter
-model=openai/gpt-4o-mini
 
+# =============================================================================
+# 1. OLLAMA — local, free, no API key
+# =============================================================================
+# Install: https://ollama.com   then:  ollama pull llama3.2:3b
+# Best for: offline work, classrooms, zero-cost testing.
+# Note: never returns HTTP 429, so it cannot exercise rate-limit retry tests.
+
+provider=ollama
+model=llama3.2:3b
+ollama_base_url=http://localhost:11434
+
+# Models — must be pulled locally first (`ollama list` shows yours):
+#   llama3.2:3b          small, fast, good default
+#   llama3.2:1b          fastest, lowest quality
+#   llama3.3:70b         large, slow, high quality
+#   qwen2.5:7b           solid general model
+#   qwen3:0.6b           tiny reasoning model
+#   deepseek-r1:8b       reasoning model, exposes thinking
+
+
+# =============================================================================
+# 2. GOOGLE GEMINI — generous free tier
+# =============================================================================
+# Key: https://aistudio.google.com/apikey
+# Best for: workshops, and for testing rate-limit retry (free tier returns 429).
+
+# provider=gemini
+# model=gemini-2.5-flash
+# gemini_api_key=REPLACE_ME
+
+# Models:
+#   gemini-2.5-flash          fast, cheap, recommended default
+#   gemini-2.5-flash-lite     fastest, cheapest
+#   gemini-2.5-pro            highest quality, slower
+#   gemini-3-flash-preview    newest fast model
+#   gemini-3-pro-preview      newest high-end model
+
+
+# =============================================================================
+# 3. OPENAI
+# =============================================================================
+# Key: https://platform.openai.com/api-keys   (keys start with sk-)
+
+# provider=openai
+# model=gpt-5-mini
+# openai_api_key=REPLACE_ME
+
+# Models:
+#   gpt-5-mini      cheap, fast, recommended default
+#   gpt-5           newest flagship
+#   gpt-5-nano      cheapest
+#   gpt-4.1-mini    previous generation, cheap
+#   gpt-4o-mini     previous generation, widely available
+#   o4-mini         reasoning model (OpenAI hides the reasoning text)
+#   o3              strongest reasoning model
+
+
+# =============================================================================
+# 4. ANTHROPIC (CLAUDE)
+# =============================================================================
+# Key: https://console.anthropic.com   (keys start with sk-ant-)
+# Note: with thinking enabled, max_tokens must exceed thinking_budget_tokens.
+
+# provider=anthropic
+# model=claude-haiku-4-5-20251001
+# anthropic_api_key=REPLACE_ME
+
+# Models:
+#   claude-haiku-4-5-20251001     fast, cheap, recommended default
+#   claude-sonnet-4-5-20250929    balanced
+#   claude-opus-4-5-20251101      highest quality
+
+
+# =============================================================================
+# 5. OPENROUTER — one key, 200+ models across every vendor
+# =============================================================================
+# Key: https://openrouter.ai/keys
+# Best for: comparing models across vendors without separate accounts.
+
+# provider=openrouter
+# model=openai/gpt-4o-mini
+# openrouter_api_key=REPLACE_ME
+
+# Models — always vendor-prefixed:
+#   openai/gpt-4o-mini
+#   openai/gpt-4.1-mini
+#   anthropic/claude-sonnet-4-20250514
+#   google/gemini-2.0-flash-001
+#   meta-llama/llama-3.3-70b-instruct
+#   deepseek/deepseek-r1                 reasoning, exposes thinking
+
+
+# =============================================================================
+# 6. TOGETHER AI — open models
+# =============================================================================
+# Key: https://api.together.xyz/settings/api-keys
+
+# provider=together
+# model=meta-llama/Llama-3.3-70B-Instruct-Turbo
+# together_api_key=REPLACE_ME
+
+# Models:
+#   meta-llama/Llama-3.3-70B-Instruct-Turbo        recommended default
+#   meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo    small and fast
+#   deepseek-ai/DeepSeek-R1                        reasoning model
+#   Qwen/Qwen2.5-72B-Instruct-Turbo
+
+
+# =============================================================================
+# GENERATION SETTINGS — apply to whichever provider is active
+# =============================================================================
+
+# 0.0 = deterministic, 1.0 = creative. Default 0.7.
+# Ignored for reasoning models (Anthropic forces 1.0 when thinking is on).
 temperature=0.7
+
+# Max tokens in the reply. Default 1000.
+# Raise for long replies; must exceed thinking_budget_tokens when thinking is on.
 max_tokens=200
+
+# Seconds to wait before giving up on a request. Default 30.
+# Raise for reasoning models and large local models — they are slow.
 timeout_seconds=60
 
-# --- OpenRouter (https://openrouter.ai/keys) ---
-openrouter_api_key=REPLACE_ME
-# Sample models:
-#   openai/gpt-4o-mini
-#   anthropic/claude-3.5-haiku
-#   deepseek/deepseek-r1
 
-# --- Together AI (https://api.together.ai/settings/api-keys) ---
-# together_api_key=REPLACE_ME
-# Sample models:
-#   meta-llama/Llama-3.3-70B-Instruct-Turbo
-#   deepseek-ai/DeepSeek-R1
+# =============================================================================
+# REASONING / THINKING — optional, all off by default
+# =============================================================================
+# Some models can return their reasoning alongside the answer:
+#
+#   let result   llm:chat-with-thinking "your prompt"
+#   let answer   item 0 result
+#   let thinking item 1 result
+#
+# Auto-detection: OpenAI o-series models force thinking on automatically.
+# Every other model needs enable_thinking=true.
+#
+# Thinking is EXPOSED by: anthropic, gemini, ollama, openrouter, together
+# Thinking is HIDDEN by:  openai (the API does not return reasoning tokens)
 
-# --- OpenAI ---
-# openai_api_key=sk-REPLACE_ME
-# model: gpt-4o-mini
+# Turn thinking on for models that support it.
+# enable_thinking=true
 
-# --- Anthropic (Claude) ---
-# anthropic_api_key=sk-ant-REPLACE_ME
-# model: claude-3-5-haiku-latest
+# How hard to think: none | low | medium | high | xhigh
+# Used by OpenAI, OpenRouter, Together, and Gemini.
+# reasoning_effort=medium
 
-# --- Google Gemini ---
-# gemini_api_key=REPLACE_ME
-# model: gemini-1.5-flash
+# Token budget for reasoning. Minimum 1024. Used by Anthropic and Gemini.
+# Must be less than max_tokens — raise max_tokens to match.
+# thinking_budget_tokens=2048
 
-# --- Ollama (local) ---
+
+# =============================================================================
+# ADVANCED — override API endpoints
+# =============================================================================
+# Only needed for proxies, self-hosted gateways, or a non-default Ollama host.
+# Defaults shown; each provider has its own key.
+
+# openai_base_url=https://api.openai.com/v1
+# anthropic_base_url=https://api.anthropic.com/v1
+# gemini_base_url=https://generativelanguage.googleapis.com/v1beta
 # ollama_base_url=http://localhost:11434
-# model: llama3.2
+# openrouter_base_url=https://openrouter.ai/api/v1
+# together_base_url=https://api.together.xyz/v1

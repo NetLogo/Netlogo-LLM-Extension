@@ -282,3 +282,64 @@ LLMLoadConfigRejectsUnknownProvider
   O> carefully [llm:load-config "demos/test-config-bad-provider"] [set err error-message]
   is-string? err => true
   (position "opanai" err) != false => true
+
+LLMChatHistoryUnchangedOnFailure
+  extensions [llm]
+  globals [err]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  O> llm:set-history [["user" "prior"] ["assistant" "context"]]
+  O> carefully [let __x llm:chat "__TEST_FAIL"] [set err error-message]
+  is-string? err => true
+  length llm:history => 2
+  (item 1 (item 0 llm:history)) => "prior"
+
+LLMChatWithThinkingHistoryUnchangedOnFailure
+  extensions [llm]
+  globals [err]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  O> llm:set-history [["user" "prior"] ["assistant" "context"]]
+  O> carefully [let __x llm:chat-with-thinking "__TEST_FAIL"] [set err error-message]
+  is-string? err => true
+  length llm:history => 2
+  (item 1 (item 0 llm:history)) => "prior"
+
+LLMChatAsyncOverlappingPairsAtomic
+  extensions [llm]
+  globals [p1 p2 r1 r2 h]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  O> set p1 llm:chat-async "__TEST_DELAY:300:slow"
+  O> set p2 llm:chat-async "fast"
+  O> set r1 (runresult p1)
+  O> set r2 (runresult p2)
+  r1 => "stub:slow"
+  r2 => "stub:fast"
+  O> set h llm:history
+  length h => 4
+  (item 0 (item 0 h)) => "user"
+  (item 0 (item 1 h)) => "assistant"
+  (item 0 (item 2 h)) => "user"
+  (item 0 (item 3 h)) => "assistant"
+  member? (item 1 (item 1 h)) ["stub:slow" "stub:fast"] => true
+  member? (item 1 (item 3 h)) ["stub:slow" "stub:fast"] => true
+
+LLMMixedSyncAsyncHistoryAtomic
+  extensions [llm]
+  globals [p1 r1 r2 h]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  O> set p1 llm:chat-async "__TEST_DELAY:300:slow"
+  O> set r1 llm:chat "quick"
+  O> set r2 (runresult p1)
+  O> set h llm:history
+  length h => 4
+  (item 0 (item 0 h)) => "user"
+  (item 0 (item 1 h)) => "assistant"
+  (item 0 (item 2 h)) => "user"
+  (item 0 (item 3 h)) => "assistant"
