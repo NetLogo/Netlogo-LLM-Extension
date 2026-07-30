@@ -717,7 +717,14 @@ class LLMExtension extends DefaultClassManager {
 
   /**
    * Reports "" if the given string compiles as NetLogo turtle commands,
-   * otherwise the compiler's error message and character offset.
+   * otherwise a message describing why it is unacceptable.
+   *
+   *   llm:compile-error code
+   *   (llm:compile-error code ["die" "clear-all"])
+   *
+   * The optional second argument is a list of primitive names that must not
+   * appear in the code. It is caller-supplied policy, not a built-in list:
+   * what counts as dangerous depends on the model.
    *
    * This calls NetLogo's own compiler — the same one `run` uses — so a
    * non-empty result guarantees `run` would have failed. There is no separate
@@ -735,8 +742,9 @@ class LLMExtension extends DefaultClassManager {
    */
   object CompileErrorReporter extends Reporter {
     override def getSyntax: Syntax = Syntax.reporterSyntax(
-      right = List(Syntax.StringType),
-      ret = Syntax.StringType
+      right = List(Syntax.StringType, Syntax.ListType | Syntax.RepeatableType),
+      ret = Syntax.StringType,
+      defaultOption = Some(1)
     )
 
     override def report(args: Array[Argument], context: Context): AnyRef = {
@@ -753,16 +761,43 @@ class LLMExtension extends DefaultClassManager {
           )
       }
 
+      // Syntax first. Code that does not compile cannot run, so a banned-primitive
+      // report would be noise — and tokenizing malformed code is unreliable anyway.
       try {
         workspace.compileCommands(code, org.nlogo.core.AgentKind.Turtle)
-        ""
       } catch {
         case e: org.nlogo.core.CompilerException =>
-          s"${e.getMessage} (offset ${e.start})"
+          return s"${e.getMessage} (offset ${e.start})"
         case e: Exception =>
           // Never silently swallow an unexpected failure as "valid".
           throw new ExtensionException(s"llm:compile-error failed: ${e.getMessage}")
       }
+
+      if (args.length < 2) return ""
+
+      val banned = args(1).getList.toVector.collect {
+        case s: String => s.trim.toLowerCase
+      }.filter(_.nonEmpty)
+
+      if (banned.isEmpty) return ""
+
+      // Exact token match using NetLogo's own tokenizer. Substring matching would
+      // flag `die` inside `diehard`, inside a comment, or inside a string literal —
+      // false positives that would reject valid code.
+      val found =
+        try {
+          org.nlogo.lex.Tokenizer.tokenizeString(code, "")
+            .map(_.text.toLowerCase)
+            .filter(banned.contains)
+            .toVector
+            .distinct
+        } catch {
+          case e: Exception =>
+            throw new ExtensionException(s"llm:compile-error failed while scanning: ${e.getMessage}")
+        }
+
+      if (found.isEmpty) ""
+      else s"Disallowed primitive(s) used: ${found.mkString(", ")}"
     }
   }
 

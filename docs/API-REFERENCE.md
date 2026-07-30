@@ -13,7 +13,7 @@ The NetLogo Multi-LLM Extension provides a unified interface for multiple Large 
 | `llm:chat-with-template file vars` | Chat          | Send templated prompt with variable substitution           |
 | `llm:chat-with-thinking text`      | Chat          | Returns `[answer thinking]` for reasoning-capable models   |
 | `llm:choose prompt choices`        | Chat          | Force selection from provided options                      |
-| `llm:compile-error code`           | Validation    | `""` if the code compiles, else the compiler error         |
+| `llm:compile-error code`           | Validation    | `""` if valid, else compiler error; optional disallowed list |
 | `llm:set-thinking bool`            | Reasoning     | Enable/disable reasoning mode for current provider         |
 | `llm:set-reasoning-effort level`   | Reasoning     | Set effort: `"low"`, `"medium"`, `"high"`                  |
 | `llm:set-thinking-budget n`        | Reasoning     | Token budget for thinking (min 1024; Anthropic + Gemini)   |
@@ -241,10 +241,11 @@ set color read-from-string color-choice
 ### llm:compile-error
 
 **Syntax**: `llm:compile-error code-string`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`(llm:compile-error code-string disallowed-list)`
 
-**Description**: Checks whether a string of NetLogo commands compiles, without running it. Intended for validating LLM-generated code before `run`.
+**Description**: Checks whether a string of NetLogo commands compiles, without running it. Intended for validating LLM-generated code before `run`. With the optional second argument, also rejects code that uses any listed primitive.
 
-**Returns**: String — `""` if the code compiles, otherwise the compiler's error message with a character offset.
+**Returns**: String — `""` if the code is acceptable, otherwise a message explaining why not.
 
 **Example**:
 
@@ -256,12 +257,23 @@ ifelse llm:compile-error new-rule = ""
   [ print (word "Rejected: " llm:compile-error new-rule) ]
 ```
 
+With a disallowed list — note the parentheses, required when passing the optional argument:
+
+```netlogo
+let banned ["die" "clear-all" "ask" "hatch"]
+
+ifelse (llm:compile-error new-rule banned) = ""
+  [ run new-rule ]
+  [ print (llm:compile-error new-rule banned) ]
+```
+
 Typical error strings:
 
 ```
 Nothing named WEIGHT has been defined. (offset 76)
 FD expected 1 input, a number. (offset 73)
 Expected a TRUE/FALSE here, rather than a list or block. (offset 30)
+Disallowed primitive(s) used: die, clear-all
 ```
 
 **Notes**:
@@ -277,6 +289,19 @@ Expected a TRUE/FALSE here, rather than a list or block. (offset 30)
 - **Compiling is not the same as running safely.** Runtime errors — for example
   `item 3` on a three-element list — surface only during execution. Keep `carefully`
   around `run`.
+
+**The disallowed list**:
+
+- Checked only if the code compiles. Code that fails to compile cannot run, so its
+  syntax error is reported instead.
+- Matching is on **exact tokens**, using NetLogo's own tokenizer. Banning `"die"`
+  rejects `die` but not a variable named `diehard`, not `die` inside a comment, and
+  not the string `"die"`. Substring matching would reject all three, and a false
+  positive discards code that was valid.
+- Case-insensitive on both sides: `"DIE"` in the list matches `die` in the code.
+- The list is entirely caller-supplied. The extension ships no built-in set, because
+  what counts as dangerous is model-specific — a model may legitimately need `hatch`
+  while forbidding it in generated agent rules.
 
 **Enforcing your own policy**: this primitive checks syntax only. Domain rules stay in
 NetLogo, where you can change them without rebuilding the extension:

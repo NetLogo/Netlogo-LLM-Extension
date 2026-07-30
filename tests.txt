@@ -384,3 +384,23 @@ LLMCompileErrorLEARCorpus
   llm:compile-error "ifelse random 2 = 0 [lt random-float 10 fd 1] [rt random-float 10 fd 1]" => ""
   llm:compile-error "ifelse random 2 = 0 [ fd 1 ] [ ifelse random 2 = 1 [ rt 10 fd 1 ] [ lt 10 fd 1 ] ]" => ""
   llm:compile-error "ifelse random-float 1 < 0.4 [lt random 10 fd 1] [ifelse random-float 1 < 0.3 [rt random 10 fd 1] [fd 1] ]" => ""
+
+LLMCompileErrorBannedPrimitives
+  extensions [llm]
+  (llm:compile-error "fd 1" ["die"]) => ""
+  (llm:compile-error "fd 1" []) => ""
+  (llm:compile-error "die" ["die"]) => "Disallowed primitive(s) used: die"
+  (llm:compile-error "fd 1 die" ["die" "clear-all"]) => "Disallowed primitive(s) used: die"
+  (llm:compile-error "DIE" ["die"]) => "Disallowed primitive(s) used: die"
+  (llm:compile-error "die" ["DIE"]) => "Disallowed primitive(s) used: die"
+
+LLMCompileErrorBannedNoFalsePositives
+  extensions [llm]
+  (llm:compile-error "fd 1 ; die is banned" ["die"]) => ""
+  (llm:compile-error "let diehard 1 fd diehard" ["die"]) => ""
+  (llm:compile-error "print \"die\"" ["die"]) => ""
+
+LLMCompileErrorSyntaxBeforeBanned
+  extensions [llm]
+  (llm:compile-error "frobnicate die" ["die"]) != "" => true
+  member? "Disallowed" (llm:compile-error "frobnicate die" ["die"]) => false
