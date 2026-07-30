@@ -404,3 +404,67 @@ LLMCompileErrorSyntaxBeforeBanned
   extensions [llm]
   (llm:compile-error "frobnicate die" ["die"]) != "" => true
   member? "Disallowed" (llm:compile-error "frobnicate die" ["die"]) => false
+
+LLMCompileErrorMultiLineLocals
+  extensions [llm]
+  llm:compile-error "let x 5\nfd x" => ""
+  llm:compile-error "let x 5\nlet y x * 2\nrt y\nfd 1" => ""
+  llm:compile-error "let x 5\n\n  rt x\n  fd 1\n" => ""
+  llm:compile-error "let d 3\nifelse d > 2\n  [ fd d ]\n  [ rt 90 fd 1 ]" => ""
+  llm:compile-error "  \n  fd 1  \n  " => ""
+  llm:compile-error "let x 1 let y 2 let z 3 fd x + y + z" => ""
+  (llm:compile-error "let x 5\nfd undefined-thing") != "" => true
+  (llm:compile-error "fd x\nlet x 5") != "" => true
+  (llm:compile-error "let x 5\nlet x 6\nfd x") != "" => true
+  (llm:compile-error "let x 5\nlet x 6\nfd x") => "There is already a local variable here called X (offset 43)"
+
+LLMCompileErrorTurtleOwnVariables
+  extensions [llm]
+  llm:compile-error "fd xcor" => ""
+  llm:compile-error "set heading heading + 10 fd 1" => ""
+  llm:compile-error "ifelse pcolor = green [ fd 1 ] [ rt 90 ]" => ""
+  llm:compile-error "let n count turtles in-radius 3\nfd n" => ""
+  (llm:compile-error "fd not-a-turtle-variable") != "" => true
+
+LLMCompileErrorComments
+  extensions [llm]
+  llm:compile-error "; only a comment" => ""
+  llm:compile-error "fd 1 ; move forward" => ""
+  llm:compile-error "; leading comment\nfd 1\n; trailing comment" => ""
+  llm:compile-error "let x 5 ; set speed\nfd x" => ""
+
+LLMCompileErrorNestedAndBlocks
+  extensions [llm]
+  llm:compile-error "ask other turtles in-radius 2 [ rt 180 ]" => ""
+  llm:compile-error "repeat 3 [ fd 1 rt 120 ]" => ""
+  llm:compile-error "if any? other turtles [ fd 1 ]" => ""
+  llm:compile-error "(ifelse xcor > 5 [ rt 90 ] xcor < -5 [ lt 90 ] [ fd 1 ])" => ""
+  llm:compile-error "foreach [1 2 3] [ n -> fd n ]" => ""
+  (llm:compile-error "repeat 3 [ fd 1 rt 120") != "" => true
+  (llm:compile-error "ask turtles [ fd 1 ] ]") != "" => true
+
+LLMCompileErrorBannedMultiLine
+  extensions [llm]
+  (llm:compile-error "let x 5\nfd x\ndie" ["die"]) => "Disallowed primitive(s) used: die"
+  (llm:compile-error "fd 1\n; die here is a comment\nrt 90" ["die"]) => ""
+  (llm:compile-error "ask turtles [ die ]" ["die"]) => "Disallowed primitive(s) used: die"
+  (llm:compile-error "fd 1\nrt 90" ["die" "clear-all" "hatch"]) => ""
+  (llm:compile-error "let diehard 1\nfd diehard" ["die"]) => ""
+
+LLMCompileErrorBannedMultipleFound
+  extensions [llm]
+  (llm:compile-error "ask turtles [ die ]" ["die" "ask"]) => "Disallowed primitive(s) used: ask, die"
+  (llm:compile-error "die die die" ["die"]) => "Disallowed primitive(s) used: die"
+
+LLMCompileErrorBannedEdgeCases
+  extensions [llm]
+  (llm:compile-error "" ["die"]) => ""
+  (llm:compile-error "fd 1" ["  "]) => ""
+  (llm:compile-error "fd 1" ["fd"]) => "Disallowed primitive(s) used: fd"
+  (llm:compile-error "fd 1" ["  die  "]) => ""
+  (llm:compile-error "die" ["  die  "]) => "Disallowed primitive(s) used: die"
+
+LLMCompileErrorBannedListValidation
+  extensions [llm]
+  (llm:compile-error "die" [1 2]) => ERROR Extension exception: llm:compile-error expects a list of primitive names as strings, but got: 1, 2
+  (llm:compile-error "fd 1" ["die" 5]) => ERROR Extension exception: llm:compile-error expects a list of primitive names as strings, but got: 5

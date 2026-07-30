@@ -775,9 +775,20 @@ class LLMExtension extends DefaultClassManager {
 
       if (args.length < 2) return ""
 
-      val banned = args(1).getList.toVector.collect {
-        case s: String => s.trim.toLowerCase
-      }.filter(_.nonEmpty)
+      val rawList = args(1).getList.toVector
+
+      // Reject a malformed list rather than silently ignoring it. Skipping
+      // non-strings would report "" — a false all-clear — for a caller who
+      // passed the wrong thing.
+      val nonStrings = rawList.filterNot(_.isInstanceOf[String])
+      if (nonStrings.nonEmpty) {
+        throw new ExtensionException(
+          "llm:compile-error expects a list of primitive names as strings, but got: " +
+            nonStrings.map(v => Dump.logoObject(v)).mkString(", ")
+        )
+      }
+
+      val banned = rawList.map(_.asInstanceOf[String].trim.toLowerCase).filter(_.nonEmpty)
 
       if (banned.isEmpty) return ""
 

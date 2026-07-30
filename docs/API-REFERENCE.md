@@ -290,6 +290,27 @@ Disallowed primitive(s) used: die, clear-all
   `item 3` on a three-element list — surface only during execution. Keep `carefully`
   around `run`.
 
+**Multi-line code**:
+
+The whole string is compiled as one command block, so newlines, indentation and
+comments are all fine, and `let` variables defined on one line are in scope on later
+lines:
+
+```netlogo
+llm:compile-error "let x 5\nlet y x * 2\nrt y\nfd 1"   ;=> ""
+```
+
+Because it is a single block, ordinary scoping rules apply and their violations are
+reported:
+
+```netlogo
+llm:compile-error "fd x\nlet x 5"
+;=> "Nothing named X has been defined. (offset 3)"     - used before definition
+
+llm:compile-error "let x 5\nlet x 6\nfd x"
+;=> "There is already a local variable here called X (offset 43)"
+```
+
 **The disallowed list**:
 
 - Checked only if the code compiles. Code that fails to compile cannot run, so its
