@@ -13,6 +13,7 @@ The NetLogo Multi-LLM Extension provides a unified interface for multiple Large 
 | `llm:chat-with-template file vars` | Chat          | Send templated prompt with variable substitution           |
 | `llm:chat-with-thinking text`      | Chat          | Returns `[answer thinking]` for reasoning-capable models   |
 | `llm:choose prompt choices`        | Chat          | Force selection from provided options                      |
+| `llm:compile-error code`           | Validation    | `""` if the code compiles, else the compiler error         |
 | `llm:set-thinking bool`            | Reasoning     | Enable/disable reasoning mode for current provider         |
 | `llm:set-reasoning-effort level`   | Reasoning     | Set effort: `"low"`, `"medium"`, `"high"`                  |
 | `llm:set-thinking-budget n`        | Reasoning     | Token budget for thinking (min 1024; Anthropic + Gemini)   |
@@ -234,6 +235,59 @@ set color read-from-string color-choice
 - Forces LLM to return exactly one of the provided choices
 - Useful for agent decision-making in models
 - Maintains conversation context
+
+## Code Validation
+
+### llm:compile-error
+
+**Syntax**: `llm:compile-error code-string`
+
+**Description**: Checks whether a string of NetLogo commands compiles, without running it. Intended for validating LLM-generated code before `run`.
+
+**Returns**: String — `""` if the code compiles, otherwise the compiler's error message with a character offset.
+
+**Example**:
+
+```netlogo
+let new-rule llm:chat "Write NetLogo commands to make this turtle seek food."
+
+ifelse llm:compile-error new-rule = ""
+  [ run new-rule ]
+  [ print (word "Rejected: " llm:compile-error new-rule) ]
+```
+
+Typical error strings:
+
+```
+Nothing named WEIGHT has been defined. (offset 76)
+FD expected 1 input, a number. (offset 73)
+Expected a TRUE/FALSE here, rather than a list or block. (offset 30)
+```
+
+**Notes**:
+
+- Uses NetLogo's own compiler — the same one `run` uses. If this returns a non-empty
+  string, `run` would have failed with that error.
+- Compiles in **turtle context**, because generated agent rules are normally executed
+  inside `ask turtles`. Turtle-only primitives such as `fd` and `rt` are therefore valid.
+- The **live model's symbol table is in scope** — `turtles-own` variables, globals, and
+  breeds defined by the running model all resolve. An external validator cannot do this,
+  which is why undefined-variable errors are the most common failure it catches.
+- Empty or whitespace-only input reports `""` (valid): empty commands are legal NetLogo.
+- **Compiling is not the same as running safely.** Runtime errors — for example
+  `item 3` on a three-element list — surface only during execution. Keep `carefully`
+  around `run`.
+
+**Enforcing your own policy**: this primitive checks syntax only. Domain rules stay in
+NetLogo, where you can change them without rebuilding the extension:
+
+```netlogo
+to-report acceptable? [ code ]
+  if llm:compile-error code != "" [ report false ]
+  if length code > 500 [ report false ]
+  report true
+end
+```
 
 ## Reasoning / Thinking Primitives
 

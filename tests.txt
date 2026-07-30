@@ -343,3 +343,44 @@ LLMMixedSyncAsyncHistoryAtomic
   (item 0 (item 1 h)) => "assistant"
   (item 0 (item 2 h)) => "user"
   (item 0 (item 3 h)) => "assistant"
+
+LLMCompileErrorValid
+  extensions [llm]
+  llm:compile-error "fd 1" => ""
+  llm:compile-error "rt 90 fd 1" => ""
+  llm:compile-error "" => ""
+  llm:compile-error "   " => ""
+  llm:compile-error "ifelse xcor > 0 [ fd 1 ] [ bk 1 ]" => ""
+  llm:compile-error "rt (random 90) * 0.5 + (random 45) * 0.5" => ""
+
+LLMCompileErrorInvalid
+  extensions [llm]
+  (llm:compile-error "frobnicate") != "" => true
+  (llm:compile-error "fd") != "" => true
+  (llm:compile-error "if xcor > 0 [fd 1] [bk 1]") != "" => true
+  (llm:compile-error "ifelse xcor > 0 [ fd 1 ]") != "" => true
+  (llm:compile-error "rt undefined-var-xyz") != "" => true
+  is-string? (llm:compile-error "frobnicate") => true
+
+LLMCompileErrorTurtleContext
+  extensions [llm]
+  llm:compile-error "set heading 90" => ""
+  llm:compile-error "set color red fd 1" => ""
+
+
+LLMCompileErrorLEARCorpus
+  extensions [llm]
+  llm:compile-error "ifelse random 2 < 1 [lt 10 fd 1] [ifelse random 2 < 1 [rt 10 fd 1] [fd 1] ]" => ""
+  llm:compile-error "ifelse random 2 = 0 [ lt random 20 fd 1 ] [ rt random 20 fd 1 ]" => ""
+  llm:compile-error "ifelse random 2 = 0 [fd 1] [rt 90 fd 1]" => ""
+  llm:compile-error "ifelse random 2 = 0 [lt random 10 fd 1] [rt random 10 fd 1]" => ""
+  llm:compile-error "ifelse random 2 = 0 [lt random 20 fd 1] [rt random 10 fd 1]" => ""
+  llm:compile-error "ifelse random 2 = 0 [lt random 30 fd 1] [rt random 30 fd 1]" => ""
+  llm:compile-error "ifelse random 2 = 0 [rt random 30 fd 1] [lt random 30 fd 1]" => ""
+  llm:compile-error "ifelse random 2 = 0 [ifelse random 2 = 0 [lt 10 fd 1] [rt 10 fd 1]] [ifelse random 2 = 0 [lt random 10 fd 1] [rt random 10 fd 1]]" => ""
+  llm:compile-error "ifelse random 2 = 0 [lt random 10 fd 1] [ifelse random 2 = 0 [rt random 10 fd 1] [fd 1] ]" => ""
+  llm:compile-error "ifelse random 2 = 0 [lt random 10 fd 1] [ifelse random 2 = 1 [rt random 10 fd 1] [fd 1] ]" => ""
+  llm:compile-error "ifelse random 2 = 0 [lt random 20 fd 1] [rt random 20 fd 1]" => ""
+  llm:compile-error "ifelse random 2 = 0 [lt random-float 10 fd 1] [rt random-float 10 fd 1]" => ""
+  llm:compile-error "ifelse random 2 = 0 [ fd 1 ] [ ifelse random 2 = 1 [ rt 10 fd 1 ] [ lt 10 fd 1 ] ]" => ""
+  llm:compile-error "ifelse random-float 1 < 0.4 [lt random 10 fd 1] [ifelse random-float 1 < 0.3 [rt random 10 fd 1] [fd 1] ]" => ""

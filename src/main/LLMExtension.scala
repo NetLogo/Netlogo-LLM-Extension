@@ -102,6 +102,9 @@ class LLMExtension extends DefaultClassManager {
     manager.addPrimitive("chat-with-thinking", ChatWithThinkingReporter)
     manager.addPrimitive("choose", ChooseReporter)
 
+    // Code validation primitive
+    manager.addPrimitive("compile-error", CompileErrorReporter)
+
     // Thinking/reasoning configuration primitives
     manager.addPrimitive("set-thinking", SetThinkingCommand)
     manager.addPrimitive("set-reasoning-effort", SetReasoningEffortCommand)
@@ -710,8 +713,61 @@ class LLMExtension extends DefaultClassManager {
     }
   }
 
+  // Code Validation Primitive
+
+  /**
+   * Reports "" if the given string compiles as NetLogo turtle commands,
+   * otherwise the compiler's error message and character offset.
+   *
+   * This calls NetLogo's own compiler — the same one `run` uses — so a
+   * non-empty result guarantees `run` would have failed. There is no separate
+   * parser to drift out of sync with the language or with the model's symbol
+   * table: turtle-own variables, globals, and breeds defined by the running
+   * model are all in scope.
+   *
+   * Compiles in Turtle context because generated agent rules are executed
+   * inside `ask turtles`. Observer context would reject `fd`/`rt` and reject
+   * valid rules.
+   *
+   * Scope: this proves the code COMPILES, not that it cannot throw at runtime.
+   * Bounds errors such as `item 3` on a 3-element list still surface only when
+   * the code runs, so keep `carefully` around execution.
+   */
+  object CompileErrorReporter extends Reporter {
+    override def getSyntax: Syntax = Syntax.reporterSyntax(
+      right = List(Syntax.StringType),
+      ret = Syntax.StringType
+    )
+
+    override def report(args: Array[Argument], context: Context): AnyRef = {
+      val code = args(0).getString
+
+      // Empty or whitespace-only code is valid NetLogo — a no-op rule.
+      if (code.trim.isEmpty) return ""
+
+      val workspace = context match {
+        case ec: org.nlogo.nvm.ExtensionContext => ec.workspace
+        case _ =>
+          throw new ExtensionException(
+            "llm:compile-error requires a NetLogo workspace and is unavailable in this context"
+          )
+      }
+
+      try {
+        workspace.compileCommands(code, org.nlogo.core.AgentKind.Turtle)
+        ""
+      } catch {
+        case e: org.nlogo.core.CompilerException =>
+          s"${e.getMessage} (offset ${e.start})"
+        case e: Exception =>
+          // Never silently swallow an unexpected failure as "valid".
+          throw new ExtensionException(s"llm:compile-error failed: ${e.getMessage}")
+      }
+    }
+  }
+
   // History Management Primitives
-  
+
   object HistoryReporter extends Reporter {
     override def getSyntax: Syntax = Syntax.reporterSyntax(ret = Syntax.ListType)
     
