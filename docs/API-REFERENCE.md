@@ -236,6 +236,59 @@ set color read-from-string color-choice
 - Useful for agent decision-making in models
 - Maintains conversation context
 
+### llm:chat-with-template
+
+**Syntax**: `llm:chat-with-template template-file variables`
+
+**Description**: Sends a prompt built from a YAML template file, substituting variables supplied from NetLogo. Keeps prompt wording out of the model code, so the phrasing can be changed and version-controlled without touching NetLogo source.
+
+**Parameters**:
+
+- `template-file` (string): Path to a YAML template
+- `variables` (list): List of `[key value]` pairs substituted into the template
+
+**Returns**: String — the model's response
+
+**The template file**:
+
+```yaml
+system: "You are a cautious forager deciding where to move next."
+template: |
+  You are at patch {xcor}, {ycor}.
+  Nearby food: {food-count}
+  Nearby predators: {predator-count}
+
+  Reply with exactly one of: MOVE, STAY, FLEE
+```
+
+`template` is required. `system` is optional — omit it and no system message is sent.
+
+**Using it from NetLogo**:
+
+```netlogo
+ask turtles [
+  let decision llm:chat-with-template "forager.yaml" (list
+    (list "xcor" xcor)
+    (list "ycor" ycor)
+    (list "food-count" count food-here)
+    (list "predator-count" count predators in-radius 3))
+
+  if decision = "FLEE" [ rt 180 fd 2 ]
+]
+```
+
+Each `{name}` in the template is replaced by the value paired with `"name"`. Values are converted to strings, so numbers and booleans can be passed directly.
+
+**Notes**:
+
+- **File lookup order**: the directory of the open model first, then the path as given, then the current working directory. Keeping the template beside the `.nlogox` is the reliable option — a bare working-directory path breaks when the model is opened from elsewhere.
+- A placeholder with no matching variable is left in the prompt as literal text (`{food-count}`), rather than raising. Worth checking the wording if a response looks confused.
+- The system message is prepended for this call only; it is not written into the agent's history.
+- The rendered prompt and the response are both committed to the agent's history on success, so `llm:chat` afterwards continues the same conversation. Nothing is committed if the call fails.
+- A missing file or a template without a `template:` field raises an extension error naming the file.
+
+**Example templates** ship in `demos/templates/` — `simple-template.yaml`, `reasoning-template.yaml`, `analysis-template.yaml`, `code-evolution-template.yaml`, and `movement-evolution.yaml`.
+
 ## Code Validation
 
 ### llm:compile-error
