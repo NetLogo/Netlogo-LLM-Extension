@@ -10,19 +10,20 @@ LLMConfigPrimitives
 
 LLMProvidersAll
   extensions [llm]
-  length llm:providers-all => 6
+  length llm:providers-all => 7
   member? "openai" llm:providers-all => true
   member? "anthropic" llm:providers-all => true
   member? "gemini" llm:providers-all => true
   member? "ollama" llm:providers-all => true
   member? "openrouter" llm:providers-all => true
   member? "together" llm:providers-all => true
+  member? "groq" llm:providers-all => true
 
 LLMProviderStatus
   extensions [llm]
   O> llm:set-api-key "test-key"
   O> llm:set-provider "openai"
-  length llm:provider-status => 6
+  length llm:provider-status => 7
 
 LLMListModels
   extensions [llm]
@@ -80,6 +81,18 @@ LLMReasoningEffortValidation
   O> llm:set-reasoning-effort "medium"
   O> llm:set-reasoning-effort "high"
   O> llm:set-reasoning-effort "xhigh"
+
+LLMReasoningEffortIsProviderAware
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "groq"
+  O> llm:set-reasoning-effort "low"
+  O> llm:set-reasoning-effort "high"
+  O> llm:set-reasoning-effort "xhigh" => ERROR Extension exception: Invalid reasoning effort: 'xhigh' for provider 'groq'. Must be one of: high, low, medium
+  O> llm:set-reasoning-effort "none" => ERROR Extension exception: Invalid reasoning effort: 'none' for provider 'groq'. Must be one of: high, low, medium
+  O> llm:set-provider "openai"
+  O> llm:set-reasoning-effort "xhigh"
+  O> llm:set-reasoning-effort "none"
 
 LLMThinkingBudgetValidation
   extensions [llm]
@@ -269,6 +282,27 @@ LLMTogetherProvider
   empty? (llm:provider-help "together") => false
   O> llm:set-model "deepseek-ai/DeepSeek-R1"
   item 1 llm:active => "deepseek-ai/DeepSeek-R1"
+
+LLMGroqProvider
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "groq"
+  item 0 llm:active => "groq"
+  item 1 llm:active => "openai/gpt-oss-20b"
+  empty? (llm:provider-help "groq") => false
+  O> llm:set-model "openai/gpt-oss-120b"
+  item 1 llm:active => "openai/gpt-oss-120b"
+
+LLMGroqChat
+  extensions [llm]
+  globals [response]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "groq"
+  O> llm:clear-history
+  O> set response llm:chat "Say hello"
+  is-string? response => true
+  empty? response => false
+  length llm:history => 2
 
 LLMConfigLoading
   extensions [llm]

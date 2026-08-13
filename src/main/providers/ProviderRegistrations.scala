@@ -205,5 +205,52 @@ object ProviderRegistrations {
           |Browse models: https://api.together.ai/models""".stripMargin,
       factory = ec => new TogetherProvider()(using ec)
     ))
+
+    ProviderRegistry.register(ProviderDescriptor(
+      name = "groq",
+      displayName = "Groq",
+      apiKeyConfigKey = "groq_api_key",
+      baseUrlConfigKey = "groq_base_url",
+      defaultBaseUrl = "https://api.groq.com/openai/v1",
+      defaultModel = "openai/gpt-oss-20b",
+      defaultMaxTokens = "1000",
+      requiresApiKey = true,
+      apiKeyPrefix = Some("gsk_"),
+      readinessCheck = ReadinessCheck.ApiKey,
+      exposesThinking = true,
+      // Probed against the live API 13 Aug 2026, one value at a time.
+      //
+      // Groq's rejection message lists none|default|low|medium|high, but that is
+      // the union across its model families, not what any one model takes. On the
+      // default model (openai/gpt-oss-20b) only low|medium|high are accepted —
+      // "none" and "default" both 400 with "must be one of low, medium, or high".
+      // Those two belong to the qwen3 family instead.
+      //
+      // We declare the intersection that is safe on the default model. "xhigh",
+      // which OpenAI accepts, is rejected by every Groq model.
+      reasoningEffortValues = Set("low", "medium", "high"),
+      helpText =
+        """Groq Setup Instructions:
+          |
+          |1. Get an API key:
+          |   - Visit https://console.groq.com/keys
+          |   - Create a new API key
+          |
+          |2. Set the key:
+          |   - In config file: groq_api_key=gsk_your-key-here
+          |   - Or at runtime: llm:set-api-key "gsk_your-key-here"
+          |
+          |3. Set a model:
+          |   - llm:set-model "openai/gpt-oss-20b"
+          |   - llm:set-model "openai/gpt-oss-120b"
+          |   - llm:set-model "groq/compound-mini"
+          |
+          |4. Verify:
+          |   - Check llm:provider-status for "has-key: true"
+          |
+          |Groq's free tier is fast and generous — a good fit for classrooms.
+          |Browse models: https://console.groq.com/docs/models""".stripMargin,
+      factory = ec => new GroqProvider()(using ec)
+    ))
   }
 }

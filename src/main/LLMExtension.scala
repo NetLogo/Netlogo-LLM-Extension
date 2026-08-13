@@ -3,7 +3,7 @@ package org.nlogo.extensions.llm
 import org.nlogo.api._
 import org.nlogo.core.{LogoList, Syntax}
 import org.nlogo.extensions.llm.config.{ConfigLoader, ConfigStore}
-import org.nlogo.extensions.llm.providers.{LLMProvider, ProviderFactory, ProviderRegistry, ProviderRegistrations, ModelRegistry, OllamaProvider, ReadinessCheck, RetryPolicy}
+import org.nlogo.extensions.llm.providers.{LLMProvider, ProviderDescriptor, ProviderFactory, ProviderRegistry, ProviderRegistrations, ModelRegistry, OllamaProvider, ReadinessCheck, RetryPolicy}
 import org.nlogo.extensions.llm.models.{ChatMessage, ChatResponse}
 import scala.collection.mutable.{ArrayBuffer, WeakHashMap}
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -705,9 +705,21 @@ class LLMExtension extends DefaultClassManager {
 
     override def perform(args: Array[Argument], context: Context): Unit = {
       val effort = args(0).getString.toLowerCase.trim
-      if (!Set("none", "low", "medium", "high", "xhigh").contains(effort)) {
+
+      // Validate against the ACTIVE provider, not a global set. Providers
+      // disagree — Groq rejects "xhigh" with a 400 and accepts "default", the
+      // inverse of OpenAI — so one shared list either lets a request through to
+      // a hard failure or blocks a value the provider would have taken.
+      val providerName = configStore.get(ConfigStore.PROVIDER).getOrElse("")
+      val allowed = ProviderRegistry.get(providerName)
+        .map(_.reasoningEffortValues)
+        .getOrElse(ProviderDescriptor.DefaultReasoningEffortValues)
+
+      if (!allowed.contains(effort)) {
+        val forProvider = if (providerName.nonEmpty) s" for provider '$providerName'" else ""
         throw new ExtensionException(
-          s"Invalid reasoning effort: '$effort'. Must be one of: none, low, medium, high, xhigh"
+          s"Invalid reasoning effort: '$effort'$forProvider. " +
+            s"Must be one of: ${allowed.toSeq.sorted.mkString(", ")}"
         )
       }
       configStore.set(ConfigStore.REASONING_EFFORT, effort)

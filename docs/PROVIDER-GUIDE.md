@@ -360,6 +360,68 @@ let result llm:chat-with-thinking "What is 15 * 17?"
 ; result is [answer thinking-text]
 ```
 
+## Groq Configuration
+
+### API Setup
+
+1. **Get API Key**: Visit [console.groq.com/keys](https://console.groq.com/keys)
+2. **Check Usage**: Monitor at [console.groq.com/settings/billing](https://console.groq.com/settings/billing)
+3. **Browse Models**: Explore at [console.groq.com/docs/models](https://console.groq.com/docs/models)
+
+### Configuration Parameters
+
+```ini
+# Required Parameters
+provider=groq
+groq_api_key=gsk_your-groq-key-here
+model=openai/gpt-oss-20b
+
+# Optional Parameters
+groq_base_url=https://api.groq.com/openai/v1
+temperature=0.7
+max_tokens=1000
+timeout_seconds=30
+```
+
+### Available Models
+
+| Model | Description | Context |
+|-------|-------------|---------|
+| `openai/gpt-oss-20b` | Fast open-weight reasoning model | 131K |
+| `openai/gpt-oss-120b` | Larger open-weight reasoning model | 131K |
+| `openai/gpt-oss-safeguard-20b` | Safety-tuned gpt-oss variant | 131K |
+| `groq/compound` | Agentic system with built-in tool use | 131K |
+| `groq/compound-mini` | Smaller agentic system | 131K |
+| `qwen/qwen3.6-27b` | Qwen 3.6 reasoning model (preview) | 131K |
+| `minimaxai/minimax-m2.7` | MiniMax M2.7 (preview) | 131K |
+
+**Recommended for NetLogo**: `openai/gpt-oss-20b` (fast, cheap, generous free tier)
+
+### Why Groq?
+
+- **Very fast inference** — custom LPU hardware delivers high tokens/second
+- **Generous free tier** — the best free option for workshops and classrooms
+- **Open-weight models** — gpt-oss, Qwen, MiniMax
+- **Reasoning support** — thinking text exposed via `llm:chat-with-thinking`
+
+### Thinking/Reasoning Models
+
+The gpt-oss models are reasoning models and return their thinking separately:
+
+```netlogo
+llm:set-provider "groq"
+llm:set-model "openai/gpt-oss-20b"
+llm:set-thinking true
+llm:set-reasoning-effort "low"
+let result llm:chat-with-thinking "What is 15 * 17?"
+; result is [answer thinking-text]
+```
+
+`llm:set-reasoning-effort` accepts `low`, `medium`, and `high` for gpt-oss models.
+Groq's model lineup changes frequently — check the
+[deprecations page](https://console.groq.com/docs/deprecations) before relying on
+a specific model in a long-lived model file.
+
 ## Ollama (Local) Configuration
 
 ### Setup Requirements

@@ -131,6 +131,20 @@ together:
   # Mistral
   - mistralai/Mistral-Small-24B-Instruct-2501
 
+groq:
+  # OpenAI open-weight models (reasoning, exposed via message.reasoning)
+  - openai/gpt-oss-120b
+  - openai/gpt-oss-20b
+  - openai/gpt-oss-safeguard-20b
+
+  # Groq agentic systems (built-in tool use)
+  - groq/compound
+  - groq/compound-mini
+
+  # Preview models
+  - qwen/qwen3.6-27b
+  - minimaxai/minimax-m2.7
+
 ollama:
   # Top reasoning models
   - deepseek-r1:70b

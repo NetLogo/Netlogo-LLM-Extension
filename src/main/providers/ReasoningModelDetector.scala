@@ -108,6 +108,9 @@ object ReasoningModelDetector {
       case "together" =>
         val m = model.toLowerCase
         m.contains("deepseek-r1") || m.contains("qwq") || m.contains("qwen3")
+      case "groq" =>
+        val m = model.toLowerCase
+        m.contains("gpt-oss") || m.contains("qwen3") || m.contains("deepseek-r1")
       case _ => false
     }
   }
