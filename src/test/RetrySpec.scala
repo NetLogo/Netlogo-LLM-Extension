@@ -173,9 +173,18 @@ class RetrySpec extends AnyFunSuite {
     assert(RetryPolicy.requestedDelayMs(None, body).contains(24000L))
   }
 
-  test("Retry-After header wins over the body when both are present") {
-    val delay = RetryPolicy.requestedDelayMs(Some("5"), geminiQuotaBody("18.5s"))
-    assert(delay.contains(5000L))
+  test("the longer of header and body wins when both are present") {
+    // Body asks for longer — honour the body, not the header.
+    assert(RetryPolicy.requestedDelayMs(Some("5"), geminiQuotaBody("18.5s")).contains(18500L))
+    // Header asks for longer — honour the header.
+    assert(RetryPolicy.requestedDelayMs(Some("30"), geminiQuotaBody("18.5s")).contains(30000L))
+  }
+
+  test("Retry-After: 0 does not mask a body-requested delay") {
+    // Regression for the defect this policy exists to fix: `0` parses
+    // successfully, so preferring the header discarded the body hint and
+    // retried inside the quota window.
+    assert(RetryPolicy.requestedDelayMs(Some("0"), geminiQuotaBody("18.5s")).contains(18500L))
   }
 
   test("malformed bodies never throw and yield no delay") {

@@ -16,8 +16,10 @@ import scala.util.Try
  *
  * @param maxRetries    maximum retry attempts after the initial request
  * @param baseDelay     first backoff interval; doubles per attempt
- * @param maxDelay      ceiling on any single sleep
- * @param maxElapsed    ceiling on total time spent waiting across all retries
+ * @param maxDelay      ceiling on the computed backoff, applied BEFORE jitter —
+ *                      so an actual sleep can exceed it by up to `jitterFactor`
+ * @param maxElapsed    ceiling on total SLEEP scheduled across all retries; time
+ *                      spent waiting on the requests themselves is not counted
  * @param jitterFactor  fraction of each delay randomized, to desynchronize agents
  */
 case class RetryPolicy(
@@ -70,8 +72,16 @@ case class RetryPolicy(
 }
 
 object RetryPolicy {
-  // Sized so the default policy can sit out a per-minute quota window:
-  // 1s + 2s + 4s + 8s + 16s + 32s exceeds 60s of waiting across 6 retries.
+  // Sized to give a per-minute quota window room to reopen. Measured behaviour
+  // with these defaults: sleeps of 1s, 2s, 4s, 8s, 16s are scheduled and the 32s
+  // sixth is refused, because canRetry requires elapsed + next <= maxElapsed
+  // (31s + 32s = 63s, under the 65s budget, but no seventh sleep follows). So a
+  // persistent 429 fails after roughly 31-39s of waiting depending on jitter,
+  // NOT the full 65s budget.
+  //
+  // That is short of a 60s RPM window on self-driven backoff alone. Clearing one
+  // reliably depends on the provider stating its own delay, which requestedDelayMs
+  // now honours from either the header or the body — see the note there.
   val DefaultMaxRetries = 6
   val DefaultBaseDelay: FiniteDuration = 1.second
   val DefaultMaxDelay: FiniteDuration = 64.seconds
@@ -85,17 +95,28 @@ object RetryPolicy {
   /**
    * Extract a provider-requested retry delay in milliseconds.
    *
-   * Checked in order of reliability:
+   * Two independent sources, and we take the LONGER of the two:
    *  1. `Retry-After` header (OpenAI-compatible, Anthropic) — seconds, or an
    *     HTTP-date which we ignore rather than guess at clock skew.
-   *  2. Google's `error.details[].RetryInfo.retryDelay` — a duration string
-   *     such as "18.5s". This is where Gemini puts it; reading only the header
-   *     discards the one value that would make the retry succeed.
-   *  3. `error.message` prose, e.g. "retry in 18.5s", as a last resort.
+   *  2. Google's `error.details[].RetryInfo.retryDelay` (a duration string such
+   *     as "18.5s"), falling back to `error.message` prose. This is where Gemini
+   *     puts it; reading only the header discards the one value that would make
+   *     the retry succeed.
+   *
+   * Taking the max rather than preferring the header matters: a 429 carrying
+   * `Retry-After: 0` alongside a body asking for 18.5s parses to Some(0), and
+   * short-circuiting on the header would retry after the local backoff — inside
+   * the quota window, guaranteed to fail. That is precisely the defect this
+   * whole policy exists to fix, so neither source may mask the other.
    */
-  def requestedDelayMs(header: Option[String], body: String): Option[Long] =
-    header.flatMap(parseRetryAfterHeader)
-      .orElse(parseBodyRetryDelayMs(body))
+  def requestedDelayMs(header: Option[String], body: String): Option[Long] = {
+    val fromHeader = header.flatMap(parseRetryAfterHeader)
+    val fromBody = parseBodyRetryDelayMs(body)
+    (fromHeader, fromBody) match {
+      case (Some(h), Some(b)) => Some(math.max(h, b))
+      case (h, b)             => h.orElse(b)
+    }
+  }
 
   /** Parse a Retry-After header. Only the delta-seconds form is supported. */
   private def parseRetryAfterHeader(value: String): Option[Long] =
