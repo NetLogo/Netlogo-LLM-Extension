@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<model version="NetLogo 7.0.3" snapToGrid="true">
+  <code><![CDATA[extensions [llm]
+
+globals [
+  banned-primitives  ;; primitives generated code is not allowed to use
+  rejected-count     ;; rules refused by the gate this run
+  accepted-count     ;; rules that passed the gate and ran
+  last-verdict       ;; the gate's message for the most recent rule
+]
+
+turtles-own [
+  rule  ;; the NetLogo command string this turtle moves by
+]
+
+to setup
+  clear-all
+  set banned-primitives ["die" "clear-all" "hatch" "ask"]
+  set rejected-count 0
+  set accepted-count 0
+  set last-verdict ""
+  create-turtles 40 [
+    setxy random-xcor random-ycor
+    set color sky
+    set rule "fd 1"
+  ]
+  reset-ticks
+end
+
+;; Try to give every turtle a new rule drawn from the candidate pool.
+;; The gate decides which ones are allowed to take effect.
+to go
+  ask turtles [
+    let candidate one-of candidate-rules
+    ifelse acceptable? candidate
+      [ set rule candidate
+        set color green ]
+      [ set color red ]
+  ]
+  ask turtles [ run rule ]
+  tick
+end
+
+;; The gate. Empty string means the code compiles AND uses no banned primitive.
+to-report acceptable? [code]
+  let verdict (llm:compile-error code banned-primitives)
+  set last-verdict verdict
+  ifelse verdict = ""
+    [ set accepted-count accepted-count + 1
+      report true ]
+    [ set rejected-count rejected-count + 1
+      report false ]
+end
+
+;; Stand-ins for model output: some valid, some malformed, some hostile.
+;; Swapping this for llm:chat is the only change needed to make it live.
+to-report candidate-rules
+  report (list
+    "fd 1"
+    "rt random 30 fd 1"
+    "ifelse random 2 = 0 [ lt 10 fd 1 ] [ rt 10 fd 1 ]"
+    "frobnicate 1"
+    "ifelse xcor > 0 [ fd 1 ]"
+    "die"
+    "ask turtles [ fd 1 ]"
+  )
+end
+
+;; Reports the gate's verdict on each candidate, for the output widget.
+to check-all
+  clear-output
+  foreach candidate-rules [ candidate ->
+    let verdict (llm:compile-error candidate banned-primitives)
+    ifelse verdict = ""
+      [ output-print (word "PASS  " candidate) ]
+      [ output-print (word "FAIL  " candidate)
+        output-print (word "      -> " verdict) ]
+  ]
+end
+]]></code>
+  <widgets>
+    <view x="420" y="10" width="514" height="514"
+          minPxcor="-16" maxPxcor="16" minPycor="-16" maxPycor="16"
+          patchSize="15.0" frameRate="30.0" fontSize="10"
+          wrappingAllowedX="true" wrappingAllowedY="true"
+          showTickCounter="true" tickCounterLabel="ticks" updateMode="1"/>
+    <button x="15" y="15" width="90" height="40" kind="Observer" display="setup" forever="false" disableUntilTicks="false">setup</button>
+    <button x="115" y="15" width="90" height="40" kind="Observer" display="go" forever="true" disableUntilTicks="true">go</button>
+    <button x="215" y="15" width="120" height="40" kind="Observer" display="check all rules" forever="false" disableUntilTicks="false">check-all</button>
+    <monitor x="15" y="70" width="150" height="50" display="accepted" precision="0" fontSize="11">accepted-count</monitor>
+    <monitor x="185" y="70" width="150" height="50" display="rejected" precision="0" fontSize="11">rejected-count</monitor>
+    <output x="15" y="135" width="390" height="250" fontSize="11"/>
+    <note x="15" y="395" width="390" height="120" fontSize="11" backgroundDark="0" backgroundLight="0" textColorDark="-1" textColorLight="-16777216" markdown="false">Green turtles took a new rule that passed the gate. Red turtles kept their old rule because the candidate failed to compile or used a banned primitive.
+
+Click "check all rules" to see the gate's verdict on every candidate.</note>
+  </widgets>
+  <info><![CDATA[## WHAT IS IT?
+
+A demonstration of `llm:compile-error`, the gate that makes the "LLM writes NetLogo code,
+the model runs it" pattern safe enough to put in front of students.
+
+Generated code cannot be trusted. A model may emit code that does not compile, or code that
+compiles but does something destructive such as `die` or `clear-all`. Without a gate, invalid
+code throws mid-tick and destructive code runs unchallenged.
+
+## HOW IT WORKS
+
+Every tick, each turtle draws a candidate rule from a pool and passes it through the gate:
+
+    llm:compile-error code banned-primitives
+
+The reporter returns an empty string when the code is acceptable. Any other string is the
+reason it was refused. Turtles that accept a new rule turn green; turtles whose candidate was
+refused keep their previous rule and turn red.
+
+The candidate pool mixes valid rules, malformed rules, and rules using banned primitives, so
+both failure modes are visible on every run.
+
+## HOW TO USE IT
+
+1. Press **setup**, then **go**.
+2. Watch the accepted and rejected monitors diverge.
+3. Press **check all rules** to print the gate's verdict on each candidate.
+
+## THINGS TO NOTICE
+
+`frobnicate 1` and `ifelse xcor > 0 [ fd 1 ]` fail compilation — one names a primitive that
+does not exist, the other is missing its second block. The verdict includes a character offset.
+
+`die` and `ask turtles [ fd 1 ]` compile perfectly well but are refused because they appear in
+the banned list. Compilation alone is not enough.
+
+Matching is exact and token-based, so `die` inside a comment, inside a string, or inside a
+longer identifier such as `diehard` does not trigger a false positive.
+
+## EXTENDING THE MODEL
+
+Replace `candidate-rules` with a call to `llm:chat` and the model becomes live. The gate does
+not change — that is the point of it.
+
+Note that the gate proves the code COMPILES, not that it cannot throw at runtime. Bounds errors
+such as `item 3` on a three-element list still surface only when the code runs, so keep
+`carefully` around execution.
+
+## RELATED PRIMITIVES
+
+`llm:compile-error` — validates code, optionally against a banned-primitive list
+]]></info>
+  <turtleShapes>
+    <shape name="default" rotatable="true" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="5"/>
+        <point x="40" y="250"/>
+        <point x="150" y="205"/>
+        <point x="260" y="250"/>
+      </polygon>
+    </shape>
+  </turtleShapes>
+  <linkShapes>
+    <shape name="default" curviness="0.0">
+      <lines>
+        <line x="-0.2" visible="false"><dash value="0.0"/><dash value="1.0"/></line>
+        <line x="0.0" visible="true"><dash value="1.0"/><dash value="0.0"/></line>
+        <line x="0.2" visible="false"><dash value="0.0"/><dash value="1.0"/></line>
+      </lines>
+      <indicator>
+        <shape name="link direction" rotatable="true" editableColorIndex="0">
+          <line startX="150" startY="150" endX="90" endY="180" marked="true" color="-1920102913"/>
+          <line startX="150" startY="150" endX="210" endY="180" marked="true" color="-1920102913"/>
+        </shape>
+      </indicator>
+    </shape>
+  </linkShapes>
+</model>
