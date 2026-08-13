@@ -37,7 +37,7 @@ to setup
   set move-history []
 
   carefully [
-    llm:load-config "config"
+    llm:load-config "config.txt"
     set llm-config-loaded? true
   ] [
     output-print (word "Config error: " error-message)

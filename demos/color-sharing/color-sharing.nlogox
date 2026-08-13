@@ -20,7 +20,7 @@ to setup
   clear-all
 
   ; Load LLM configuration
-  llm:load-config "demos/config"
+  llm:load-config "config.txt"
 
   set-default-shape turtles "person"
 

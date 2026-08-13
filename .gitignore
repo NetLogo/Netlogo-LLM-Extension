@@ -49,7 +49,10 @@ commands/
 # Local config files and secrets (keep demos/ checked in)
 config.txt
 config-*.txt
+!demos/baba-is-ai/config.txt
+!demos/color-sharing/config.txt
 !demos/provider-sensitivity/config-multi-provider.txt
+!demos/provider-sensitivity/config.txt
 !demos/social-deduction-game/config.txt
 *.env
 *.env.*
