@@ -102,6 +102,9 @@ class LLMExtension extends DefaultClassManager {
     manager.addPrimitive("chat-with-thinking", ChatWithThinkingReporter)
     manager.addPrimitive("choose", ChooseReporter)
 
+    // Code validation primitive
+    manager.addPrimitive("compile-error", CompileErrorReporter)
+
     // Thinking/reasoning configuration primitives
     manager.addPrimitive("set-thinking", SetThinkingCommand)
     manager.addPrimitive("set-reasoning-effort", SetReasoningEffortCommand)
@@ -710,8 +713,107 @@ class LLMExtension extends DefaultClassManager {
     }
   }
 
+  // Code Validation Primitive
+
+  /**
+   * Reports "" if the given string compiles as NetLogo turtle commands,
+   * otherwise a message describing why it is unacceptable.
+   *
+   *   llm:compile-error code
+   *   (llm:compile-error code ["die" "clear-all"])
+   *
+   * The optional second argument is a list of primitive names that must not
+   * appear in the code. It is caller-supplied policy, not a built-in list:
+   * what counts as dangerous depends on the model.
+   *
+   * This calls NetLogo's own compiler — the same one `run` uses — so a
+   * non-empty result guarantees `run` would have failed. There is no separate
+   * parser to drift out of sync with the language or with the model's symbol
+   * table: turtle-own variables, globals, and breeds defined by the running
+   * model are all in scope.
+   *
+   * Compiles in Turtle context because generated agent rules are executed
+   * inside `ask turtles`. Observer context would reject `fd`/`rt` and reject
+   * valid rules.
+   *
+   * Scope: this proves the code COMPILES, not that it cannot throw at runtime.
+   * Bounds errors such as `item 3` on a 3-element list still surface only when
+   * the code runs, so keep `carefully` around execution.
+   */
+  object CompileErrorReporter extends Reporter {
+    override def getSyntax: Syntax = Syntax.reporterSyntax(
+      right = List(Syntax.StringType, Syntax.ListType | Syntax.RepeatableType),
+      ret = Syntax.StringType,
+      defaultOption = Some(1)
+    )
+
+    override def report(args: Array[Argument], context: Context): AnyRef = {
+      val code = args(0).getString
+
+      // Empty or whitespace-only code is valid NetLogo — a no-op rule.
+      if (code.trim.isEmpty) return ""
+
+      val workspace = context match {
+        case ec: org.nlogo.nvm.ExtensionContext => ec.workspace
+        case _ =>
+          throw new ExtensionException(
+            "llm:compile-error requires a NetLogo workspace and is unavailable in this context"
+          )
+      }
+
+      // Syntax first. Code that does not compile cannot run, so a banned-primitive
+      // report would be noise — and tokenizing malformed code is unreliable anyway.
+      try {
+        workspace.compileCommands(code, org.nlogo.core.AgentKind.Turtle)
+      } catch {
+        case e: org.nlogo.core.CompilerException =>
+          return s"${e.getMessage} (offset ${e.start})"
+        case e: Exception =>
+          // Never silently swallow an unexpected failure as "valid".
+          throw new ExtensionException(s"llm:compile-error failed: ${e.getMessage}")
+      }
+
+      if (args.length < 2) return ""
+
+      val rawList = args(1).getList.toVector
+
+      // Reject a malformed list rather than silently ignoring it. Skipping
+      // non-strings would report "" — a false all-clear — for a caller who
+      // passed the wrong thing.
+      val nonStrings = rawList.filterNot(_.isInstanceOf[String])
+      if (nonStrings.nonEmpty) {
+        throw new ExtensionException(
+          "llm:compile-error expects a list of primitive names as strings, but got: " +
+            nonStrings.map(v => Dump.logoObject(v)).mkString(", ")
+        )
+      }
+
+      val banned = rawList.map(_.asInstanceOf[String].trim.toLowerCase).filter(_.nonEmpty)
+
+      if (banned.isEmpty) return ""
+
+      // Exact token match using NetLogo's own tokenizer. Substring matching would
+      // flag `die` inside `diehard`, inside a comment, or inside a string literal —
+      // false positives that would reject valid code.
+      val found =
+        try {
+          org.nlogo.lex.Tokenizer.tokenizeString(code, "")
+            .map(_.text.toLowerCase)
+            .filter(banned.contains)
+            .toVector
+            .distinct
+        } catch {
+          case e: Exception =>
+            throw new ExtensionException(s"llm:compile-error failed while scanning: ${e.getMessage}")
+        }
+
+      if (found.isEmpty) ""
+      else s"Disallowed primitive(s) used: ${found.mkString(", ")}"
+    }
+  }
+
   // History Management Primitives
-  
+
   object HistoryReporter extends Reporter {
     override def getSyntax: Syntax = Syntax.reporterSyntax(ret = Syntax.ListType)
     

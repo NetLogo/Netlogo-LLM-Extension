@@ -13,6 +13,7 @@ The NetLogo Multi-LLM Extension provides a unified interface for multiple Large 
 | `llm:chat-with-template file vars` | Chat          | Send templated prompt with variable substitution           |
 | `llm:chat-with-thinking text`      | Chat          | Returns `[answer thinking]` for reasoning-capable models   |
 | `llm:choose prompt choices`        | Chat          | Force selection from provided options                      |
+| `llm:compile-error code`           | Validation    | `""` if valid, else compiler error; optional disallowed list |
 | `llm:set-thinking bool`            | Reasoning     | Enable/disable reasoning mode for current provider         |
 | `llm:set-reasoning-effort level`   | Reasoning     | Set effort: `"low"`, `"medium"`, `"high"`                  |
 | `llm:set-thinking-budget n`        | Reasoning     | Token budget for thinking (min 1024; Anthropic + Gemini)   |
@@ -234,6 +235,158 @@ set color read-from-string color-choice
 - Forces LLM to return exactly one of the provided choices
 - Useful for agent decision-making in models
 - Maintains conversation context
+
+### llm:chat-with-template
+
+**Syntax**: `llm:chat-with-template template-file variables`
+
+**Description**: Sends a prompt built from a YAML template file, substituting variables supplied from NetLogo. Keeps prompt wording out of the model code, so the phrasing can be changed and version-controlled without touching NetLogo source.
+
+**Parameters**:
+
+- `template-file` (string): Path to a YAML template
+- `variables` (list): List of `[key value]` pairs substituted into the template
+
+**Returns**: String — the model's response
+
+**The template file**:
+
+```yaml
+system: "You are a cautious forager deciding where to move next."
+template: |
+  You are at patch {xcor}, {ycor}.
+  Nearby food: {food-count}
+  Nearby predators: {predator-count}
+
+  Reply with exactly one of: MOVE, STAY, FLEE
+```
+
+`template` is required. `system` is optional — omit it and no system message is sent.
+
+**Using it from NetLogo**:
+
+```netlogo
+ask turtles [
+  let decision llm:chat-with-template "forager.yaml" (list
+    (list "xcor" xcor)
+    (list "ycor" ycor)
+    (list "food-count" count food-here)
+    (list "predator-count" count predators in-radius 3))
+
+  if decision = "FLEE" [ rt 180 fd 2 ]
+]
+```
+
+Each `{name}` in the template is replaced by the value paired with `"name"`. Values are converted to strings, so numbers and booleans can be passed directly.
+
+**Notes**:
+
+- **File lookup order**: the directory of the open model first, then the path as given, then the current working directory. Keeping the template beside the `.nlogox` is the reliable option — a bare working-directory path breaks when the model is opened from elsewhere.
+- A placeholder with no matching variable is left in the prompt as literal text (`{food-count}`), rather than raising. Worth checking the wording if a response looks confused.
+- The system message is prepended for this call only; it is not written into the agent's history.
+- The rendered prompt and the response are both committed to the agent's history on success, so `llm:chat` afterwards continues the same conversation. Nothing is committed if the call fails.
+- A missing file or a template without a `template:` field raises an extension error naming the file.
+
+**Example templates** ship in `demos/templates/` — `simple-template.yaml`, `reasoning-template.yaml`, `analysis-template.yaml`, `code-evolution-template.yaml`, and `movement-evolution.yaml`.
+
+## Code Validation
+
+### llm:compile-error
+
+**Syntax**: `llm:compile-error code-string`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`(llm:compile-error code-string disallowed-list)`
+
+**Description**: Checks whether a string of NetLogo commands compiles, without running it. Intended for validating LLM-generated code before `run`. With the optional second argument, also rejects code that uses any listed primitive.
+
+**Returns**: String — `""` if the code is acceptable, otherwise a message explaining why not.
+
+**Example**:
+
+```netlogo
+let new-rule llm:chat "Write NetLogo commands to make this turtle seek food."
+
+ifelse llm:compile-error new-rule = ""
+  [ run new-rule ]
+  [ print (word "Rejected: " llm:compile-error new-rule) ]
+```
+
+With a disallowed list — note the parentheses, required when passing the optional argument:
+
+```netlogo
+let banned ["die" "clear-all" "ask" "hatch"]
+
+ifelse (llm:compile-error new-rule banned) = ""
+  [ run new-rule ]
+  [ print (llm:compile-error new-rule banned) ]
+```
+
+Typical error strings:
+
+```
+Nothing named WEIGHT has been defined. (offset 76)
+FD expected 1 input, a number. (offset 73)
+Expected a TRUE/FALSE here, rather than a list or block. (offset 30)
+Disallowed primitive(s) used: die, clear-all
+```
+
+**Notes**:
+
+- Uses NetLogo's own compiler — the same one `run` uses. If this returns a non-empty
+  string, `run` would have failed with that error.
+- Compiles in **turtle context**, because generated agent rules are normally executed
+  inside `ask turtles`. Turtle-only primitives such as `fd` and `rt` are therefore valid.
+- The **live model's symbol table is in scope** — `turtles-own` variables, globals, and
+  breeds defined by the running model all resolve. An external validator cannot do this,
+  which is why undefined-variable errors are the most common failure it catches.
+- Empty or whitespace-only input reports `""` (valid): empty commands are legal NetLogo.
+- **Compiling is not the same as running safely.** Runtime errors — for example
+  `item 3` on a three-element list — surface only during execution. Keep `carefully`
+  around `run`.
+
+**Multi-line code**:
+
+The whole string is compiled as one command block, so newlines, indentation and
+comments are all fine, and `let` variables defined on one line are in scope on later
+lines:
+
+```netlogo
+llm:compile-error "let x 5\nlet y x * 2\nrt y\nfd 1"   ;=> ""
+```
+
+Because it is a single block, ordinary scoping rules apply and their violations are
+reported:
+
+```netlogo
+llm:compile-error "fd x\nlet x 5"
+;=> "Nothing named X has been defined. (offset 3)"     - used before definition
+
+llm:compile-error "let x 5\nlet x 6\nfd x"
+;=> "There is already a local variable here called X (offset 43)"
+```
+
+**The disallowed list**:
+
+- Checked only if the code compiles. Code that fails to compile cannot run, so its
+  syntax error is reported instead.
+- Matching is on **exact tokens**, using NetLogo's own tokenizer. Banning `"die"`
+  rejects `die` but not a variable named `diehard`, not `die` inside a comment, and
+  not the string `"die"`. Substring matching would reject all three, and a false
+  positive discards code that was valid.
+- Case-insensitive on both sides: `"DIE"` in the list matches `die` in the code.
+- The list is entirely caller-supplied. The extension ships no built-in set, because
+  what counts as dangerous is model-specific — a model may legitimately need `hatch`
+  while forbidding it in generated agent rules.
+
+**Enforcing your own policy**: this primitive checks syntax only. Domain rules stay in
+NetLogo, where you can change them without rebuilding the extension:
+
+```netlogo
+to-report acceptable? [ code ]
+  if llm:compile-error code != "" [ report false ]
+  if length code > 500 [ report false ]
+  report true
+end
+```
 
 ## Reasoning / Thinking Primitives
 
