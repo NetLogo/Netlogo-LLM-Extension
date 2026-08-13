@@ -163,8 +163,29 @@ Browse the full catalog: [api.together.ai/models](https://api.together.ai/models
 | `temperature` | Response randomness (0.0-1.0) | No | 0.7 |
 | `max_tokens` | Maximum response length | No | 1000 |
 | `timeout_seconds` | Request timeout | No | 30 |
+| `retry_max_retries` | Retry attempts after a rate-limit (HTTP 429) response | No | 6 |
+| `retry_max_elapsed_seconds` | Total time allowed waiting out rate limits | No | 65 |
 
 *Not required for Ollama
+
+### Rate limits and retries
+
+When a provider returns HTTP 429, the extension waits and retries with jittered
+exponential backoff. If the provider states how long to wait — via a `Retry-After`
+header, or Gemini's `error.details[].RetryInfo.retryDelay` — that delay is honored,
+since retrying before the quota window reopens always fails.
+
+The defaults are sized to sit out a per-minute quota window (free tiers are often
+about 5 requests/minute, which a model calling an LLM per agent per tick exceeds
+immediately). Waits of 2s or more are announced on stderr so a long pause inside
+`go` is not mistaken for a hang.
+
+Time spent waiting out a rate limit does **not** count against `timeout_seconds`;
+that budget covers the request itself. Lowering `timeout_seconds` therefore does not
+cost you the ability to recover from a rate limit. If a run still fails after
+exhausting the budget, the error says so explicitly — that usually means the quota
+is too low for the simulation, so reduce the request rate (fewer agents per tick, or
+call the LLM every N ticks) rather than only raising `retry_max_elapsed_seconds`.
 
 ### Advanced Settings
 
