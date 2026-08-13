@@ -46,7 +46,7 @@ to setup
   ] [
     output-print (word ">> Config load failed: " error-message)
     carefully [
-      llm:load-config "config"
+      llm:load-config "config.txt"
       output-print ">> Loaded fallback config."
     ] [
       output-print (word ">> Fallback config load failed: " error-message)

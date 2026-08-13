@@ -73,7 +73,7 @@ Expected: Very rarely solved -- demonstrates the knowing-doing gap
 
 ## Swapping Providers
 
-Edit `config` to try different LLM providers:
+Edit `config.txt` to try different LLM providers:
 
 ```
 # OpenAI
@@ -97,7 +97,7 @@ api_key=YOUR_KEY_HERE
 | File | Purpose |
 |------|---------|
 | `baba-is-ai.nlogox` | Main NetLogo model with rule engine, levels, and LLM integration |
-| `config` | LLM provider configuration (defaults to local Ollama) |
+| `config.txt` | LLM provider configuration (defaults to local Ollama) |
 | `action-template.yaml` | Documents the prompt format (not used at runtime -- `llm:choose` builds its own prompt) |
 | `README.md` | This file |
 

@@ -37,7 +37,7 @@ to setup
   set move-history []
 
   carefully [
-    llm:load-config "config"
+    llm:load-config "config.txt"
     set llm-config-loaded? true
   ] [
     output-print (word "Config error: " error-message)
@@ -732,7 +732,7 @@ A simplified recreation of "Baba Is You" where an LLM agent must solve puzzles b
 
 ### Extending
 
-- Edit `config` to try different LLM providers (OpenAI, Claude, Gemini)
+- Edit `config.txt` to try different LLM providers (OpenAI, Claude, Gemini)
 - Add new word types (DEFEAT, SINK) for more complex puzzles
 - Create levels where the agent must *construct* rules, not just break them
   </info>
