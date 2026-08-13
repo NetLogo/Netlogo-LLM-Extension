@@ -151,13 +151,39 @@ Browse the full catalog: [api.together.ai/models](https://api.together.ai/models
 
 **Reasoning model note:** DeepSeek-R1 emits its thinking inside `<think>...</think>` tags (sometimes filling the entire response). Use `llm:chat-with-thinking` to get the answer and reasoning split out, and bump `max_tokens` to 2000+ so the model has room to finish its answer after thinking.
 
+### Groq (fast free-tier inference)
+
+Groq runs open-weight models on custom LPU hardware via an OpenAI-compatible API. Its free tier is fast and generous, which makes it a good choice for workshops and classrooms.
+
+1. **Get API Key**: Visit [console.groq.com/keys](https://console.groq.com/keys)
+2. **Create config.txt**:
+```
+provider=groq
+model=openai/gpt-oss-20b
+groq_api_key=gsk_your-key-here
+temperature=0.7
+max_tokens=1000
+```
+
+**Available Models**:
+- `openai/gpt-oss-20b` - Fast open-weight reasoning model (recommended)
+- `openai/gpt-oss-120b` - Larger open-weight reasoning model
+- `groq/compound-mini` - Agentic system with built-in tool use
+- `qwen/qwen3.6-27b` - Qwen 3.6 reasoning model (preview)
+
+Browse the full catalog: [console.groq.com/docs/models](https://console.groq.com/docs/models)
+
+**Reasoning model note:** the gpt-oss models always produce reasoning output. Use `llm:chat-with-thinking` to get the answer and reasoning split out, and `llm:set-reasoning-effort "low"` to keep latency and token use down in classroom settings.
+
+**Model lifecycle note:** Groq retires models often. If a model stops working, check [console.groq.com/docs/deprecations](https://console.groq.com/docs/deprecations).
+
 ## Configuration Parameters
 
 ### Core Settings
 
 | Parameter | Description | Required | Default |
 |-----------|-------------|----------|---------|
-| `provider` | LLM provider (`openai`, `anthropic`, `gemini`, `ollama`, `openrouter`, `together`) | Yes | - |
+| `provider` | LLM provider (`openai`, `anthropic`, `gemini`, `ollama`, `openrouter`, `together`, `groq`) | Yes | - |
 | `model` | Model identifier | Yes | Provider-specific |
 | `api_key` | API authentication key | Yes* | - |
 | `temperature` | Response randomness (0.0-1.0) | No | 0.7 |
@@ -221,6 +247,11 @@ call the LLM every N ticks) rather than only raising `retry_max_elapsed_seconds`
 - `base_url`: `https://api.together.xyz/v1`
 - `max_tokens`: 1000
 - API key config field: `together_api_key`
+
+**Groq**:
+- `base_url`: `https://api.groq.com/openai/v1`
+- `max_tokens`: 1000
+- API key config field: `groq_api_key`
 
 ## Testing Your Setup
 
