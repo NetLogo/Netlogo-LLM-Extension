@@ -31,6 +31,12 @@ enum ReadinessCheck:
  * @param apiKeyPrefix     Optional prefix for API key validation hint (e.g. Some("sk-"))
  * @param readinessCheck   How to determine if the provider is ready to use
  * @param exposesThinking  Whether thinking/reasoning text appears in API responses
+ * @param reasoningEffortValues Effort levels this provider's API accepts. Providers
+ *                         disagree: Groq rejects anything outside
+ *                         none|default|low|medium|high with a 400, while OpenAI and
+ *                         Anthropic take xhigh. Validating against one global set let
+ *                         `llm:set-reasoning-effort "xhigh"` through to a hard failure
+ *                         on Groq, and rejected "default", which Groq accepts.
  * @param helpText         Multi-line setup instructions shown by llm:provider-help
  * @param factory          Function that creates a new LLMProvider instance given an ExecutionContext
  */
@@ -47,5 +53,13 @@ case class ProviderDescriptor(
   readinessCheck: ReadinessCheck,
   exposesThinking: Boolean,
   helpText: String,
-  factory: ExecutionContext => LLMProvider
+  factory: ExecutionContext => LLMProvider,
+  reasoningEffortValues: Set[String] = ProviderDescriptor.DefaultReasoningEffortValues
 )
+
+object ProviderDescriptor {
+  /** Effort levels accepted by OpenAI-style APIs, and the fallback for providers
+    * that have not declared their own. */
+  val DefaultReasoningEffortValues: Set[String] =
+    Set("none", "low", "medium", "high", "xhigh")
+}

@@ -82,6 +82,18 @@ LLMReasoningEffortValidation
   O> llm:set-reasoning-effort "high"
   O> llm:set-reasoning-effort "xhigh"
 
+LLMReasoningEffortIsProviderAware
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "groq"
+  O> llm:set-reasoning-effort "low"
+  O> llm:set-reasoning-effort "high"
+  O> llm:set-reasoning-effort "xhigh" => ERROR Extension exception: Invalid reasoning effort: 'xhigh' for provider 'groq'. Must be one of: high, low, medium
+  O> llm:set-reasoning-effort "none" => ERROR Extension exception: Invalid reasoning effort: 'none' for provider 'groq'. Must be one of: high, low, medium
+  O> llm:set-provider "openai"
+  O> llm:set-reasoning-effort "xhigh"
+  O> llm:set-reasoning-effort "none"
+
 LLMThinkingBudgetValidation
   extensions [llm]
   O> llm:set-thinking-budget 1024

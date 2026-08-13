@@ -218,6 +218,17 @@ object ProviderRegistrations {
       apiKeyPrefix = Some("gsk_"),
       readinessCheck = ReadinessCheck.ApiKey,
       exposesThinking = true,
+      // Probed against the live API 13 Aug 2026, one value at a time.
+      //
+      // Groq's rejection message lists none|default|low|medium|high, but that is
+      // the union across its model families, not what any one model takes. On the
+      // default model (openai/gpt-oss-20b) only low|medium|high are accepted —
+      // "none" and "default" both 400 with "must be one of low, medium, or high".
+      // Those two belong to the qwen3 family instead.
+      //
+      // We declare the intersection that is safe on the default model. "xhigh",
+      // which OpenAI accepts, is rejected by every Groq model.
+      reasoningEffortValues = Set("low", "medium", "high"),
       helpText =
         """Groq Setup Instructions:
           |
