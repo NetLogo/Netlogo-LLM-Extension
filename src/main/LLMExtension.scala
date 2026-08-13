@@ -3,7 +3,7 @@ package org.nlogo.extensions.llm
 import org.nlogo.api._
 import org.nlogo.core.{LogoList, Syntax}
 import org.nlogo.extensions.llm.config.{ConfigLoader, ConfigStore}
-import org.nlogo.extensions.llm.providers.{LLMProvider, ProviderFactory, ProviderRegistry, ProviderRegistrations, ModelRegistry, OllamaProvider, ReadinessCheck}
+import org.nlogo.extensions.llm.providers.{LLMProvider, ProviderFactory, ProviderRegistry, ProviderRegistrations, ModelRegistry, OllamaProvider, ReadinessCheck, RetryPolicy}
 import org.nlogo.extensions.llm.models.{ChatMessage, ChatResponse}
 import scala.collection.mutable.{ArrayBuffer, WeakHashMap}
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -73,7 +73,7 @@ class LLMExtension extends DefaultClassManager {
       
       override def report(context: Context, args: Array[AnyRef]): AnyRef = {
         try {
-          Await.result(future, getTimeoutSeconds.seconds)
+          Await.result(future, getAwaitTimeout)
         } catch {
           case e: Exception =>
             throw new ExtensionException(s"Async LLM operation failed: ${e.getMessage}")
@@ -186,6 +186,25 @@ class LLMExtension extends DefaultClassManager {
         30
       }
     }.getOrElse(30)
+
+  /**
+   * How long to wait on an LLM future.
+   *
+   * `timeout_seconds` is the budget for the request itself. Time spent sitting out
+   * a provider's rate-limit window is not the request being slow, so it gets its own
+   * budget rather than eating the request's: waiting out an 18s quota window must not
+   * trip a 30s request timeout. The await bound is therefore the request timeout plus
+   * the retry budget, so `timeout_seconds` keeps its meaning and modelers who lower it
+   * do not thereby lose the ability to recover from a rate limit.
+   */
+  private def getAwaitTimeout: FiniteDuration = {
+    val retryBudget = configStore.get(RetryPolicy.MAX_ELAPSED_SECONDS)
+      .flatMap(s => scala.util.Try(s.trim.toDouble).toOption)
+      .filter(d => d >= 0.0 && d.isFinite)
+      .map(d => (d * 1000.0).toLong.millis)
+      .getOrElse(RetryPolicy.DefaultMaxElapsed)
+    getTimeoutSeconds.seconds + retryBudget
+  }
   
   /**
    * Check if a provider has an API key configured
@@ -465,7 +484,7 @@ class LLMExtension extends DefaultClassManager {
 
         // Send chat request with user message included, but don't mutate history yet
         val responseFuture = provider.chat(snapshotHistory(agent) :+ userMessage)
-        val responseMessage = Await.result(responseFuture, getTimeoutSeconds.seconds)
+        val responseMessage = Await.result(responseFuture, getAwaitTimeout)
 
         // Only commit both messages after success
         commitExchange(agent, userMessage, responseMessage)
@@ -554,7 +573,7 @@ class LLMExtension extends DefaultClassManager {
 
         // Send chat request
         val responseFuture = provider.chat(tempHistory.toSeq)
-        val responseMessage = Await.result(responseFuture, getTimeoutSeconds.seconds)
+        val responseMessage = Await.result(responseFuture, getAwaitTimeout)
 
         // Commit both template message and response to permanent history on success
         commitExchange(agent, userMessage, responseMessage)
@@ -604,7 +623,7 @@ class LLMExtension extends DefaultClassManager {
 
         // Use chatWithFullResponse to access thinking field for thinking models
         val responseFuture = provider.chatWithFullResponse(tempHistory.toSeq)
-        val response = Await.result(responseFuture, getTimeoutSeconds.seconds)
+        val response = Await.result(responseFuture, getAwaitTimeout)
 
         // Extract text: prefer content, fall back to thinking field
         val text = response.firstContent.filter(_.nonEmpty)
@@ -652,7 +671,7 @@ class LLMExtension extends DefaultClassManager {
 
         // Send with user message included, but don't mutate history yet
         val responseFuture = provider.chatWithFullResponse(snapshotHistory(agent) :+ userMessage)
-        val response = Await.result(responseFuture, getTimeoutSeconds.seconds)
+        val response = Await.result(responseFuture, getAwaitTimeout)
 
         val answerText = response.firstContent.getOrElse("")
         val thinkingText = response.thinking.getOrElse("")
