@@ -37,20 +37,29 @@ openai:
   - gpt-3.5-turbo
 
 anthropic:
-  # Claude 4.5 (latest production)
+  # Adaptive thinking (thinking.type "adaptive" + output_config.effort).
+  # These reject thinking.type "enabled" and any non-default temperature.
+  # IDs are dateless from the 4.6 generation on, and still pinned snapshots.
+  - claude-fable-5
+  - claude-opus-5
+  - claude-sonnet-5
+  - claude-opus-4-8
+  - claude-opus-4-7
+
+  # Adaptive thinking, extended thinking deprecated but still accepted
+  - claude-opus-4-6
+  - claude-sonnet-4-6
+
+  # Extended thinking only (thinking.type "enabled" + budget_tokens).
+  # These reject "adaptive".
   - claude-opus-4-5-20251101
   - claude-sonnet-4-5-20250929
   - claude-haiku-4-5-20251001
-  
-  # Claude 4.1 (current)
+
+  # Claude 4.1 / 4 (extended thinking)
   - claude-opus-4-1-20250805
-  
-  # Claude 4 (stable)
   - claude-sonnet-4-20250514
   - claude-opus-4-20250514
-  
-  # Claude 3.7 (deprecated, retiring Feb 19, 2026)
-  - claude-3-7-sonnet-20250219  # deprecated
 
 gemini:
   # Gemini 3 (latest preview)
