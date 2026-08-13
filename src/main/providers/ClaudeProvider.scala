@@ -39,14 +39,13 @@ class ClaudeProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
   }
 
   override protected def buildHeaders(apiKey: Option[String]): Map[String, String] = {
-    // Note: This reads ENABLE_THINKING from the provider's configStore, which stays in sync
-    // because LLMExtension invalidates the provider (currentProvider = None) on thinking config changes.
-    val thinkingEnabled = configStore.get(ConfigStore.ENABLE_THINKING).exists(_.toLowerCase == "true")
-    val version = if (thinkingEnabled) "2025-04-15" else "2023-06-01"
+    // 2023-06-01 is the only current Anthropic API version; thinking does not
+    // require a different one. (A previous version bumped this to "2025-04-15"
+    // when thinking was on, which is not a version Anthropic publishes.)
     Map(
       "x-api-key" -> apiKey.getOrElse(throw new IllegalStateException("API key required for Claude")),
       "content-type" -> "application/json",
-      "anthropic-version" -> version
+      "anthropic-version" -> ClaudeProvider.ApiVersion
     )
   }
 
@@ -78,28 +77,48 @@ class ClaudeProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
       baseRequest("system") = sysMsg.content
     }
 
+    // Newer Claude generations (4.7+) reject non-default temperature/top_p/top_k
+    // with a 400 on EVERY request, thinking or not -- so this gate also applies
+    // to the non-thinking path below.
+    val allowsSampling = ClaudeModelCapabilities.supportsSamplingParams(request.model)
+
     if (isThinking) {
-      // Anthropic requires budget >= 1024 AND budget < max_tokens, so max_tokens must be > 1024
-      if (maxTokens <= 1024) {
-        throw new RuntimeException(
-          s"Claude thinking requires max_tokens > 1024 (current: $maxTokens). " +
-          "The thinking budget must be at least 1024 and less than max_tokens."
-        )
+      ClaudeModelCapabilities.thinkingMode(request.model) match {
+        case ClaudeThinkingMode.Extended =>
+          // Legacy shape: budget >= 1024 AND budget < max_tokens, so max_tokens must be > 1024
+          if (maxTokens <= 1024) {
+            throw new RuntimeException(
+              s"Claude thinking requires max_tokens > 1024 (current: $maxTokens). " +
+              "The thinking budget must be at least 1024 and less than max_tokens."
+            )
+          }
+
+          // These models require temperature=1.0 when thinking is enabled
+          if (allowsSampling) {
+            baseRequest("temperature") = 1.0
+          }
+
+          val budget = request.thinkingConfig.flatMap(_.budgetTokens)
+            .map(b => math.max(1024, math.min(b, maxTokens - 1)))
+            .getOrElse(math.max(1024, math.min(4096, maxTokens - 1)))
+
+          baseRequest("thinking") = ujson.Obj(
+            "type" -> "enabled",
+            "budget_tokens" -> budget
+          )
+
+        case ClaudeThinkingMode.Adaptive =>
+          // Adaptive models take no budget_tokens and no temperature; depth is
+          // steered by output_config.effort instead.
+          baseRequest("thinking") = ujson.Obj("type" -> "adaptive")
+
+          ClaudeModelCapabilities
+            .effortValue(request.thinkingConfig.flatMap(_.reasoningEffort))
+            .foreach { effort =>
+              baseRequest("output_config") = ujson.Obj("effort" -> effort)
+            }
       }
-
-      // Anthropic requires temperature=1.0 when thinking is enabled
-      baseRequest("temperature") = 1.0
-
-      // Budget must be >= 1024 and < max_tokens
-      val budget = request.thinkingConfig.flatMap(_.budgetTokens)
-        .map(b => math.max(1024, math.min(b, maxTokens - 1)))
-        .getOrElse(math.max(1024, math.min(4096, maxTokens - 1)))
-
-      baseRequest("thinking") = ujson.Obj(
-        "type" -> "enabled",
-        "budget_tokens" -> budget
-      )
-    } else {
+    } else if (allowsSampling) {
       request.temperature.foreach { temp =>
         baseRequest("temperature") = temp
       }
@@ -165,4 +184,9 @@ class ClaudeProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
         throw new RuntimeException(s"Failed to parse Claude response: ${e.getMessage}\nResponse: $responseBody", e)
     }
   }
+}
+
+object ClaudeProvider {
+  /** The only Anthropic API version currently published. */
+  val ApiVersion: String = "2023-06-01"
 }
