@@ -48,7 +48,7 @@ object ProviderRegistrations {
       apiKeyConfigKey = "anthropic_api_key",
       baseUrlConfigKey = "anthropic_base_url",
       defaultBaseUrl = "https://api.anthropic.com/v1",
-      defaultModel = "claude-3-5-haiku-latest",
+      defaultModel = "claude-haiku-4-5-20251001",
       defaultMaxTokens = "4000",
       requiresApiKey = true,
       apiKeyPrefix = None,
@@ -76,7 +76,7 @@ object ProviderRegistrations {
       apiKeyConfigKey = "gemini_api_key",
       baseUrlConfigKey = "gemini_base_url",
       defaultBaseUrl = "https://generativelanguage.googleapis.com/v1beta",
-      defaultModel = "gemini-1.5-flash",
+      defaultModel = "gemini-2.5-flash",
       defaultMaxTokens = "2048",
       requiresApiKey = true,
       apiKeyPrefix = None,
@@ -104,7 +104,7 @@ object ProviderRegistrations {
       apiKeyConfigKey = "ollama_api_key",
       baseUrlConfigKey = "ollama_base_url",
       defaultBaseUrl = "http://localhost:11434",
-      defaultModel = "llama3.2",
+      defaultModel = "llama3.2:3b",
       defaultMaxTokens = "2048",
       requiresApiKey = false,
       apiKeyPrefix = None,
@@ -122,7 +122,7 @@ object ProviderRegistrations {
           |   - Or start Ollama app (it runs in background)
           |
           |3. Pull a model:
-          |   - Run: ollama pull llama3.2
+          |   - Run: ollama pull llama3.2:3b
           |   - Or try: ollama pull deepseek-r1:1.5b (smaller)
           |
           |4. Verify installation:
