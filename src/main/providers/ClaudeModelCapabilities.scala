@@ -51,17 +51,25 @@ object ClaudeModelCapabilities {
   )
 
   /**
-   * Generations that reject non-default `temperature`/`top_p`/`top_k` with a 400
-   * on EVERY request, thinking or not.
+   * Generations that still ACCEPT `temperature`/`top_p`/`top_k`.
    *
-   * Per Anthropic's docs this covers Claude 4.7 and later plus the Fable/Mythos
-   * line. Note this is not limited to thinking requests, which is why the
-   * non-thinking path has to honour it too.
+   * Claude 4.7 and later, plus the Fable/Mythos line, reject a non-default
+   * `temperature` with a 400 on EVERY request, thinking or not — which is why
+   * the non-thinking path has to honour this too.
+   *
+   * This is deliberately an allowlist of older generations rather than a denylist
+   * of newer ones. A denylist has to enumerate every future model ID, so
+   * `claude-sonnet-4-7` or `claude-opus-4-9` would match nothing, fall through as
+   * permitted, and be sent a temperature they reject. Listing what is known to
+   * accept sampling params instead makes the unknown case default FORWARD — the
+   * same direction `thinkingMode` already defaults, so the two stay consistent.
    */
-  private val NoSamplingParamsMarkers = Seq(
-    "claude-opus-4-7", "claude-opus-4-8", "claude-opus-5",
-    "claude-sonnet-5",
-    "claude-fable-5", "claude-mythos-5", "claude-mythos-preview"
+  private val SamplingParamsMarkers = Seq(
+    "claude-3-5", "claude-3-7", "claude-3-opus", "claude-3-haiku", "claude-3-sonnet",
+    "claude-opus-4-0", "claude-opus-4-1", "claude-opus-4-5", "claude-opus-4-6",
+    "claude-sonnet-4-0", "claude-sonnet-4-5", "claude-sonnet-4-6",
+    "claude-haiku-4-5",
+    "claude-opus-4-20", "claude-sonnet-4-20"
   )
 
   private def matches(model: String, markers: Seq[String]): Boolean = {
@@ -86,7 +94,7 @@ object ClaudeModelCapabilities {
    * False for 4.7+ regardless of thinking state.
    */
   def supportsSamplingParams(model: String): Boolean =
-    !matches(model, NoSamplingParamsMarkers)
+    matches(model, SamplingParamsMarkers)
 
   /**
    * Map the extension's reasoning_effort config onto Anthropic's

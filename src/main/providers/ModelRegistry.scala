@@ -27,15 +27,20 @@ object ModelRegistry {
   private var modelDirLoaded: Option[String] = None
   private var overrideLoadMessage: Option[String] = None
 
-  // Fallback config in case YAML loading fails (minimal set for stability)
-  private val FALLBACK_CONFIG: Map[String, ProviderModels] = Map(
+  // Fallback config in case YAML loading fails (minimal set for stability).
+  //
+  // Every provider's defaultModel must appear here as well as in models.yaml.
+  // The drift guard in ProviderDefaultsSpec checks descriptors against the
+  // LOADED registry, so a stale entry here survives it — which is how the
+  // retired models #62 removed elsewhere lingered in this map.
+  private[llm] val FALLBACK_CONFIG: Map[String, ProviderModels] = Map(
     "openai" -> ProviderModels(Set("gpt-4o", "gpt-4o-mini", "gpt-4", "gpt-3.5-turbo"), isCustom = false),
     "anthropic" -> ProviderModels(Set(
-      "claude-3-5-sonnet-20241022", "claude-3-5-sonnet-latest",
-      "claude-3-5-haiku-20241022", "claude-3-5-haiku-latest"
+      "claude-opus-5", "claude-sonnet-5",
+      "claude-haiku-4-5-20251001", "claude-opus-4-5-20251101"
     ), isCustom = false),
-    "gemini" -> ProviderModels(Set("gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash-exp"), isCustom = false),
-    "ollama" -> ProviderModels(Set("llama3.2", "llama3.1", "mistral", "phi4"), isCustom = false),
+    "gemini" -> ProviderModels(Set("gemini-2.5-pro", "gemini-2.5-flash", "gemini-3-pro-preview"), isCustom = false),
+    "ollama" -> ProviderModels(Set("llama3.2:3b", "llama3.2:1b", "mistral", "phi4"), isCustom = false),
     "openrouter" -> ProviderModels(Set("openai/gpt-4o", "openai/gpt-4o-mini", "anthropic/claude-3.5-sonnet", "deepseek/deepseek-r1"), isCustom = false),
     "together" -> ProviderModels(Set("meta-llama/Llama-3.3-70B-Instruct-Turbo", "deepseek-ai/DeepSeek-R1", "Qwen/Qwen2.5-72B-Instruct-Turbo"), isCustom = false)
   )

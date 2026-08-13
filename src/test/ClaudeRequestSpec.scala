@@ -142,12 +142,25 @@ class ClaudeRequestSpec extends AnyFunSuite {
   test("sampling-parameter support matches Anthropic generations") {
     assert(ClaudeModelCapabilities.supportsSamplingParams("claude-haiku-4-5-20251001"))
     assert(ClaudeModelCapabilities.supportsSamplingParams("claude-opus-4-6"))
+    assert(ClaudeModelCapabilities.supportsSamplingParams("claude-sonnet-4-6"))
 
     assert(!ClaudeModelCapabilities.supportsSamplingParams("claude-opus-4-7"))
     assert(!ClaudeModelCapabilities.supportsSamplingParams("claude-opus-4-8"))
     assert(!ClaudeModelCapabilities.supportsSamplingParams("claude-opus-5"))
     assert(!ClaudeModelCapabilities.supportsSamplingParams("claude-sonnet-5"))
     assert(!ClaudeModelCapabilities.supportsSamplingParams("claude-fable-5"))
+  }
+
+  test("unknown models default forward on BOTH capability checks") {
+    import ClaudeThinkingMode._
+    // A denylist of "no sampling params" models had to enumerate every future
+    // ID, so these fell through as permitted and were sent a temperature they
+    // reject with a 400. Both checks must default the same direction.
+    for (m <- Seq("claude-sonnet-4-7", "claude-haiku-4-7", "claude-opus-4-9",
+                  "claude-something-new")) {
+      assert(ClaudeModelCapabilities.thinkingMode(m) == Adaptive, s"$m thinking mode")
+      assert(!ClaudeModelCapabilities.supportsSamplingParams(m), s"$m sampling params")
+    }
   }
 
   test("effort values outside Anthropic's accepted set are dropped") {
