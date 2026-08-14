@@ -2,7 +2,7 @@
 // ABOUTME: Reduces boilerplate by providing shared implementation of config, validation, and HTTP request handling
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, ResponseFormat}
 import org.nlogo.extensions.llm.config.ConfigStore
 import sttp.client4._
 import sttp.client4.httpclient.HttpClientFutureBackend
@@ -160,7 +160,10 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
   /**
    * Build a ChatRequest from current config and messages, resolving ThinkingConfig
    */
-  protected def buildRequest(messages: Seq[ChatMessage]): ChatRequest = {
+  protected def buildRequest(
+    messages: Seq[ChatMessage],
+    responseFormat: Option[ResponseFormat] = None
+  ): ChatRequest = {
     val model = configStore.getOrElse(ConfigStore.MODEL, defaultModel)
     val temperature = configStore.get(ConfigStore.TEMPERATURE).map(_.toDouble)
     val maxTokens = configStore.get(ConfigStore.MAX_TOKENS).map(_.toInt)
@@ -171,7 +174,8 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
       messages = messages,
       maxTokens = maxTokens,
       temperature = temperature,
-      thinkingConfig = thinkingConfig
+      thinkingConfig = thinkingConfig,
+      responseFormat = responseFormat
     )
   }
 
@@ -191,6 +195,20 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
    */
   override def chatWithFullResponse(messages: Seq[ChatMessage]): Future[ChatResponse] = {
     val request = buildRequest(messages)
+    chat(request)
+  }
+
+  /**
+   * Chat with the reply constrained to a response format.
+   *
+   * The format travels on the ChatRequest; each provider's createProviderRequest
+   * decides how to express it on the wire.
+   */
+  override def chatWithFormat(
+    messages: Seq[ChatMessage],
+    format: ResponseFormat
+  ): Future[ChatResponse] = {
+    val request = buildRequest(messages, Some(format))
     chat(request)
   }
 

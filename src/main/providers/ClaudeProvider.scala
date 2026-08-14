@@ -3,7 +3,7 @@
 
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat}
 import org.nlogo.extensions.llm.config.ConfigStore
 import sttp.client4._
 import sttp.model.Uri
@@ -115,7 +115,7 @@ class ClaudeProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
           ClaudeModelCapabilities
             .effortValue(request.thinkingConfig.flatMap(_.reasoningEffort))
             .foreach { effort =>
-              baseRequest("output_config") = ujson.Obj("effort" -> effort)
+              outputConfig(baseRequest)("effort") = effort
             }
       }
     } else if (allowsSampling) {
@@ -124,8 +124,51 @@ class ClaudeProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
       }
     }
 
+    applyResponseFormat(baseRequest, request)
+
     baseRequest
   }
+
+  /**
+   * Get (creating if needed) the request's `output_config` object.
+   *
+   * `effort` and `format` are siblings under one key, so both writers must
+   * extend the same object. Assigning a fresh `ujson.Obj` from either would
+   * silently drop whatever the other had already set.
+   */
+  private def outputConfig(baseRequest: ujson.Obj): ujson.Obj =
+    baseRequest.value.get("output_config") match {
+      case Some(existing: ujson.Obj) => existing
+      case _ =>
+        val created = ujson.Obj()
+        baseRequest("output_config") = created
+        created
+    }
+
+  /**
+   * Add Anthropic's native `output_config.format`.
+   *
+   * Only schema-bearing formats are sent. Anthropic has no schemaless JSON mode,
+   * so [[JsonObjectFormat]] adds nothing here — inventing a `json_object` type
+   * would be rejected by the API. The prompt-level instruction added by the
+   * extension carries that case instead.
+   */
+  private def applyResponseFormat(baseRequest: ujson.Obj, request: ChatRequest): Unit =
+    request.responseFormat.foreach {
+      case JsonSchemaFormat(schema, _) =>
+        outputConfig(baseRequest)("format") = ujson.Obj(
+          "type" -> "json_schema",
+          "schema" -> ResponseFormat.strictSchema(schema)
+        )
+
+      case enumFormat: EnumFormat =>
+        outputConfig(baseRequest)("format") = ujson.Obj(
+          "type" -> "json_schema",
+          "schema" -> enumFormat.schema
+        )
+
+      case JsonObjectFormat => ()
+    }
 
   override protected def parseProviderResponse(responseBody: String, model: String): ChatResponse = {
     try {

@@ -1,6 +1,6 @@
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, ResponseFormat}
 import scala.concurrent.Future
 import scala.util.Try
 
@@ -35,6 +35,20 @@ trait LLMProvider {
    * @return Future containing the complete ChatResponse with thinking field
    */
   def chatWithFullResponse(messages: Seq[ChatMessage]): Future[ChatResponse]
+
+  /**
+   * Chat with the reply constrained to a response format.
+   *
+   * Defaults to an unconstrained request so existing providers keep compiling
+   * and behave exactly as before; providers that can enforce a format override
+   * this. A provider that ignores the format still returns a usable answer,
+   * which is the graceful-degradation behaviour the extension relies on.
+   *
+   * @param messages The conversation history
+   * @param format   How the reply should be shaped
+   */
+  def chatWithFormat(messages: Seq[ChatMessage], format: ResponseFormat): Future[ChatResponse] =
+    chatWithFullResponse(messages)
 
   /**
    * Set a configuration parameter for this provider

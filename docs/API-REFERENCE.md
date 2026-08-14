@@ -13,6 +13,9 @@ The NetLogo Multi-LLM Extension provides a unified interface for multiple Large 
 | `llm:chat-with-template file vars` | Chat          | Send templated prompt with variable substitution           |
 | `llm:chat-with-thinking text`      | Chat          | Returns `[answer thinking]` for reasoning-capable models   |
 | `llm:choose prompt choices`        | Chat          | Force selection from provided options                      |
+| `llm:chat-with-schema prompt schema` | Structured  | Schema-constrained chat, returns parsed nested lists       |
+| `llm:chat-json prompt`             | Structured    | Force valid JSON output, returns the raw JSON string       |
+| `llm:get parsed key`               | Structured    | Look up a key in a `[[key value] ...]` list                |
 | `llm:compile-error code`           | Validation    | `""` if valid, else compiler error; optional disallowed list |
 | `llm:set-thinking bool`            | Reasoning     | Enable/disable reasoning mode for current provider         |
 | `llm:set-reasoning-effort level`   | Reasoning     | Set effort: `"low"`, `"medium"`, `"high"`                  |
@@ -235,6 +238,117 @@ set color read-from-string color-choice
 - Forces LLM to return exactly one of the provided choices
 - Useful for agent decision-making in models
 - Maintains conversation context
+- Where the provider supports constrained decoding, the option list is sent as a
+  schema constraint so the model cannot reply with anything else. Providers that
+  do not support it fall back to the prompt wording, and the reply is still
+  matched case-insensitively against the list — so behaviour is unchanged, just
+  more reliable where the constraint is available.
+- Still raises an error if the reply matches no option. Wrap in `carefully` if a
+  model should tolerate that.
+
+## Structured Output Primitives
+
+These constrain the *shape* of a reply at the API level rather than by asking
+nicely in the prompt. See [Structured Output](#structured-output-details) below
+for the JSON-to-NetLogo mapping and provider support.
+
+### llm:chat-with-schema
+
+**Syntax**: `llm:chat-with-schema prompt schema`
+
+**Description**: Sends a prompt with the reply constrained to a JSON Schema, and
+reports the parsed result as nested NetLogo lists.
+
+**Parameters**:
+
+- `prompt` (string): The question or context
+- `schema` (string): A JSON Schema object, as a string
+
+**Returns**: List — the parsed JSON. Objects arrive as `[[key value] ...]` pairs;
+use `llm:get` to read fields.
+
+**Example**:
+
+```netlogo
+let schema "{\"type\":\"object\",\"properties\":{\"action\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}}}"
+let result llm:chat-with-schema "What should the agent do?" schema
+let action llm:get result "action"          ; "explore"
+let conf   llm:get result "confidence"      ; 0.85
+```
+
+**Notes**:
+
+- The schema's structure is checked before any request is sent — that it is a
+  JSON object, that every level declares a supported `type`, that objects have
+  non-empty `properties`, that arrays declare `items`, and that any `enum` is a
+  non-empty array. A problem in any of those fails immediately with a message
+  naming the offending path, rather than as an opaque provider error after a
+  network round-trip.
+- Other JSON Schema keywords are passed through to the provider unchecked. The
+  four providers accept different dialects, so validating every keyword here
+  would reject schemas a given provider would have honoured; a keyword one
+  provider rejects still surfaces as that provider's error.
+- Object schemas are normalized to strict mode (`additionalProperties: false`,
+  every property listed in `required`) because OpenAI and Anthropic require it.
+  The same normalization is applied for every provider so one schema behaves
+  the same everywhere.
+- If the reply is not valid JSON, this raises an error and conversation history
+  is left unchanged — a failed call never records a bogus exchange.
+
+### llm:chat-json
+
+**Syntax**: `llm:chat-json prompt`
+
+**Description**: Sends a prompt with the reply constrained to valid JSON, with no
+schema, and reports the raw JSON string.
+
+**Returns**: String — the JSON text
+
+**Example**:
+
+```netlogo
+let json-str llm:chat-json "List three actions as a JSON array"
+```
+
+**Notes**:
+
+- Use `llm:chat-with-schema` when the shape matters and you want NetLogo values
+  back; use this when you want the JSON text itself.
+- The reply is checked to be valid JSON before it is reported. Not every
+  provider can enforce schemaless JSON natively — Anthropic has no such mode —
+  so a model that replies with prose raises an error rather than returning it,
+  and conversation history is left unchanged.
+- Any JSON value is accepted, not just objects: an array or a scalar is still
+  valid JSON. The text is reported exactly as received, not reformatted.
+
+### llm:get
+
+**Syntax**: `llm:get parsed key`
+
+**Description**: Looks up a key in a list of `[key value]` pairs — the shape
+`llm:chat-with-schema` reports.
+
+**Parameters**:
+
+- `parsed` (list): A list of `[key value]` pairs
+- `key` (string): The key to find
+
+**Returns**: The value at that key — a string, number, boolean, or nested list
+
+**Example**:
+
+```netlogo
+let result llm:chat-with-schema "Describe a turtle" schema
+let name llm:get result "name"
+let city llm:get (llm:get result "address") "city"   ; nested lookup
+```
+
+**Notes**:
+
+- Matching is exact and case-sensitive, because JSON keys are.
+- A missing key raises an error listing the available keys. It does not report a
+  blank — a silent `""` would be indistinguishable from a JSON null and would let
+  a typo travel through a run as data.
 
 ### llm:chat-with-template
 
@@ -743,6 +857,85 @@ print llm:list-models  ; Shows all providers, with Anthropic marked as ACTIVE
 - Use this to discover available models across all providers
 - Custom models added via `models-override.yaml` are marked with `[custom]`
 - The currently active provider and model are marked with `[ACTIVE]`
+
+## Structured Output Details
+
+### Why JSON becomes nested lists
+
+NetLogo's type system has strings, numbers, booleans, lists, and agents — there
+is no map or dictionary type. A JSON object therefore arrives as a list of
+`[key value]` pairs, which is the association-list shape NetLogo modelers
+already use and which `llm:get` can search.
+
+| JSON        | NetLogo                     | Example                        |
+| ----------- | --------------------------- | ------------------------------ |
+| Object `{}` | List of `[key value]` pairs | `[["name" "Alice"] ["age" 30]]` |
+| Array `[]`  | List                        | `["a" "b" "c"]`                |
+| String      | String                      | `"hello"`                      |
+| Number      | Number                      | `42`, `3.14`                   |
+| Boolean     | Boolean                     | `true`, `false`                |
+| Null        | Empty string                | `""`                           |
+
+Null maps to `""` because NetLogo has no null, and `""` is a value a model can
+compare against without a runtime error.
+
+### Provider support
+
+Each provider expresses the same constraint in its own request field:
+
+| Provider                            | Field                                  | Schemaless JSON mode        |
+| ----------------------------------- | -------------------------------------- | --------------------------- |
+| OpenAI, Groq, Together, OpenRouter   | `response_format.json_schema.schema`   | `response_format.json_object` |
+| Anthropic (Claude)                  | `output_config.format.schema`          | Prompt instruction only     |
+| Gemini                              | `generationConfig.responseJsonSchema`  | `responseMimeType` only     |
+| Ollama                              | `format`                               | `format: "json"`            |
+
+Notes on the two asymmetries:
+
+- **Anthropic has no schemaless JSON mode.** For `llm:chat-json`, no
+  `output_config.format` is sent — inventing one would be rejected by the API —
+  so the JSON instruction is carried in the prompt instead. `llm:chat-with-schema`
+  uses the native schema field.
+- **Claude's `output_config` is shared.** Thinking depth (`effort`) and response
+  format (`format`) are siblings under one key, so both are merged into the same
+  object. Setting a schema does not disturb an existing `effort`, and vice versa.
+
+Whether a *particular model* honours the constraint is decided by the provider,
+not this extension. Where a model ignores it, the reply is still returned and
+`llm:choose` still matches it against the option list — nothing fails merely
+because constrained decoding was unavailable.
+
+### Scope of this release
+
+`llm:set-response-format` and `llm:clear-response-format` — a persistent schema
+applied to ordinary `llm:chat` calls — are **not** included. Two reasons:
+
+1. `llm:chat` declares a `StringType` return in its syntax. A persistent schema
+   would make it report JSON-as-a-string with no signal at the type level, so
+   model code could not tell which shape it was about to get.
+2. The format would live in global config while conversation history is
+   per-agent, so a schema set for one agent would silently apply to every other
+   agent's calls mid-run.
+
+The one-shot primitives (`llm:chat-with-schema`, `llm:chat-json`) express the
+same capability without either problem: the constraint and the return type are
+visible at the call site. If a persistent form is added later, per-agent scoping
+and a distinct return type are the open design questions.
+
+Generalizing `llm:choose` to non-string results (numbers, coordinates, ordered
+plans) is likewise not a new set of primitives here — those are schema shapes for
+`llm:chat-with-schema`. For example, a multi-step plan:
+
+```netlogo
+let schema "{\"type\":\"object\",\"properties\":{\"steps\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}}}"
+let plan llm:get (llm:chat-with-schema "Plan three moves" schema) "steps"
+foreach plan [ s -> print s ]
+```
+
+If the steps are meant to be executed as NetLogo code rather than printed, check
+each one with `llm:compile-error` first and keep `carefully` around the `run` —
+a schema constrains the *shape* of a reply, not whether its contents are safe or
+runnable.
 
 ## Usage Patterns
 

@@ -2,7 +2,7 @@
 // ABOUTME: Shared by OpenAI, OpenRouter, and Together AI — subclasses override hooks for headers, reasoning, and thinking
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, Choice}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, Choice, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat}
 import org.nlogo.extensions.llm.config.ConfigStore
 import sttp.client4._
 import sttp.model.Uri
@@ -87,8 +87,41 @@ abstract class OpenAICompatibleProvider(implicit ec: ExecutionContext) extends B
       }
     }
 
+    applyResponseFormat(baseRequest, request)
+
     baseRequest
   }
+
+  /**
+   * Add the OpenAI `response_format` field.
+   *
+   * A schema is normalized to strict mode first: OpenAI rejects a schema that
+   * omits `additionalProperties: false` or leaves any property out of
+   * `required`, and applying the same normalization for every provider keeps one
+   * modeler-written schema working across all of them.
+   */
+  protected def applyResponseFormat(baseObj: ujson.Obj, request: ChatRequest): Unit =
+    request.responseFormat.foreach {
+      case JsonSchemaFormat(schema, name) =>
+        baseObj("response_format") = jsonSchemaField(name, ResponseFormat.strictSchema(schema))
+
+      case enumFormat: EnumFormat =>
+        baseObj("response_format") =
+          jsonSchemaField(ResponseFormat.DefaultSchemaName, enumFormat.schema)
+
+      case JsonObjectFormat =>
+        baseObj("response_format") = ujson.Obj("type" -> "json_object")
+    }
+
+  private def jsonSchemaField(name: String, schema: ujson.Value): ujson.Obj =
+    ujson.Obj(
+      "type" -> "json_schema",
+      "json_schema" -> ujson.Obj(
+        "name" -> name,
+        "strict" -> true,
+        "schema" -> schema
+      )
+    )
 
   override protected def parseProviderResponse(responseBody: String, model: String): ChatResponse = {
     try {
