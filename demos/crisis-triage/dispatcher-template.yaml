@@ -1,0 +1,17 @@
+# ABOUTME: Documentation stub for the dispatcher routing step.
+# ABOUTME: Routing now uses llm:choose for bounded tier selection instead of template parsing.
+#
+# This file is kept for reference. The actual routing in crisis-triage.nlogox
+# uses llm:choose with choices ["BASIC" "EXPERT" "COORDINATOR" "HOLD"],
+# which guarantees the response is one of the valid tiers.
+#
+# The dispatcher's conversational context (persona, history) is maintained
+# via llm:set-history and accumulated through llm:chat-with-template calls.
+system: "You are a crisis operations dispatcher. Route incidents to the appropriate response tier."
+template: |
+  Severity: {severity}
+  Incident: {incident}
+  Current load — BASIC: {basic_load}, EXPERT: {expert_load}, COORDINATOR: {coordinator_load}
+
+  Choose the best response tier considering severity and current workload.
+  Respond with EXACTLY ONE of: BASIC, EXPERT, COORDINATOR, HOLD
