@@ -3,7 +3,7 @@
 
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat}
 import org.nlogo.extensions.llm.config.ConfigStore
 import sttp.client4._
 import sttp.model.Uri
@@ -129,6 +129,22 @@ class GeminiProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
       }
       generationConfig("thinkingConfig") = thinkingObj
       hasConfig = true
+    }
+
+    // Structured output lives in generationConfig alongside thinking, so both
+    // can be set on one request. responseMimeType is mandatory whenever JSON is
+    // wanted; responseJsonSchema is the newer standard-JSON-Schema field, which
+    // takes lowercase types exactly as the modeler wrote them.
+    request.responseFormat.foreach { format =>
+      generationConfig("responseMimeType") = "application/json"
+      hasConfig = true
+      format match {
+        case JsonSchemaFormat(schema, _) =>
+          generationConfig("responseJsonSchema") = ResponseFormat.strictSchema(schema)
+        case enumFormat: EnumFormat =>
+          generationConfig("responseJsonSchema") = enumFormat.schema
+        case JsonObjectFormat => ()
+      }
     }
 
     if (hasConfig) {

@@ -4,7 +4,8 @@ import org.nlogo.api._
 import org.nlogo.core.{LogoList, Syntax}
 import org.nlogo.extensions.llm.config.{ConfigLoader, ConfigStore}
 import org.nlogo.extensions.llm.providers.{LLMProvider, ProviderDescriptor, ProviderFactory, ProviderRegistry, ProviderRegistrations, ModelRegistry, OllamaProvider, ReadinessCheck, RetryPolicy}
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatResponse}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatResponse, EnumFormat, JsonObjectFormat, ResponseFormat}
+import org.nlogo.extensions.llm.utils.JsonToNetLogo
 import scala.collection.mutable.{ArrayBuffer, WeakHashMap}
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
@@ -101,6 +102,11 @@ class LLMExtension extends DefaultClassManager {
     manager.addPrimitive("chat-with-template", ChatWithTemplateReporter)
     manager.addPrimitive("chat-with-thinking", ChatWithThinkingReporter)
     manager.addPrimitive("choose", ChooseReporter)
+
+    // Structured output primitives
+    manager.addPrimitive("chat-with-schema", ChatWithSchemaReporter)
+    manager.addPrimitive("chat-json", ChatJsonReporter)
+    manager.addPrimitive("get", GetReporter)
 
     // Code validation primitive
     manager.addPrimitive("compile-error", CompileErrorReporter)
@@ -621,8 +627,10 @@ class LLMExtension extends DefaultClassManager {
         tempHistory.prepend(ChatMessage.system(systemPrompt))
         tempHistory += ChatMessage.user(userPrompt)
 
-        // Use chatWithFullResponse to access thinking field for thinking models
-        val responseFuture = provider.chatWithFullResponse(tempHistory.toSeq)
+        // Constrain the reply to the choice list where the provider supports it.
+        // The prompt still spells out the options, so a provider that ignores
+        // the constraint behaves exactly as it did before.
+        val responseFuture = provider.chatWithFormat(tempHistory.toSeq, EnumFormat(choices))
         val response = Await.result(responseFuture, getAwaitTimeout)
 
         // Extract text: prefer content, fall back to thinking field
@@ -631,11 +639,16 @@ class LLMExtension extends DefaultClassManager {
           .getOrElse("")
           .trim
 
+        // A constrained reply arrives as {"choice": "..."} while an unconstrained
+        // one is the bare option text. Accept both: which shape comes back
+        // depends on provider support, and the modeler asked for neither.
+        val candidate = extractEnumChoice(text).getOrElse(text)
+
         // Exact match only (case-insensitive)
-        val chosenOption = choices.find(_.equalsIgnoreCase(text))
+        val chosenOption = choices.find(_.equalsIgnoreCase(candidate))
           .getOrElse {
             throw new ExtensionException(
-              s"llm:choose: response '$text' did not match any choice. " +
+              s"llm:choose: response '$candidate' did not match any choice. " +
               s"Choices: ${choices.mkString(", ")}"
             )
           }
@@ -652,6 +665,194 @@ class LLMExtension extends DefaultClassManager {
     }
   }
   
+  /**
+   * Read the selected option out of an enum-constrained reply.
+   *
+   * A provider enforcing the constraint returns `{"choice": "north"}`; one that
+   * ignores it returns `north`. Returns None for anything that is not the
+   * constrained shape, so the caller can fall back to the raw text.
+   */
+  private def extractEnumChoice(text: String): Option[String] =
+    scala.util.Try {
+      ujson.read(text)(EnumFormat.ChoiceKey).str
+    }.toOption
+
+  // Structured Output Primitives
+
+  /**
+   * Chat with the reply constrained to a JSON Schema, reported as nested lists.
+   *
+   *   llm:chat-with-schema prompt schema-string
+   *
+   * NetLogo has no map type, so the parsed JSON object arrives as a list of
+   * `[key value]` pairs — use `llm:get` to read fields out of it.
+   *
+   * The schema is validated before any request is sent: an unusable schema
+   * otherwise surfaces as an opaque provider 400 after a network round-trip,
+   * which a modeler cannot act on.
+   */
+  object ChatWithSchemaReporter extends Reporter {
+    override def getSyntax: Syntax = Syntax.reporterSyntax(
+      right = List(Syntax.StringType, Syntax.StringType),
+      ret = Syntax.ListType
+    )
+
+    override def report(args: Array[Argument], context: Context): AnyRef = {
+      val inputText = args(0).getString
+      val schemaText = args(1).getString
+      val agent = context.getAgent
+
+      // Validate before touching the provider so a bad schema costs nothing.
+      val format =
+        try ResponseFormat.parseSchema(schemaText)
+        catch {
+          case e: IllegalArgumentException =>
+            throw new ExtensionException(s"llm:chat-with-schema: ${e.getMessage}")
+        }
+
+      // This reporter's syntax promises a list, and only a JSON object converts
+      // to the [key value] pairs llm:get reads. A top-level scalar or array
+      // schema would report a bare string or a flat list instead, breaking that
+      // promise, so it is rejected here rather than at the provider.
+      val topLevelType = format.schema.value.get("type").collect { case ujson.Str(s) => s }
+      if (!topLevelType.contains("object")) {
+        throw new ExtensionException(
+          s"llm:chat-with-schema: schema must have type 'object' at the top level, but got " +
+            s"'${topLevelType.getOrElse("none")}'. llm:chat-with-schema reports a list of " +
+            "[key value] pairs, so the reply has to be a JSON object. Wrap it, e.g. " +
+            """{"type":"object","properties":{"value":{"type":"string"}}}"""
+        )
+      }
+
+      try {
+        val provider = ensureProvider()
+
+        val userMessage = ChatMessage.user(inputText)
+
+        val responseFuture = provider.chatWithFormat(snapshotHistory(agent) :+ userMessage, format)
+        val response = Await.result(responseFuture, getAwaitTimeout)
+
+        val content = response.firstContent.getOrElse("")
+
+        // Parse before committing: a reply that is not JSON means the call did
+        // not deliver what was asked for, so history must not record it as a
+        // successful exchange.
+        val parsed =
+          try JsonToNetLogo.parseObject(content)
+          catch {
+            case e: IllegalArgumentException =>
+              throw new ExtensionException(s"llm:chat-with-schema: ${e.getMessage}")
+          }
+
+        commitExchange(agent, userMessage, ChatMessage.assistant(content))
+
+        parsed
+
+      } catch {
+        case e: Exception if !e.isInstanceOf[ExtensionException] =>
+          throw new ExtensionException(s"llm:chat-with-schema failed: ${e.getMessage}")
+      }
+    }
+  }
+
+  /**
+   * Chat with the reply constrained to valid JSON, reported as a raw string.
+   *
+   *   llm:chat-json prompt
+   *
+   * Reports the JSON text rather than parsed lists, for modelers who want to
+   * hand it to another tool or inspect it directly. Use `llm:chat-with-schema`
+   * when the shape matters and you want NetLogo values back.
+   */
+  object ChatJsonReporter extends Reporter {
+    override def getSyntax: Syntax = Syntax.reporterSyntax(
+      right = List(Syntax.StringType),
+      ret = Syntax.StringType
+    )
+
+    override def report(args: Array[Argument], context: Context): AnyRef = {
+      val inputText = args(0).getString
+      val agent = context.getAgent
+
+      try {
+        val provider = ensureProvider()
+
+        // Anthropic has no schemaless JSON mode and Gemini's mime type alone is
+        // only a hint, so the instruction is also stated in the prompt. Providers
+        // that do enforce JSON natively are unaffected by the extra sentence.
+        val jsonInstruction = ChatMessage.system(
+          "Respond with valid JSON only. No prose, no markdown code fences."
+        )
+        val userMessage = ChatMessage.user(inputText)
+
+        val tempHistory = ArrayBuffer.from(snapshotHistory(agent))
+        tempHistory.prepend(jsonInstruction)
+        tempHistory += userMessage
+
+        val responseFuture = provider.chatWithFormat(tempHistory.toSeq, JsonObjectFormat)
+        val response = Await.result(responseFuture, getAwaitTimeout)
+
+        val content = response.firstContent.getOrElse("")
+
+        // Not every provider can enforce schemaless JSON natively — Anthropic
+        // has no such mode at all — so the reply is verified here rather than
+        // trusted. Checking before the commit keeps a failed call out of
+        // history, and stops prose being reported from a primitive whose whole
+        // contract is that the result parses as JSON. Any JSON value is
+        // accepted: an array or scalar is still valid JSON.
+        try ujson.read(content)
+        catch {
+          case e: Exception =>
+            throw new ExtensionException(
+              s"llm:chat-json: Response was not valid JSON: ${e.getMessage}. Response text: $content"
+            )
+        }
+
+        // Store the clean exchange only — the JSON instruction is prompt
+        // scaffolding, not part of the conversation.
+        commitExchange(agent, userMessage, ChatMessage.assistant(content))
+
+        content
+
+      } catch {
+        case e: Exception if !e.isInstanceOf[ExtensionException] =>
+          throw new ExtensionException(s"llm:chat-json failed: ${e.getMessage}")
+      }
+    }
+  }
+
+  /**
+   * Look up a key in a list of `[key value]` pairs.
+   *
+   *   llm:get parsed-result "key"
+   *
+   * Throws on a missing key rather than reporting a sentinel: a silent "" would
+   * be indistinguishable from a JSON null and would let a typo propagate as data
+   * through the rest of a run.
+   */
+  object GetReporter extends Reporter {
+    override def getSyntax: Syntax = Syntax.reporterSyntax(
+      right = List(Syntax.ListType, Syntax.StringType),
+      ret = Syntax.WildcardType
+    )
+
+    override def report(args: Array[Argument], context: Context): AnyRef = {
+      val list = args(0).getList
+      val key = args(1).getString
+
+      JsonToNetLogo.lookup(list, key).getOrElse {
+        val available = list.toVector.collect {
+          case pair: LogoList if pair.size == 2 => pair(0).toString
+        }
+        val detail =
+          if (list.size == 0) "The list is empty."
+          else if (available.isEmpty) "Available keys: (none - the list is not a list of [key value] pairs)"
+          else s"Available keys: ${available.mkString(", ")}"
+        throw new ExtensionException(s"""llm:get: key "$key" not found. $detail""")
+      }
+    }
+  }
+
   // Thinking/Reasoning Primitives
 
   object ChatWithThinkingReporter extends Reporter {
