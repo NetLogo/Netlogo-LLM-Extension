@@ -1,0 +1,8 @@
+# E2E validation — local Ollama. No API key required.
+# Verifies the full stack end to end without touching a paid provider.
+provider=ollama
+model=qwen2.5vl:3b
+base_url=http://localhost:11434
+temperature=0.0
+max_tokens=200
+timeout_seconds=120

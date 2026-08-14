@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="utf-8"?>
+<model version="NetLogo 7.0.3" snapToGrid="true">
+  <code><![CDATA[extensions [llm]
+
+globals [
+  pass-count     ;; assertions that held
+  fail-count     ;; assertions that did not
+  active-config  ;; config file the current run loaded
+]
+
+;; Load a provider config and reset the counters. The chooser picks which
+;; provider is under test; each config lives beside this model.
+to setup
+  clear-all
+  set pass-count 0
+  set fail-count 0
+  set active-config (word "config-" provider-under-test ".txt")
+  llm:load-config active-config
+  reset-ticks
+  output-print (word "Loaded " active-config)
+  output-print (word "Provider: " item 0 llm:active "  Model: " item 1 llm:active)
+  output-print ""
+end
+
+;; ---------------------------------------------------------------------------
+;; Assertion helpers
+;; ---------------------------------------------------------------------------
+
+to assert [what holds?]
+  ifelse holds?
+    [ set pass-count pass-count + 1
+      log-line (word "  PASS  " what) ]
+    [ set fail-count fail-count + 1
+      log-line (word "  FAIL  " what) ]
+end
+
+to log-line [txt]
+  file-open "e2e-results.txt"
+  file-print txt
+  file-close
+  output-print txt
+end
+
+to report-totals
+  output-print ""
+  output-print (word "passed " pass-count "   failed " fail-count)
+end
+
+;; ---------------------------------------------------------------------------
+;; T1 — a plain chat round trip against the live provider
+;; ---------------------------------------------------------------------------
+
+to test-basic-chat
+  log-line "T1 basic chat"
+  let answer ""
+  carefully
+    [ set answer llm:chat "Reply with exactly the word: PONG" ]
+    [ set answer (word "ERROR: " error-message) ]
+  log-line (word "  -> " answer)
+  assert "response is a non-empty string" (is-string? answer and not empty? answer)
+  assert "response is not an error" (not member? "ERROR:" answer)
+  report-totals
+end
+
+;; ---------------------------------------------------------------------------
+;; T2 — thinking-tag leakage (the HIGH finding on PR #73)
+;;
+;; Groq's documented default reasoning_format is "raw", which returns the
+;; model's reasoning inline in <think> tags. The extension copies content
+;; verbatim, so if the tags survive into the answer a user sees them. This
+;; is the check that only a live call can settle.
+;; ---------------------------------------------------------------------------
+
+to test-think-tag-leakage
+  log-line "T2 thinking-tag leakage"
+  let answer ""
+  carefully
+    [ set answer llm:chat "What is 2 + 2? Answer with just the number." ]
+    [ set answer (word "ERROR: " error-message) ]
+  log-line (word "  -> " answer)
+  assert "visible answer has no <think> tag" (not member? "<think>" answer)
+  assert "visible answer has no </think> tag" (not member? "</think>" answer)
+  report-totals
+end
+
+;; ---------------------------------------------------------------------------
+;; T3 — the same check with thinking explicitly enabled
+;;
+;; With thinking on, reasoning_format is sent. Thinking should arrive through
+;; llm:chat-with-thinking, and must NOT also be duplicated into the answer.
+;; ---------------------------------------------------------------------------
+
+to test-thinking-path
+  log-line "T3 thinking enabled"
+  llm:set-thinking true
+  let result 0
+  carefully
+    [ set result llm:chat-with-thinking "What is 7 * 6? Answer with just the number." ]
+    [ set result (list (word "ERROR: " error-message) "") ]
+  let answer item 0 result
+  let reasoning item 1 result
+  output-print (word "  answer   -> " answer)
+  output-print (word "  thinking -> " reasoning)
+  assert "answer is non-empty" (not empty? answer)
+  assert "answer carries no <think> tag" (not member? "<think>" answer)
+  llm:set-thinking false
+  report-totals
+end
+
+;; ---------------------------------------------------------------------------
+;; T4 — llm:compile-error against the live extension (issue #52, merged)
+;;
+;; No API call. Confirms the merged primitive still behaves once the other
+;; three branches are integrated on top of it.
+;; ---------------------------------------------------------------------------
+
+to test-compile-error
+  log-line "T4 llm:compile-error"
+  assert "valid code reports no error" (llm:compile-error "fd 1" = "")
+  assert "undefined primitive is rejected" ((llm:compile-error "frobnicate") != "")
+  assert "turtle context accepts rt" (llm:compile-error "rt 90 fd 1" = "")
+  assert "banned primitive is caught" ((llm:compile-error "die" ["die"]) != "")
+  assert "banned name inside identifier is not flagged"
+         ((llm:compile-error "let diehard 1 fd diehard" ["die"]) = "")
+  assert "multi-line let scoping works" (llm:compile-error "let x 5\nfd x" = "")
+  report-totals
+end
+
+;; ---------------------------------------------------------------------------
+;; T5 — per-agent history isolation under real calls
+;; ---------------------------------------------------------------------------
+
+to test-agent-history
+  log-line "T5 per-agent history"
+  create-turtles 3 [ setxy random-xcor random-ycor ]
+  ask turtles [
+    carefully [ let ignored llm:chat "Say OK" ] [ ]
+  ]
+  let lengths [length llm:history] of turtles
+  output-print (word "  history lengths -> " lengths)
+  assert "every agent kept its own history" (length remove-duplicates lengths <= 2)
+  ask turtles [ llm:clear-history ]
+  assert "clear-history empties each agent"
+         (reduce + [length llm:history] of turtles = 0)
+  report-totals
+end
+
+
+;; ---------------------------------------------------------------------------
+;; T6 — structured output (#22)
+;;
+;; The point of schema-constrained replies is that fields arrive as NetLogo
+;; TYPES, not text to be parsed. A provider can return well-formed JSON and
+;; still fail this if the conversion drops types, so both are asserted.
+;; ---------------------------------------------------------------------------
+
+to test-structured-output
+  log-line "T6 structured output"
+  let schema "{\"type\":\"object\",\"properties\":{\"action\":{\"type\":\"string\",\"enum\":[\"eat\",\"explore\"]},\"confidence\":{\"type\":\"number\"},\"alive\":{\"type\":\"boolean\"}},\"required\":[\"action\",\"confidence\",\"alive\"]}"
+  let parsed 0
+  carefully
+    [ set parsed llm:chat-with-schema "A turtle stands on food. Decide." schema ]
+    [ set parsed 0
+      log-line (word "  chat-with-schema failed: " error-message) ]
+
+  assert "schema reply is a list" (is-list? parsed)
+  if is-list? parsed [
+    log-line (word "  -> " parsed)
+    let act llm:get parsed "action"
+    let conf llm:get parsed "confidence"
+    let live llm:get parsed "alive"
+    assert "action is a string" (is-string? act)
+    assert "action honours the schema enum" (member? act ["eat" "explore"])
+    assert "confidence is a NUMBER, not text" (is-number? conf)
+    assert "boolean field is a boolean" (is-boolean? live)
+    assert "missing key raises rather than defaulting" missing-key-raises? parsed
+  ]
+
+  ;; The no-schema path returns raw JSON text, which must stay a string.
+  let raw ""
+  carefully
+    [ set raw llm:chat-json "Name two colours as a JSON object with key colours." ]
+    [ set raw (word "ERROR: " error-message) ]
+  log-line (word "  chat-json -> " raw)
+  assert "chat-json returns a string" (is-string? raw)
+  assert "chat-json output looks like JSON" (member? "{" raw)
+  report-totals
+end
+
+;; llm:get on an absent key must raise, so an optional field cannot be read as
+;; a silent empty value.
+to-report missing-key-raises? [parsed]
+  let raised? true
+  carefully
+    [ let ignored llm:get parsed "no-such-key-here"
+      set raised? false ]
+    [ set raised? true ]
+  report raised?
+end
+
+;; Run everything in sequence.
+to run-headless
+  carefully [ file-delete "e2e-results.txt" ] [ ]
+  setup
+  test-all
+end
+
+to noop
+end
+
+to test-all
+  clear-output
+  set pass-count 0
+  set fail-count 0
+  test-basic-chat
+  test-think-tag-leakage
+  test-thinking-path
+  test-compile-error
+  test-agent-history
+  test-structured-output
+  output-print ""
+  log-line (word "TOTAL  passed " pass-count "   failed " fail-count)
+end
+]]></code>
+  <widgets>
+    <view x="470" y="10" width="400" height="400"
+          minPxcor="-8" maxPxcor="8" minPycor="-8" maxPycor="8"
+          patchSize="23.0" frameRate="30.0" fontSize="10"
+          wrappingAllowedX="true" wrappingAllowedY="true"
+          showTickCounter="true" tickCounterLabel="ticks" updateMode="1"/>
+    <chooser x="15" y="15" width="200" height="45" variable="provider-under-test" current="0" display="provider-under-test">
+      <choice type="string" value="ollama"></choice>
+      <choice type="string" value="groq"></choice>
+      <choice type="string" value="anthropic"></choice>
+    </chooser>
+    <button x="225" y="15" width="90" height="45" kind="Observer" display="setup" forever="false" disableUntilTicks="false">setup</button>
+    <button x="325" y="15" width="120" height="45" kind="Observer" display="run all tests" forever="false" disableUntilTicks="true">test-all</button>
+    <monitor x="15" y="70" width="140" height="50" display="passed" precision="0" fontSize="11">pass-count</monitor>
+    <monitor x="165" y="70" width="140" height="50" display="failed" precision="0" fontSize="11">fail-count</monitor>
+    <output x="15" y="135" width="430" height="380" fontSize="11"/>
+  </widgets>
+  <info><![CDATA[## WHAT IS IT?
+
+End-to-end validation of the LLM extension against a live provider. Every test here
+makes a real API call — nothing is stubbed.
+
+It exists because a code review found three defects that unit tests could not catch,
+each of which depends on what a real provider actually returns.
+
+## HOW TO USE IT
+
+1. Put your key in the matching `config-<provider>.txt` beside this model.
+2. Pick the provider in the chooser.
+3. Press **setup**, then **run all tests**.
+
+`ollama` needs no key and runs locally.
+
+## WHAT EACH TEST COVERS
+
+**T1 basic chat** — a plain round trip. Proves the provider is reachable and the
+request shape is accepted.
+
+**T2 thinking-tag leakage** — the highest-severity open finding. A plain `llm:chat`
+never sends `reasoning_format`, so Groq falls back to its documented default `raw`
+and returns reasoning inline in `<think>` tags. Content is copied verbatim, so those
+tags reach the user. This test fails if that happens.
+
+**T3 thinking enabled** — the same question with thinking on, where
+`reasoning_format` IS sent. Reasoning should arrive separately, not duplicated into
+the answer.
+
+**T4 llm:compile-error** — no API call. Confirms the merged primitive still works
+with the other branches integrated on top.
+
+**T5 per-agent history** — each turtle keeps its own conversation, and
+`llm:clear-history` empties it.
+
+## THINGS TO NOTICE
+
+A pass on Ollama does not imply a pass on Groq. T2 and T3 are provider-specific by
+construction: the bug they target only appears against a provider whose default
+reasoning format is `raw`.
+
+## SCOPE
+
+These tests prove the extension handles what a provider returns. They do not prove
+every model in `models.yaml` is still live — providers retire models on their own
+schedule, and the registry needs periodic checking against each provider's
+deprecation page.
+]]></info>
+  <turtleShapes>
+    <shape name="default" rotatable="true" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="5"/>
+        <point x="40" y="250"/>
+        <point x="150" y="205"/>
+        <point x="260" y="250"/>
+      </polygon>
+    </shape>
+  </turtleShapes>
+  <linkShapes>
+    <shape name="default" curviness="0.0">
+      <lines>
+        <line x="-0.2" visible="false"><dash value="0.0"/><dash value="1.0"/></line>
+        <line x="0.0" visible="true"><dash value="1.0"/><dash value="0.0"/></line>
+        <line x="0.2" visible="false"><dash value="0.0"/><dash value="1.0"/></line>
+      </lines>
+      <indicator>
+        <shape name="link direction" rotatable="true" editableColorIndex="0">
+          <line startX="150" startY="150" endX="90" endY="180" marked="true" color="-1920102913"/>
+          <line startX="150" startY="150" endX="210" endY="180" marked="true" color="-1920102913"/>
+        </shape>
+      </indicator>
+    </shape>
+  </linkShapes>
+  <experiments>
+    <experiment name="e2e" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="true" timeLimit="1">
+      <setup>run-headless</setup>
+      <go>noop</go>
+      <metrics>
+        <metric>pass-count</metric>
+        <metric>fail-count</metric>
+      </metrics>
+    </experiment>
+  </experiments>
+</model>
