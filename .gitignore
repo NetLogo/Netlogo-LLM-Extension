@@ -66,3 +66,10 @@ __pycache__/
 *-config-with-keys*
 *-with-keys*
 .rocketride/
+
+# E2E test outputs
+demos/e2e-tests/e2e-results.txt
+demos/e2e-tests/e2e.csv
+!demos/e2e-tests/config-ollama.txt
+demos/e2e-tests/config-groq.txt
+demos/e2e-tests/config-anthropic.txt
