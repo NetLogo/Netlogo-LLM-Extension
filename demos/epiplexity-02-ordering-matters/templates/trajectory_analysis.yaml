@@ -1,0 +1,18 @@
+system: |
+  You are analyzing agent behaviors in a simulation.
+  Look for patterns, regularities, and cause-and-effect relationships.
+  State your hypothesized rules concisely (1-2 sentences).
+
+template: |
+  === OBSERVED TRAJECTORY (last 10 events) ===
+  {trajectory_window}
+
+  Agent states: [hungry, satiated, resting]
+  Possible actions: [move, eat, rest, migrate, die]
+
+  === ANALYSIS ===
+  What rules explain this sequence of events?
+  Consider: energy levels, state transitions, resource availability.
+  What causes each action?
+
+  Your hypothesis: (answer freely, 1-2 sentences)

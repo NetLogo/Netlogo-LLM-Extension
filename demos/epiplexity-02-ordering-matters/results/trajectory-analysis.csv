@@ -1,0 +1,1486 @@
+ordering,tick,event_index,agent_id,rule_hypothesis,predicted_action,actual_action,accuracy,coherence,prediction_entropy
+forward,1,0,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",eat,eat,1,1.0000,0.3126
+forward,1,1,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",migrate,eat,0,0.7000,0.6632
+forward,1,2,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",migrate,eat,0,0.2900,0.6632
+forward,1,3,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",eat,eat,1,0.2900,0.3126
+forward,1,4,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",unknown,eat,0,0.7000,0.6632
+forward,2,5,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",move,eat,0,0.2900,0.6632
+forward,2,6,agent2,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",unknown,rest,0,0.3214,0.6632
+forward,2,7,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",eat,rest,0,0.7000,0.3126
+forward,2,8,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",eat,rest,0,0.2692,0.3126
+forward,2,9,agent5,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",migrate,rest,0,0.2692,0.6632
+forward,3,10,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,0.3214,0.3126
+forward,3,11,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,3,12,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",migrate,rest,0,0.2900,0.6632
+forward,3,13,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,3,14,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,4,15,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",unknown,rest,0,0.2692,0.6632
+forward,4,16,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,4,17,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,4,18,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,4,19,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,5,20,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,5,21,agent2,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,5,22,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",die,rest,0,0.3214,0.6632
+forward,5,23,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,5,24,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,6,25,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.7000,0.3126
+forward,6,26,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.8000,0.3126
+forward,6,27,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,0.2900,0.6632
+forward,6,28,agent4,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,6,29,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,7,30,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",die,rest,0,0.7000,0.6632
+forward,7,31,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,7,32,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,7,33,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,7,34,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,8,35,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,8,36,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",migrate,rest,0,0.2900,0.6632
+forward,8,37,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,8,38,agent4,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,8,39,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,9,40,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,9,41,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",migrate,rest,0,0.8000,0.6632
+forward,9,42,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,9,43,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,9,44,agent5,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,10,45,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.7000,0.3126
+forward,10,46,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,10,47,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",unknown,rest,0,0.2900,0.6632
+forward,10,48,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,10,49,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,11,50,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,11,51,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,11,52,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,11,53,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2692,0.3126
+forward,11,54,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,12,55,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",unknown,rest,0,0.7000,0.6632
+forward,12,56,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,12,57,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,12,58,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,12,59,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,13,60,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,13,61,agent2,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,13,62,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,0.3214,0.6632
+forward,13,63,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,13,64,agent5,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",die,rest,0,0.3214,0.6632
+forward,14,65,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.7000,0.3126
+forward,14,66,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",unknown,rest,0,0.3214,0.6632
+forward,14,67,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,14,68,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",move,rest,0,0.2692,0.6632
+forward,14,69,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",die,rest,0,0.7000,0.6632
+forward,15,70,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.2692,0.3126
+forward,15,71,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,15,72,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,15,73,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",unknown,rest,0,0.8000,0.6632
+forward,15,74,agent5,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,16,75,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,16,76,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,16,77,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,16,78,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,16,79,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",die,rest,0,0.7000,0.6632
+forward,17,80,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.2692,0.3126
+forward,17,81,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,17,82,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,17,83,agent4,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.2692,0.3126
+forward,17,84,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2692,0.3126
+forward,18,85,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.7000,0.3126
+forward,18,86,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.8000,0.3126
+forward,18,87,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.2692,0.3126
+forward,18,88,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,0.3214,0.6632
+forward,18,89,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,19,90,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,19,91,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",die,rest,0,0.9000,0.6632
+forward,19,92,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,19,93,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,19,94,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,20,95,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,20,96,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.7000,0.3126
+forward,20,97,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.2692,0.3126
+forward,20,98,agent4,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",eat,rest,0,0.7000,0.6632
+forward,20,99,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2692,0.3126
+forward,21,100,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.7000,0.3126
+forward,21,101,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.8000,0.3126
+forward,21,102,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,21,103,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",move,rest,0,0.7000,0.6632
+forward,21,104,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",die,rest,0,0.8000,0.6632
+forward,22,105,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",migrate,rest,0,0.9000,0.6632
+forward,22,106,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,22,107,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,22,108,agent4,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,22,109,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,23,110,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,23,111,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,23,112,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,23,113,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,23,114,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",die,rest,0,0.2900,0.6632
+forward,24,115,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,24,116,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,24,117,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,0.2900,0.6632
+forward,24,118,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,24,119,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,25,120,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,25,121,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,25,122,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,25,123,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,25,124,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",eat,rest,0,0.2900,0.6632
+forward,26,125,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,26,126,agent2,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,26,127,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2692,0.3126
+forward,26,128,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,26,129,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,27,130,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,27,131,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,27,132,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,27,133,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",die,rest,0,0.8000,0.6632
+forward,27,134,agent5,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",die,rest,0,0.3214,0.6632
+forward,28,135,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.7000,0.3126
+forward,28,136,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,28,137,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,28,138,agent4,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.7000,0.3126
+forward,28,139,agent5,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",migrate,rest,0,0.8000,0.6632
+forward,29,140,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,29,141,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,29,142,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,29,143,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,29,144,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,30,145,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",move,rest,0,0.8000,0.6632
+forward,30,146,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",die,rest,0,0.2900,0.6632
+forward,30,147,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,30,148,agent4,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",die,rest,0,0.3214,0.6632
+forward,30,149,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",die,rest,0,0.2692,0.6632
+forward,31,150,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,31,151,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,31,152,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",unknown,rest,0,0.8000,0.6632
+forward,31,153,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,31,154,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,32,155,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,32,156,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,32,157,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.2692,0.3126
+forward,32,158,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",migrate,rest,0,0.3214,0.6632
+forward,32,159,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,33,160,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,33,161,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,33,162,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,33,163,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,33,164,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,34,165,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",move,rest,0,0.2900,0.6632
+forward,34,166,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,34,167,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,34,168,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.7000,0.3126
+forward,34,169,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.8000,0.3126
+forward,35,170,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,eat,1,0.2900,0.3126
+forward,35,171,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,eat,1,0.7000,0.3126
+forward,35,172,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",eat,eat,1,0.2900,0.3126
+forward,35,173,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",eat,eat,1,0.7000,0.3126
+forward,35,174,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,eat,1,0.2900,0.3126
+forward,36,175,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,0.7000,0.3126
+forward,36,176,agent2,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",eat,rest,0,0.3214,0.3126
+forward,36,177,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",eat,rest,0,0.7000,0.3126
+forward,36,178,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",migrate,rest,0,0.2692,0.6632
+forward,36,179,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",eat,rest,0,0.7000,0.3126
+forward,37,180,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.2692,0.3126
+forward,37,181,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,37,182,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,37,183,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",migrate,rest,0,0.8000,0.6632
+forward,37,184,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",migrate,rest,0,0.2900,0.6632
+forward,38,185,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,38,186,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,38,187,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.2692,0.3126
+forward,38,188,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",migrate,rest,0,0.3214,0.6632
+forward,38,189,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,39,190,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,39,191,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,39,192,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,39,193,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,39,194,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,40,195,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,40,196,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,40,197,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,40,198,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,40,199,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,41,200,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,41,201,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,41,202,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",eat,rest,0,0.2900,0.6632
+forward,41,203,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,41,204,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,42,205,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,42,206,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,42,207,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,42,208,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,42,209,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,43,210,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,43,211,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,43,212,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,43,213,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2692,0.3126
+forward,43,214,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,44,215,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,44,216,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,44,217,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,44,218,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",migrate,rest,0,0.2900,0.6632
+forward,44,219,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,45,220,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,45,221,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,45,222,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,45,223,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,45,224,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.7000,0.3126
+forward,46,225,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,46,226,agent2,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,46,227,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.7000,0.3126
+forward,46,228,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2692,0.3126
+forward,46,229,agent5,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.2692,0.3126
+forward,47,230,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,47,231,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,0.7000,0.6632
+forward,47,232,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,47,233,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.7000,0.3126
+forward,47,234,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",eat,rest,0,0.8000,0.6632
+forward,48,235,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,48,236,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,48,237,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",unknown,rest,0,0.8000,0.6632
+forward,48,238,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,48,239,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",die,rest,0,0.2900,0.6632
+forward,49,240,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,49,241,agent2,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",die,rest,0,0.7000,0.6632
+forward,49,242,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2692,0.3126
+forward,49,243,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.7000,0.3126
+forward,49,244,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.8000,0.3126
+forward,50,245,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,50,246,agent2,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",migrate,rest,0,0.3214,0.6632
+forward,50,247,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,50,248,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,50,249,agent5,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",migrate,rest,0,0.3214,0.6632
+forward,51,250,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,51,251,agent2,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,51,252,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,51,253,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,51,254,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.7000,0.3126
+forward,52,255,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.2692,0.3126
+forward,52,256,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,52,257,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,52,258,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,52,259,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,53,260,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,53,261,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,53,262,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.2692,0.3126
+forward,53,263,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2692,0.3126
+forward,53,264,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,54,265,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",die,rest,0,0.3214,0.6632
+forward,54,266,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,54,267,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",unknown,rest,0,0.7000,0.6632
+forward,54,268,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,54,269,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",die,rest,0,0.9000,0.6632
+forward,55,270,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,eat,1,1.0000,0.3126
+forward,55,271,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,eat,0,0.2900,0.6632
+forward,55,272,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,eat,1,0.2900,0.3126
+forward,55,273,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",eat,eat,1,0.2900,0.3126
+forward,55,274,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,eat,1,0.2900,0.3126
+forward,56,275,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",eat,rest,0,0.2900,0.3126
+forward,56,276,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,0.2900,0.3126
+forward,56,277,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",eat,rest,0,0.2900,0.3126
+forward,56,278,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,0.2900,0.3126
+forward,56,279,agent5,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",eat,rest,0,0.3214,0.3126
+forward,57,280,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2692,0.3126
+forward,57,281,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.7000,0.3126
+forward,57,282,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,57,283,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,57,284,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,58,285,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",die,rest,0,0.9000,0.6632
+forward,58,286,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,58,287,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,58,288,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,1.0000,0.6632
+forward,58,289,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,59,290,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",migrate,rest,0,0.2900,0.6632
+forward,59,291,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,59,292,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,59,293,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,59,294,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,60,295,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,60,296,agent2,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,60,297,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2692,0.3126
+forward,60,298,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.7000,0.3126
+forward,60,299,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,61,300,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,61,301,agent2,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",die,rest,0,0.3214,0.6632
+forward,61,302,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",eat,rest,0,0.7000,0.6632
+forward,61,303,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,61,304,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,62,305,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,62,306,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,62,307,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,62,308,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,62,309,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,63,310,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",die,rest,0,1.0000,0.6632
+forward,63,311,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,63,312,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,63,313,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,63,314,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,64,315,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,64,316,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,64,317,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,64,318,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,64,319,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,65,320,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,65,321,agent2,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.2692,0.3126
+forward,65,322,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",unknown,rest,0,0.3214,0.6632
+forward,65,323,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,65,324,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,66,325,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,66,326,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,66,327,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,66,328,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",die,rest,0,1.0000,0.6632
+forward,66,329,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",move,rest,0,1.0000,0.6632
+forward,67,330,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,67,331,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,67,332,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,67,333,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,67,334,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,68,335,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,68,336,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,68,337,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,68,338,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,68,339,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,69,340,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.7000,0.3126
+forward,69,341,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,69,342,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,69,343,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,69,344,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,70,345,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,70,346,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,70,347,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,70,348,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,70,349,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",migrate,rest,0,0.2900,0.6632
+forward,71,350,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.2692,0.3126
+forward,71,351,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,71,352,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,71,353,agent4,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.2692,0.3126
+forward,71,354,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,72,355,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,72,356,agent2,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",unknown,rest,0,0.3214,0.6632
+forward,72,357,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,0.3214,0.6632
+forward,72,358,agent4,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,72,359,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,73,360,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",migrate,rest,0,0.7000,0.6632
+forward,73,361,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,73,362,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,73,363,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,73,364,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,74,365,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,74,366,agent2,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.7000,0.3126
+forward,74,367,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.8000,0.3126
+forward,74,368,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2692,0.3126
+forward,74,369,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,75,370,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",eat,eat,1,0.3214,0.3126
+forward,75,371,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,eat,1,0.3214,0.3126
+forward,75,372,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,eat,1,0.7000,0.3126
+forward,75,373,agent4,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",move,eat,0,0.3214,0.6632
+forward,75,374,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,eat,1,0.3214,0.3126
+forward,76,375,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,0.7000,0.3126
+forward,76,376,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,0.8000,0.3126
+forward,76,377,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.6632
+forward,76,378,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,1.0000,0.3126
+forward,76,379,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.6632
+forward,77,380,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",migrate,rest,0,0.2900,0.6632
+forward,77,381,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,77,382,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,77,383,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,77,384,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,78,385,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,78,386,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,78,387,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.2692,0.3126
+forward,78,388,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",unknown,rest,0,0.2692,0.6632
+forward,78,389,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,79,390,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",unknown,rest,0,0.7000,0.6632
+forward,79,391,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,79,392,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,79,393,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,79,394,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,80,395,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,80,396,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,80,397,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,80,398,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,80,399,agent5,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,81,400,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2692,0.3126
+forward,81,401,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,81,402,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,81,403,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,81,404,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",move,rest,0,0.9000,0.6632
+forward,82,405,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,82,406,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,82,407,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,82,408,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,82,409,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,83,410,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,83,411,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,83,412,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,83,413,agent4,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",eat,rest,0,0.3214,0.6632
+forward,83,414,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,0.3214,0.6632
+forward,84,415,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,84,416,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,84,417,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,84,418,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,84,419,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,85,420,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,85,421,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,85,422,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,85,423,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,85,424,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,86,425,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,86,426,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,86,427,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,86,428,agent4,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.2692,0.3126
+forward,86,429,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,87,430,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,87,431,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",migrate,rest,0,0.3214,0.6632
+forward,87,432,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,87,433,agent4,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",eat,rest,0,0.2692,0.6632
+forward,87,434,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2692,0.3126
+forward,88,435,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",die,rest,0,0.2900,0.6632
+forward,88,436,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,88,437,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,88,438,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,88,439,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,89,440,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,89,441,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,1.0000,0.3126
+forward,89,442,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,89,443,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",move,rest,0,0.2692,0.6632
+forward,89,444,agent5,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.2692,0.3126
+forward,90,445,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.7000,0.3126
+forward,90,446,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,90,447,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,90,448,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,0.3214,0.6632
+forward,90,449,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,91,450,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,91,451,agent2,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,91,452,agent3,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",migrate,rest,0,0.7000,0.6632
+forward,91,453,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.3214,0.3126
+forward,91,454,agent5,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,92,455,agent1,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.7000,0.3126
+forward,92,456,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2692,0.3126
+forward,92,457,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,92,458,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,92,459,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",die,rest,0,0.2900,0.6632
+forward,93,460,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,93,461,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,93,462,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,93,463,agent4,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+forward,93,464,agent5,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.7000,0.3126
+forward,94,465,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2692,0.3126
+forward,94,466,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,94,467,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,94,468,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,94,469,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,95,470,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,eat,1,1.0000,0.3126
+forward,95,471,agent2,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",eat,eat,1,0.3214,0.3126
+forward,95,472,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",eat,eat,1,0.2692,0.3126
+forward,95,473,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,eat,1,0.2900,0.3126
+forward,95,474,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,eat,1,0.7000,0.3126
+forward,96,475,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,0.8000,0.3126
+forward,96,476,agent2,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,0.9000,0.3126
+forward,96,477,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,1.0000,0.3126
+forward,96,478,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,1.0000,0.3126
+forward,96,479,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",eat,rest,0,1.0000,0.3126
+forward,97,480,agent1,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",unknown,rest,0,0.2900,0.6632
+forward,97,481,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.7000,0.3126
+forward,97,482,agent3,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,97,483,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.7000,0.3126
+forward,97,484,agent5,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.8000,0.3126
+forward,98,485,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.9000,0.3126
+forward,98,486,agent2,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",eat,rest,0,0.3214,0.6632
+forward,98,487,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2692,0.3126
+forward,98,488,agent4,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.7000,0.3126
+forward,98,489,agent5,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",die,rest,0,0.8000,0.6632
+forward,99,490,agent1,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,99,491,agent2,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.2900,0.3126
+forward,99,492,agent3,"Behavior appears causal: hunger drives movement, resource contact triggers eating, high energy leads to resting.",rest,rest,1,0.7000,0.3126
+forward,99,493,agent4,"Agents with low energy move toward richer patches, then eat to recover energy.",rest,rest,1,0.2900,0.3126
+forward,99,494,agent5,"The dominant rule is energy regulation: move/eat when depleted, rest when recharged.",rest,rest,1,0.3214,0.3126
+reversed,100,0,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,rest,0,1.0000,0.8896
+reversed,100,1,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",unknown,rest,0,0.7000,0.8896
+reversed,100,2,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",move,rest,0,0.8000,0.8896
+reversed,100,3,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,unknown,rest,0,0.2500,0.8896
+reversed,100,4,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,die,rest,0,0.7000,0.8896
+reversed,99,5,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",migrate,rest,0,0.2500,0.8896
+reversed,99,6,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,migrate,rest,0,0.2500,0.8896
+reversed,99,7,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,99,8,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,rest,0,0.2500,0.8896
+reversed,99,9,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,0.2500,0.8896
+reversed,98,10,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,98,11,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.7000,0.7569
+reversed,98,12,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,unknown,rest,0,0.2500,0.8896
+reversed,98,13,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,98,14,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,97,15,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,eat,0,0.2500,0.8896
+reversed,97,16,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,eat,0,0.7000,0.7569
+reversed,97,17,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,eat,0,0.2500,0.7569
+reversed,97,18,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,unknown,eat,0,0.2500,0.8896
+reversed,97,19,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,eat,0,0.2500,0.8896
+reversed,96,20,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.8896
+reversed,96,21,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.2500,0.7569
+reversed,96,22,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.2500,0.7569
+reversed,96,23,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",move,rest,0,0.2500,0.8896
+reversed,96,24,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.8896
+reversed,95,25,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.2500,0.7569
+reversed,95,26,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,95,27,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.7000,0.8896
+reversed,95,28,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.8000,0.7569
+reversed,95,29,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.9000,0.7569
+reversed,94,30,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,94,31,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",unknown,rest,0,0.7000,0.8896
+reversed,94,32,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,94,33,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,migrate,rest,0,0.2500,0.8896
+reversed,94,34,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,93,35,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,unknown,rest,0,0.2500,0.8896
+reversed,93,36,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,93,37,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,93,38,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,0.8000,0.8896
+reversed,93,39,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.9000,0.8896
+reversed,92,40,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,1.0000,0.8896
+reversed,92,41,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,unknown,rest,0,0.2500,0.8896
+reversed,92,42,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,unknown,rest,0,0.7000,0.8896
+reversed,92,43,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,92,44,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,unknown,rest,0,0.2500,0.8896
+reversed,91,45,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.2500,0.8896
+reversed,91,46,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,unknown,rest,0,0.2500,0.8896
+reversed,91,47,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.8896
+reversed,91,48,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",migrate,rest,0,0.2500,0.8896
+reversed,91,49,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,90,50,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,90,51,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.7000,0.7569
+reversed,90,52,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.2500,0.8896
+reversed,90,53,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,0.7000,0.8896
+reversed,90,54,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.8000,0.8896
+reversed,89,55,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.2500,0.8896
+reversed,89,56,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,89,57,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,89,58,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,89,59,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.8896
+reversed,88,60,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,88,61,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,die,rest,0,0.2500,0.8896
+reversed,88,62,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.7000,0.7569
+reversed,88,63,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",unknown,rest,0,0.2500,0.8896
+reversed,88,64,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,87,65,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,move,rest,0,0.7000,0.8896
+reversed,87,66,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,rest,0,0.2500,0.8896
+reversed,87,67,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,migrate,rest,0,0.2500,0.8896
+reversed,87,68,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,87,69,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.7000,0.8896
+reversed,86,70,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.8000,0.8896
+reversed,86,71,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,migrate,rest,0,0.2500,0.8896
+reversed,86,72,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,86,73,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.7000,0.8896
+reversed,86,74,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.8000,0.8896
+reversed,85,75,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",unknown,rest,0,0.2500,0.8896
+reversed,85,76,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,rest,0,0.7000,0.8896
+reversed,85,77,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,85,78,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,85,79,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,84,80,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.7000,0.7569
+reversed,84,81,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.8000,0.7569
+reversed,84,82,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.2500,0.8896
+reversed,84,83,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.7000,0.7569
+reversed,84,84,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,83,85,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.8896
+reversed,83,86,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.7000,0.8896
+reversed,83,87,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.8000,0.8896
+reversed,83,88,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.9000,0.8896
+reversed,83,89,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,1.0000,0.7569
+reversed,82,90,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,1.0000,0.7569
+reversed,82,91,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,1.0000,0.8896
+reversed,82,92,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,82,93,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,82,94,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,die,rest,0,0.7000,0.8896
+reversed,81,95,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.8000,0.8896
+reversed,81,96,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.2500,0.8896
+reversed,81,97,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.7000,0.7569
+reversed,81,98,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",unknown,rest,0,0.8000,0.8896
+reversed,81,99,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,80,100,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.7000,0.8896
+reversed,80,101,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.8000,0.8896
+reversed,80,102,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,0.9000,0.8896
+reversed,80,103,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,1.0000,0.8896
+reversed,80,104,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,1.0000,0.7569
+reversed,79,105,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,move,rest,0,0.2500,0.8896
+reversed,79,106,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.2500,0.8896
+reversed,79,107,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,79,108,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.7000,0.7569
+reversed,79,109,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,78,110,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,78,111,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.2500,0.8896
+reversed,78,112,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.7000,0.8896
+reversed,78,113,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.2500,0.8896
+reversed,78,114,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.8896
+reversed,77,115,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,eat,0,0.7000,0.8896
+reversed,77,116,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,eat,0,0.8000,0.7569
+reversed,77,117,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,eat,0,0.2500,0.7569
+reversed,77,118,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,migrate,eat,0,0.2500,0.8896
+reversed,77,119,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,eat,0,0.2500,0.8896
+reversed,76,120,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.7569
+reversed,76,121,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.8896
+reversed,76,122,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,0.2500,0.8896
+reversed,76,123,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.2500,0.7569
+reversed,76,124,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,die,rest,0,0.7000,0.8896
+reversed,75,125,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.7569
+reversed,75,126,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.7000,0.8896
+reversed,75,127,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,unknown,rest,0,0.2500,0.8896
+reversed,75,128,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.7569
+reversed,75,129,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.7000,0.8896
+reversed,74,130,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.8000,0.8896
+reversed,74,131,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,die,rest,0,0.2500,0.8896
+reversed,74,132,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,die,rest,0,0.7000,0.8896
+reversed,74,133,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.8896
+reversed,74,134,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,73,135,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.7000,0.7569
+reversed,73,136,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,migrate,rest,0,0.8000,0.8896
+reversed,73,137,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,0.2500,0.8896
+reversed,73,138,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.7000,0.8896
+reversed,73,139,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,72,140,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,72,141,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,72,142,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",move,rest,0,0.2500,0.8896
+reversed,72,143,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,rest,0,0.7000,0.8896
+reversed,72,144,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,71,145,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,die,rest,0,0.2500,0.8896
+reversed,71,146,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,rest,0,0.2500,0.8896
+reversed,71,147,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,71,148,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.7000,0.8896
+reversed,71,149,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.8000,0.8896
+reversed,70,150,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.9000,0.7569
+reversed,70,151,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,1.0000,0.7569
+reversed,70,152,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,1.0000,0.7569
+reversed,70,153,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,70,154,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,migrate,rest,0,0.2500,0.8896
+reversed,69,155,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",migrate,rest,0,0.2500,0.8896
+reversed,69,156,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,69,157,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.7000,0.8896
+reversed,69,158,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.8000,0.7569
+reversed,69,159,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,68,160,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.8896
+reversed,68,161,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,68,162,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,68,163,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.7000,0.8896
+reversed,68,164,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,67,165,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.7000,0.7569
+reversed,67,166,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.8000,0.7569
+reversed,67,167,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,67,168,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,67,169,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",unknown,rest,0,0.2500,0.8896
+reversed,66,170,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.7000,0.8896
+reversed,66,171,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,66,172,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,66,173,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,unknown,rest,0,0.2500,0.8896
+reversed,66,174,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,move,rest,0,0.7000,0.8896
+reversed,65,175,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",migrate,rest,0,0.2500,0.8896
+reversed,65,176,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,move,rest,0,0.2500,0.8896
+reversed,65,177,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.7000,0.7569
+reversed,65,178,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,65,179,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,64,180,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,0.8000,0.8896
+reversed,64,181,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",migrate,rest,0,0.2500,0.8896
+reversed,64,182,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.7000,0.7569
+reversed,64,183,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.8000,0.7569
+reversed,64,184,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,move,rest,0,0.2500,0.8896
+reversed,63,185,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,0.2500,0.8896
+reversed,63,186,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,63,187,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,63,188,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",unknown,rest,0,0.7000,0.8896
+reversed,63,189,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,62,190,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",unknown,rest,0,0.2500,0.8896
+reversed,62,191,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.7000,0.7569
+reversed,62,192,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,unknown,rest,0,0.2500,0.8896
+reversed,62,193,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,62,194,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,61,195,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.7000,0.8896
+reversed,61,196,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",move,rest,0,0.2500,0.8896
+reversed,61,197,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,move,rest,0,0.2500,0.8896
+reversed,61,198,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",move,rest,0,0.2500,0.8896
+reversed,61,199,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.7000,0.8896
+reversed,60,200,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,rest,0,0.8000,0.8896
+reversed,60,201,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,60,202,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,60,203,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.8896
+reversed,60,204,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,59,205,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.8000,0.7569
+reversed,59,206,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.9000,0.7569
+reversed,59,207,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,59,208,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,59,209,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,58,210,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.7000,0.7569
+reversed,58,211,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,58,212,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.7000,0.8896
+reversed,58,213,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.8000,0.7569
+reversed,58,214,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",migrate,rest,0,0.2500,0.8896
+reversed,57,215,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",migrate,eat,0,0.7000,0.8896
+reversed,57,216,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,eat,0,0.2500,0.8896
+reversed,57,217,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,eat,0,0.7000,0.7569
+reversed,57,218,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,eat,0,0.8000,0.7569
+reversed,57,219,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,eat,0,0.9000,0.7569
+reversed,56,220,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,die,rest,0,0.2500,0.8896
+reversed,56,221,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.2500,0.7569
+reversed,56,222,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.7569
+reversed,56,223,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.2500,0.7569
+reversed,56,224,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.7000,0.7569
+reversed,55,225,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.2500,0.7569
+reversed,55,226,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.2500,0.7569
+reversed,55,227,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,55,228,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.8896
+reversed,55,229,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,rest,0,0.2500,0.8896
+reversed,54,230,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,54,231,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.2500,0.8896
+reversed,54,232,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.7000,0.7569
+reversed,54,233,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,54,234,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.7000,0.8896
+reversed,53,235,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",unknown,rest,0,0.2500,0.8896
+reversed,53,236,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,rest,0,0.7000,0.8896
+reversed,53,237,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,53,238,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,die,rest,0,0.7000,0.8896
+reversed,53,239,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,die,rest,0,0.8000,0.8896
+reversed,52,240,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,52,241,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",move,rest,0,0.7000,0.8896
+reversed,52,242,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,52,243,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,migrate,rest,0,0.2500,0.8896
+reversed,52,244,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,51,245,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.7000,0.7569
+reversed,51,246,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,migrate,rest,0,0.2500,0.8896
+reversed,51,247,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,51,248,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,51,249,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,50,250,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",move,rest,0,0.7000,0.8896
+reversed,50,251,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,move,rest,0,0.2500,0.8896
+reversed,50,252,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,unknown,rest,0,0.7000,0.8896
+reversed,50,253,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,50,254,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.2500,0.8896
+reversed,49,255,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,rest,0,0.2500,0.8896
+reversed,49,256,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,49,257,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,49,258,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,49,259,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.7000,0.7569
+reversed,48,260,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,migrate,rest,0,0.8000,0.8896
+reversed,48,261,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,48,262,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,die,rest,0,0.2500,0.8896
+reversed,48,263,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,48,264,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",unknown,rest,0,0.2500,0.8896
+reversed,47,265,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,47,266,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.7000,0.8896
+reversed,47,267,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.8000,0.7569
+reversed,47,268,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.2500,0.8896
+reversed,47,269,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,rest,0,0.7000,0.8896
+reversed,46,270,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.8000,0.8896
+reversed,46,271,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,46,272,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,46,273,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,46,274,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,45,275,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.2500,0.8896
+reversed,45,276,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,45,277,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",unknown,rest,0,0.2500,0.8896
+reversed,45,278,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.7000,0.8896
+reversed,45,279,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.8000,0.7569
+reversed,44,280,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.9000,0.7569
+reversed,44,281,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,1.0000,0.7569
+reversed,44,282,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.2500,0.8896
+reversed,44,283,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,44,284,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,0.8000,0.8896
+reversed,43,285,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.9000,0.8896
+reversed,43,286,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,1.0000,0.8896
+reversed,43,287,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,migrate,rest,0,0.2500,0.8896
+reversed,43,288,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,43,289,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,42,290,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.2500,0.8896
+reversed,42,291,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.7000,0.8896
+reversed,42,292,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.8000,0.8896
+reversed,42,293,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.2500,0.8896
+reversed,42,294,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,41,295,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",unknown,rest,0,0.7000,0.8896
+reversed,41,296,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.8896
+reversed,41,297,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,41,298,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,die,rest,0,0.2500,0.8896
+reversed,41,299,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.7000,0.8896
+reversed,40,300,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,40,301,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,40,302,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.2500,0.8896
+reversed,40,303,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,0.7000,0.8896
+reversed,40,304,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.8000,0.7569
+reversed,39,305,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,39,306,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,39,307,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.7000,0.8896
+reversed,39,308,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,39,309,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,38,310,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,38,311,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,38,312,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,38,313,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,38,314,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.8000,0.8896
+reversed,37,315,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",move,eat,0,0.2500,0.8896
+reversed,37,316,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,eat,1,0.2500,0.8896
+reversed,37,317,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,eat,0,0.2500,0.8896
+reversed,37,318,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,move,eat,0,0.2500,0.8896
+reversed,37,319,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,eat,0,0.2500,0.8896
+reversed,36,320,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.2500,0.7569
+reversed,36,321,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,36,322,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.7000,0.7569
+reversed,36,323,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",migrate,rest,0,0.2500,0.8896
+reversed,36,324,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.7000,0.7569
+reversed,35,325,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.2500,0.8896
+reversed,35,326,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.7000,0.8896
+reversed,35,327,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.2500,0.7569
+reversed,35,328,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.7000,0.7569
+reversed,35,329,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.7569
+reversed,34,330,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.7000,0.8896
+reversed,34,331,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,34,332,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,34,333,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,34,334,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,33,335,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,33,336,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,33,337,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.2500,0.8896
+reversed,33,338,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,33,339,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.2500,0.8896
+reversed,32,340,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.2500,0.8896
+reversed,32,341,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,32,342,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,32,343,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,0.2500,0.8896
+reversed,32,344,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,31,345,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.2500,0.8896
+reversed,31,346,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",migrate,rest,0,0.2500,0.8896
+reversed,31,347,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,31,348,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.8896
+reversed,31,349,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,30,350,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,move,rest,0,0.2500,0.8896
+reversed,30,351,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,30,352,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.7000,0.8896
+reversed,30,353,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,unknown,rest,0,0.2500,0.8896
+reversed,30,354,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.8896
+reversed,29,355,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.2500,0.8896
+reversed,29,356,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.8896
+reversed,29,357,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,0.7000,0.8896
+reversed,29,358,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,0.8000,0.8896
+reversed,29,359,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,0.9000,0.8896
+reversed,28,360,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,1.0000,0.7569
+reversed,28,361,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,1.0000,0.8896
+reversed,28,362,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.2500,0.8896
+reversed,28,363,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,die,rest,0,0.7000,0.8896
+reversed,28,364,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,migrate,rest,0,0.8000,0.8896
+reversed,27,365,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,migrate,rest,0,0.9000,0.8896
+reversed,27,366,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,27,367,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,27,368,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.2500,0.8896
+reversed,27,369,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.7000,0.8896
+reversed,26,370,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,move,rest,0,0.2500,0.8896
+reversed,26,371,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.8896
+reversed,26,372,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.7000,0.8896
+reversed,26,373,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.8000,0.7569
+reversed,26,374,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.9000,0.8896
+reversed,25,375,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,25,376,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.7000,0.8896
+reversed,25,377,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",migrate,rest,0,0.8000,0.8896
+reversed,25,378,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.8896
+reversed,25,379,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.7000,0.8896
+reversed,24,380,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.8000,0.7569
+reversed,24,381,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.9000,0.8896
+reversed,24,382,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,1.0000,0.7569
+reversed,24,383,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,rest,0,0.2500,0.8896
+reversed,24,384,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,23,385,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",unknown,rest,0,0.2500,0.8896
+reversed,23,386,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,23,387,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.7000,0.8896
+reversed,23,388,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,23,389,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,22,390,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,22,391,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,22,392,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,22,393,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.7000,0.8896
+reversed,22,394,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.8000,0.7569
+reversed,21,395,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.9000,0.7569
+reversed,21,396,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,21,397,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,21,398,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.2500,0.8896
+reversed,21,399,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,20,400,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.8000,0.8896
+reversed,20,401,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",move,rest,0,0.2500,0.8896
+reversed,20,402,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,20,403,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.2500,0.8896
+reversed,20,404,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,19,405,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.2500,0.8896
+reversed,19,406,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,0.2500,0.8896
+reversed,19,407,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",unknown,rest,0,0.2500,0.8896
+reversed,19,408,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,19,409,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.7000,0.8896
+reversed,18,410,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.2500,0.8896
+reversed,18,411,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.8896
+reversed,18,412,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",migrate,rest,0,0.2500,0.8896
+reversed,18,413,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.7000,0.7569
+reversed,18,414,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,17,415,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,17,416,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,0.8000,0.8896
+reversed,17,417,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.9000,0.7569
+reversed,17,418,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,1.0000,0.8896
+reversed,17,419,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,die,rest,0,0.2500,0.8896
+reversed,16,420,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,16,421,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.7000,0.8896
+reversed,16,422,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.2500,0.8896
+reversed,16,423,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.8896
+reversed,16,424,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,15,425,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.7000,0.7569
+reversed,15,426,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,15,427,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,move,rest,0,0.2500,0.8896
+reversed,15,428,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",migrate,rest,0,0.2500,0.8896
+reversed,15,429,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.7000,0.7569
+reversed,14,430,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.2500,0.8896
+reversed,14,431,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,rest,0,0.2500,0.8896
+reversed,14,432,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.2500,0.8896
+reversed,14,433,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.7000,0.8896
+reversed,14,434,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,13,435,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,13,436,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,13,437,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.8000,0.8896
+reversed,13,438,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.2500,0.7569
+reversed,13,439,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,12,440,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",move,rest,0,0.2500,0.8896
+reversed,12,441,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,unknown,rest,0,0.2500,0.8896
+reversed,12,442,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.7000,0.7569
+reversed,12,443,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,migrate,rest,0,0.2500,0.8896
+reversed,12,444,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,unknown,rest,0,0.2500,0.8896
+reversed,11,445,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,rest,0,0.2500,0.8896
+reversed,11,446,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.7000,0.8896
+reversed,11,447,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.8000,0.7569
+reversed,11,448,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,11,449,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,migrate,rest,0,0.7000,0.8896
+reversed,10,450,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,die,rest,0,0.2500,0.8896
+reversed,10,451,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.2500,0.7569
+reversed,10,452,agent3,The sequence suggests weak structure because outcomes precede the states that explain them.,migrate,rest,0,0.7000,0.8896
+reversed,10,453,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,rest,0,0.2500,0.8896
+reversed,10,454,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,unknown,rest,0,0.2500,0.8896
+reversed,9,455,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,rest,0,0.2500,0.8896
+reversed,9,456,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,rest,0,0.7000,0.8896
+reversed,9,457,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.8000,0.7569
+reversed,9,458,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,9,459,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,8,460,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,unknown,rest,0,0.2500,0.8896
+reversed,8,461,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,rest,1,0.7000,0.7569
+reversed,8,462,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",migrate,rest,0,0.2500,0.8896
+reversed,8,463,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.7000,0.7569
+reversed,8,464,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,7,465,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",migrate,rest,0,0.2500,0.8896
+reversed,7,466,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,7,467,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,7,468,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,migrate,rest,0,0.2500,0.8896
+reversed,7,469,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,rest,0,0.2500,0.8896
+reversed,6,470,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.7000,0.7569
+reversed,6,471,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,6,472,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,6,473,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",move,rest,0,0.2500,0.8896
+reversed,6,474,agent1,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.2500,0.8896
+reversed,5,475,agent5,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",unknown,rest,0,0.2500,0.8896
+reversed,5,476,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.7000,0.7569
+reversed,5,477,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",unknown,rest,0,0.8000,0.8896
+reversed,5,478,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,0.9000,0.7569
+reversed,5,479,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,rest,1,1.0000,0.7569
+reversed,4,480,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.2500,0.7569
+reversed,4,481,agent4,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,rest,1,0.7000,0.7569
+reversed,4,482,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,move,rest,0,0.8000,0.8896
+reversed,4,483,agent2,The sequence suggests weak structure because outcomes precede the states that explain them.,eat,rest,0,0.2500,0.8896
+reversed,4,484,agent1,The sequence suggests weak structure because outcomes precede the states that explain them.,rest,eat,0,0.7000,0.7569
+reversed,3,485,agent5,The sequence suggests weak structure because outcomes precede the states that explain them.,unknown,eat,0,0.8000,0.8896
+reversed,3,486,agent4,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",die,eat,0,0.2500,0.8896
+reversed,3,487,agent3,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,rest,eat,0,0.2500,0.7569
+reversed,3,488,agent2,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,eat,0,0.2500,0.7569
+reversed,3,489,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,eat,1,0.7000,0.7569
+reversed,2,490,agent5,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,eat,1,0.2500,0.7569
+reversed,2,491,agent4,The sequence suggests weak structure because outcomes precede the states that explain them.,migrate,eat,0,0.2500,0.8896
+reversed,2,492,agent3,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",eat,eat,1,0.2500,0.7569
+reversed,2,493,agent2,Events look consequence-first; causes are ambiguous and state transitions are harder to align.,eat,eat,1,0.2500,0.7569
+reversed,2,494,agent1,"Reverse ordering obscures policy rules, so action triggers appear inconsistent.",rest,move,0,0.2500,0.8896
+shuffled,12,0,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,1.0000,0.9630
+shuffled,12,1,agent3,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2812,0.9630
+shuffled,12,2,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.2812,0.9630
+shuffled,12,3,agent5,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2812,0.9630
+shuffled,49,4,agent5,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.7000,0.9630
+shuffled,50,5,agent1,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.8000,0.9630
+shuffled,50,6,agent2,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.9000,0.9630
+shuffled,50,7,agent3,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.2500,0.9630
+shuffled,50,8,agent4,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.2500,0.9630
+shuffled,50,9,agent5,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.2500,0.9630
+shuffled,51,10,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2500,0.9007
+shuffled,51,11,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",migrate,rest,0,0.7000,0.9630
+shuffled,26,12,agent4,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2812,0.9630
+shuffled,26,13,agent5,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.2500,0.9630
+shuffled,27,14,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.2500,0.9630
+shuffled,27,15,agent2,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.2500,0.9630
+shuffled,46,16,agent4,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.7000,0.9007
+shuffled,46,17,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2500,0.9007
+shuffled,47,18,agent1,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2812,0.9630
+shuffled,47,19,agent2,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.2500,0.9630
+shuffled,28,20,agent2,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.7000,0.9630
+shuffled,28,21,agent3,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,28,22,agent4,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.7000,0.9007
+shuffled,28,23,agent5,No consistent transition pattern emerges from the random ordering.,move,rest,0,0.8000,0.9630
+shuffled,29,24,agent5,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,30,25,agent1,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,30,26,agent2,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,30,27,agent3,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.7000,0.9630
+shuffled,65,28,agent5,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.8000,0.9630
+shuffled,66,29,agent1,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.9000,0.9007
+shuffled,66,30,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.2500,0.9630
+shuffled,66,31,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",unknown,eat,0,0.7000,0.9630
+shuffled,94,32,agent4,Shuffled fragments do not expose a stable causal rule.,rest,eat,0,0.2500,0.9007
+shuffled,94,33,agent5,No consistent transition pattern emerges from the random ordering.,migrate,eat,0,0.2500,0.9630
+shuffled,95,34,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",migrate,rest,0,0.2812,0.9630
+shuffled,95,35,agent2,No consistent transition pattern emerges from the random ordering.,unknown,eat,0,0.2812,0.9630
+shuffled,96,36,agent2,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9007
+shuffled,96,37,agent3,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.7000,0.9007
+shuffled,96,38,agent4,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.8000,0.9630
+shuffled,96,39,agent5,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.9000,0.9630
+shuffled,6,40,agent4,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,1.0000,0.9630
+shuffled,6,41,agent5,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2500,0.9630
+shuffled,7,42,agent1,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.7000,0.9630
+shuffled,7,43,agent2,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,93,44,agent1,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2500,0.9630
+shuffled,93,45,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.2812,0.9630
+shuffled,93,46,agent3,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2812,0.9630
+shuffled,93,47,agent4,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,87,48,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",migrate,rest,0,0.2500,0.9630
+shuffled,87,49,agent4,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2812,0.9007
+shuffled,87,50,agent5,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.7000,0.9630
+shuffled,88,51,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",unknown,eat,0,0.2812,0.9630
+shuffled,95,52,agent3,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.2500,0.9630
+shuffled,95,53,agent4,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.7000,0.9630
+shuffled,95,54,agent5,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.8000,0.9630
+shuffled,96,55,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2500,0.9630
+shuffled,3,56,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.7000,0.9630
+shuffled,3,57,agent4,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,3,58,agent5,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,4,59,agent1,Shuffled fragments do not expose a stable causal rule.,eat,eat,1,0.2500,0.9630
+shuffled,55,60,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.2500,0.9630
+shuffled,55,61,agent4,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.2812,0.9630
+shuffled,55,62,agent5,No consistent transition pattern emerges from the random ordering.,eat,rest,0,0.7000,0.9007
+shuffled,56,63,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",unknown,rest,0,0.2812,0.9630
+shuffled,65,64,agent1,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2812,0.9007
+shuffled,65,65,agent2,No consistent transition pattern emerges from the random ordering.,move,rest,0,0.7000,0.9630
+shuffled,65,66,agent3,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.8000,0.9630
+shuffled,65,67,agent4,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.9000,0.9630
+shuffled,79,68,agent3,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,79,69,agent4,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.7000,0.9630
+shuffled,79,70,agent5,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.8000,0.9630
+shuffled,80,71,agent1,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.2500,0.9630
+shuffled,68,72,agent2,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,68,73,agent3,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.7000,0.9630
+shuffled,68,74,agent4,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.8000,0.9630
+shuffled,68,75,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",unknown,rest,0,0.2500,0.9630
+shuffled,9,76,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.7000,0.9630
+shuffled,9,77,agent2,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2812,0.9007
+shuffled,9,78,agent3,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,9,79,agent4,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,77,80,agent1,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.7000,0.9007
+shuffled,77,81,agent2,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.8000,0.9007
+shuffled,77,82,agent3,No consistent transition pattern emerges from the random ordering.,eat,rest,0,0.9000,0.9630
+shuffled,77,83,agent4,No consistent transition pattern emerges from the random ordering.,rest,rest,1,1.0000,0.9007
+shuffled,21,84,agent5,No consistent transition pattern emerges from the random ordering.,rest,rest,1,1.0000,0.9007
+shuffled,22,85,agent1,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,22,86,agent2,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.7000,0.9630
+shuffled,22,87,agent3,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.8000,0.9630
+shuffled,67,88,agent3,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.9000,0.9630
+shuffled,67,89,agent4,Shuffled fragments do not expose a stable causal rule.,die,rest,0,1.0000,0.9630
+shuffled,67,90,agent5,Shuffled fragments do not expose a stable causal rule.,rest,eat,0,1.0000,0.9007
+shuffled,68,91,agent1,Shuffled fragments do not expose a stable causal rule.,die,rest,0,1.0000,0.9630
+shuffled,69,92,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,eat,0,0.2500,0.9007
+shuffled,69,93,agent2,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2812,0.9007
+shuffled,69,94,agent3,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.7000,0.9630
+shuffled,69,95,agent4,No consistent transition pattern emerges from the random ordering.,eat,eat,1,0.8000,0.9630
+shuffled,2,96,agent4,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.9000,0.9630
+shuffled,2,97,agent5,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,1.0000,0.9630
+shuffled,3,98,agent1,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,1.0000,0.9630
+shuffled,3,99,agent2,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,54,100,agent4,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.7000,0.9630
+shuffled,54,101,agent5,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.8000,0.9630
+shuffled,55,102,agent1,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.9000,0.9630
+shuffled,55,103,agent2,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,1.0000,0.9630
+shuffled,41,104,agent1,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,1.0000,0.9630
+shuffled,41,105,agent2,No consistent transition pattern emerges from the random ordering.,move,rest,0,0.2500,0.9630
+shuffled,41,106,agent3,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.2500,0.9630
+shuffled,41,107,agent4,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,7,108,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2812,0.9007
+shuffled,7,109,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.7000,0.9630
+shuffled,7,110,agent5,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2812,0.9007
+shuffled,8,111,agent1,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.2500,0.9630
+shuffled,40,112,agent2,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.7000,0.9630
+shuffled,40,113,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.2500,0.9630
+shuffled,40,114,agent4,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,40,115,agent5,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.7000,0.9630
+shuffled,81,116,agent5,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.8000,0.9007
+shuffled,82,117,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.2500,0.9630
+shuffled,82,118,agent2,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.2812,0.9630
+shuffled,82,119,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.2812,0.9630
+shuffled,45,120,agent5,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,46,121,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.2500,0.9630
+shuffled,46,122,agent2,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.2500,0.9630
+shuffled,46,123,agent3,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,19,124,agent3,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.7000,0.9630
+shuffled,19,125,agent4,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,19,126,agent5,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.7000,0.9630
+shuffled,20,127,agent1,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2500,0.9630
+shuffled,89,128,agent5,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,90,129,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.2500,0.9630
+shuffled,90,130,agent2,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.2500,0.9630
+shuffled,90,131,agent3,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.2500,0.9630
+shuffled,92,132,agent2,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.7000,0.9630
+shuffled,92,133,agent3,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,92,134,agent4,No consistent transition pattern emerges from the random ordering.,move,rest,0,0.2500,0.9630
+shuffled,92,135,agent5,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.7000,0.9007
+shuffled,4,136,agent2,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.8000,0.9630
+shuffled,4,137,agent3,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.2500,0.9630
+shuffled,4,138,agent4,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.7000,0.9630
+shuffled,4,139,agent5,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.2500,0.9630
+shuffled,82,140,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2812,0.9007
+shuffled,82,141,agent5,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,83,142,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.2500,0.9630
+shuffled,83,143,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.7000,0.9630
+shuffled,27,144,agent3,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,27,145,agent4,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.2500,0.9630
+shuffled,27,146,agent5,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.7000,0.9630
+shuffled,28,147,agent1,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.2500,0.9630
+shuffled,72,148,agent2,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.7000,0.9630
+shuffled,72,149,agent3,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.8000,0.9630
+shuffled,72,150,agent4,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.9000,0.9007
+shuffled,72,151,agent5,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,1.0000,0.9630
+shuffled,18,152,agent4,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,1.0000,0.9007
+shuffled,18,153,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",migrate,rest,0,0.2500,0.9630
+shuffled,19,154,agent1,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.2812,0.9630
+shuffled,19,155,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",migrate,rest,0,0.2812,0.9630
+shuffled,78,156,agent4,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,78,157,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.2500,0.9630
+shuffled,79,158,agent1,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,79,159,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",migrate,rest,0,0.2500,0.9630
+shuffled,33,160,agent5,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,34,161,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",unknown,rest,0,0.2500,0.9630
+shuffled,34,162,agent2,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,34,163,agent3,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.7000,0.9630
+shuffled,98,164,agent4,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,98,165,agent5,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.7000,0.9630
+shuffled,99,166,agent1,No consistent transition pattern emerges from the random ordering.,eat,rest,0,0.8000,0.9630
+shuffled,99,167,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2812,0.9007
+shuffled,97,168,agent1,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,97,169,agent2,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2500,0.9630
+shuffled,97,170,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.2812,0.9630
+shuffled,97,171,agent4,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.2500,0.9630
+shuffled,39,172,agent3,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.7000,0.9007
+shuffled,39,173,agent4,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2500,0.9630
+shuffled,39,174,agent5,No consistent transition pattern emerges from the random ordering.,move,rest,0,0.7000,0.9630
+shuffled,40,175,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",migrate,rest,0,0.2812,0.9630
+shuffled,52,176,agent2,No consistent transition pattern emerges from the random ordering.,move,rest,0,0.2812,0.9630
+shuffled,52,177,agent3,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.7000,0.9007
+shuffled,52,178,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.2812,0.9630
+shuffled,52,179,agent5,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,49,180,agent1,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.7000,0.9630
+shuffled,49,181,agent2,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.2500,0.9630
+shuffled,49,182,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2812,0.9007
+shuffled,49,183,agent4,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2812,0.9630
+shuffled,74,184,agent4,No consistent transition pattern emerges from the random ordering.,move,rest,0,0.7000,0.9630
+shuffled,74,185,agent5,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.2500,0.9630
+shuffled,75,186,agent1,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.7000,0.9007
+shuffled,75,187,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.2500,0.9007
+shuffled,23,188,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",unknown,rest,0,0.7000,0.9630
+shuffled,23,189,agent4,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,23,190,agent5,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2500,0.9630
+shuffled,24,191,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2812,0.9007
+shuffled,57,192,agent5,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2812,0.9630
+shuffled,58,193,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2812,0.9007
+shuffled,58,194,agent2,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,58,195,agent3,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.7000,0.9630
+shuffled,61,196,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.2500,0.9630
+shuffled,61,197,agent2,No consistent transition pattern emerges from the random ordering.,move,rest,0,0.2812,0.9630
+shuffled,61,198,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.2812,0.9630
+shuffled,61,199,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.7000,0.9630
+shuffled,16,200,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.8000,0.9630
+shuffled,16,201,agent3,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,16,202,agent4,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,16,203,agent5,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,33,204,agent1,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.7000,0.9007
+shuffled,33,205,agent2,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.8000,0.9630
+shuffled,33,206,agent3,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.9000,0.9007
+shuffled,33,207,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.2500,0.9630
+shuffled,69,208,agent5,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,70,209,agent1,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,70,210,agent2,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.7000,0.9630
+shuffled,70,211,agent3,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,25,212,agent1,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.7000,0.9630
+shuffled,25,213,agent2,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.8000,0.9007
+shuffled,25,214,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",migrate,rest,0,0.2500,0.9630
+shuffled,25,215,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",migrate,rest,0,0.7000,0.9630
+shuffled,97,216,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",migrate,rest,0,0.8000,0.9630
+shuffled,98,217,agent1,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,98,218,agent2,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.7000,0.9007
+shuffled,98,219,agent3,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.8000,0.9630
+shuffled,53,220,agent5,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.2500,0.9630
+shuffled,54,221,agent1,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.7000,0.9007
+shuffled,54,222,agent2,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,54,223,agent3,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,32,224,agent2,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.7000,0.9007
+shuffled,32,225,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2812,0.9007
+shuffled,32,226,agent4,No consistent transition pattern emerges from the random ordering.,move,rest,0,0.2812,0.9630
+shuffled,32,227,agent5,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,81,228,agent1,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.7000,0.9630
+shuffled,81,229,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.2500,0.9630
+shuffled,81,230,agent3,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2812,0.9007
+shuffled,81,231,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.2812,0.9630
+shuffled,25,232,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.7000,0.9630
+shuffled,26,233,agent1,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,26,234,agent2,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.7000,0.9630
+shuffled,26,235,agent3,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2500,0.9630
+shuffled,17,236,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.2812,0.9630
+shuffled,18,237,agent1,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2812,0.9007
+shuffled,18,238,agent2,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.7000,0.9630
+shuffled,18,239,agent3,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.8000,0.9630
+shuffled,70,240,agent4,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.9000,0.9007
+shuffled,70,241,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.2812,0.9630
+shuffled,71,242,agent1,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.2500,0.9630
+shuffled,71,243,agent2,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.2500,0.9630
+shuffled,89,244,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2812,0.9007
+shuffled,89,245,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.7000,0.9007
+shuffled,89,246,agent3,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.2812,0.9630
+shuffled,89,247,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2812,0.9007
+shuffled,91,248,agent3,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.2812,0.9630
+shuffled,91,249,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.2812,0.9630
+shuffled,91,250,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.7000,0.9630
+shuffled,92,251,agent1,No consistent transition pattern emerges from the random ordering.,move,rest,0,0.2812,0.9630
+shuffled,53,252,agent1,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.7000,0.9630
+shuffled,53,253,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2812,0.9007
+shuffled,53,254,agent3,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.2500,0.9630
+shuffled,53,255,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.2500,0.9630
+shuffled,15,256,agent3,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,15,257,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2500,0.9007
+shuffled,15,258,agent5,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2812,0.9630
+shuffled,16,259,agent1,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.7000,0.9007
+shuffled,64,260,agent2,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.8000,0.9630
+shuffled,64,261,agent3,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,64,262,agent4,No consistent transition pattern emerges from the random ordering.,die,eat,0,0.2500,0.9630
+shuffled,64,263,agent5,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,5,264,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",unknown,eat,0,0.2500,0.9630
+shuffled,6,265,agent1,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,6,266,agent2,Shuffled fragments do not expose a stable causal rule.,die,eat,0,0.7000,0.9630
+shuffled,6,267,agent3,Shuffled fragments do not expose a stable causal rule.,migrate,eat,0,0.8000,0.9630
+shuffled,56,268,agent2,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9630
+shuffled,56,269,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.2812,0.9630
+shuffled,56,270,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.7000,0.9630
+shuffled,56,271,agent5,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,34,272,agent4,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,34,273,agent5,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,35,274,agent1,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.2500,0.9630
+shuffled,35,275,agent2,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.2500,0.9630
+shuffled,100,276,agent2,No consistent transition pattern emerges from the random ordering.,eat,rest,0,0.2500,0.9630
+shuffled,100,277,agent3,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.7000,0.9630
+shuffled,100,278,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.2812,0.9630
+shuffled,100,279,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.7000,0.9007
+shuffled,48,280,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.8000,0.9007
+shuffled,48,281,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.9000,0.9007
+shuffled,48,282,agent4,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.2500,0.9630
+shuffled,48,283,agent5,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.7000,0.9007
+shuffled,85,284,agent1,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.8000,0.9630
+shuffled,85,285,agent2,Shuffled fragments do not expose a stable causal rule.,eat,eat,1,0.9000,0.9630
+shuffled,85,286,agent3,Shuffled fragments do not expose a stable causal rule.,die,rest,0,1.0000,0.9630
+shuffled,85,287,agent4,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.2500,0.9630
+shuffled,59,288,agent3,Shuffled fragments do not expose a stable causal rule.,move,eat,0,0.2500,0.9630
+shuffled,59,289,agent4,No consistent transition pattern emerges from the random ordering.,move,eat,0,0.2500,0.9630
+shuffled,59,290,agent5,Shuffled fragments do not expose a stable causal rule.,die,eat,0,0.2500,0.9630
+shuffled,60,291,agent1,Shuffled fragments do not expose a stable causal rule.,unknown,eat,0,0.7000,0.9630
+shuffled,1,292,agent5,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.8000,0.9630
+shuffled,2,293,agent1,No consistent transition pattern emerges from the random ordering.,rest,move,0,0.2500,0.9630
+shuffled,2,294,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,eat,1,0.2812,0.9007
+shuffled,2,295,agent3,No consistent transition pattern emerges from the random ordering.,unknown,eat,0,0.2812,0.9630
+shuffled,1,296,agent1,Shuffled fragments do not expose a stable causal rule.,rest,eat,0,0.2500,0.9630
+shuffled,1,297,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.2500,0.9007
+shuffled,1,298,agent3,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.2812,0.9630
+shuffled,1,299,agent4,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.7000,0.9630
+shuffled,35,300,agent3,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9007
+shuffled,35,301,agent4,No consistent transition pattern emerges from the random ordering.,move,rest,0,0.2500,0.9630
+shuffled,35,302,agent5,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.2500,0.9630
+shuffled,36,303,agent1,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.7000,0.9630
+shuffled,62,304,agent4,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.8000,0.9630
+shuffled,62,305,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2500,0.9007
+shuffled,63,306,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.7000,0.9007
+shuffled,63,307,agent2,Shuffled fragments do not expose a stable causal rule.,die,eat,0,0.2500,0.9630
+shuffled,63,308,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,eat,0,0.2500,0.9007
+shuffled,63,309,agent4,Shuffled fragments do not expose a stable causal rule.,migrate,eat,0,0.2500,0.9630
+shuffled,63,310,agent5,Shuffled fragments do not expose a stable causal rule.,rest,eat,0,0.7000,0.9007
+shuffled,64,311,agent1,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,36,312,agent2,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,36,313,agent3,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.7000,0.9630
+shuffled,36,314,agent4,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.8000,0.9630
+shuffled,36,315,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.2500,0.9630
+shuffled,77,316,agent5,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,78,317,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.2500,0.9630
+shuffled,78,318,agent2,No consistent transition pattern emerges from the random ordering.,move,rest,0,0.2812,0.9630
+shuffled,78,319,agent3,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.2500,0.9630
+shuffled,14,320,agent4,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.2500,0.9630
+shuffled,14,321,agent5,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,15,322,agent1,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.7000,0.9007
+shuffled,15,323,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",migrate,rest,0,0.2500,0.9630
+shuffled,37,324,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.7000,0.9007
+shuffled,38,325,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.8000,0.9630
+shuffled,38,326,agent2,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,38,327,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2500,0.9007
+shuffled,13,328,agent5,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2812,0.9007
+shuffled,14,329,agent1,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.2500,0.9630
+shuffled,14,330,agent2,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.7000,0.9630
+shuffled,14,331,agent3,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,21,332,agent1,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,21,333,agent2,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,21,334,agent3,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,21,335,agent4,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.7000,0.9007
+shuffled,73,336,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2500,0.9007
+shuffled,74,337,agent1,No consistent transition pattern emerges from the random ordering.,eat,rest,0,0.2812,0.9630
+shuffled,74,338,agent2,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,74,339,agent3,No consistent transition pattern emerges from the random ordering.,eat,rest,0,0.2500,0.9630
+shuffled,45,340,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.2812,0.9630
+shuffled,45,341,agent2,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,45,342,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",unknown,rest,0,0.2500,0.9630
+shuffled,45,343,agent4,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.2500,0.9630
+shuffled,17,344,agent1,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,17,345,agent2,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.2500,0.9630
+shuffled,17,346,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",migrate,rest,0,0.2500,0.9630
+shuffled,17,347,agent4,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2812,0.9007
+shuffled,30,348,agent4,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,30,349,agent5,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,31,350,agent1,No consistent transition pattern emerges from the random ordering.,move,rest,0,0.7000,0.9630
+shuffled,31,351,agent2,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,24,352,agent2,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.7000,0.9630
+shuffled,24,353,agent3,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2500,0.9630
+shuffled,24,354,agent4,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,24,355,agent5,No consistent transition pattern emerges from the random ordering.,eat,rest,0,0.2500,0.9630
+shuffled,58,356,agent4,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,58,357,agent5,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.7000,0.9630
+shuffled,59,358,agent1,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.8000,0.9630
+shuffled,59,359,agent2,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.9000,0.9630
+shuffled,10,360,agent4,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,1.0000,0.9007
+shuffled,10,361,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.2500,0.9630
+shuffled,11,362,agent1,No consistent transition pattern emerges from the random ordering.,eat,rest,0,0.2812,0.9630
+shuffled,11,363,agent2,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.7000,0.9630
+shuffled,8,364,agent2,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.8000,0.9630
+shuffled,8,365,agent3,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.9000,0.9630
+shuffled,8,366,agent4,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,8,367,agent5,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,93,368,agent5,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.2500,0.9630
+shuffled,94,369,agent1,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.7000,0.9630
+shuffled,94,370,agent2,No consistent transition pattern emerges from the random ordering.,move,rest,0,0.2500,0.9630
+shuffled,94,371,agent3,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,47,372,agent3,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.7000,0.9630
+shuffled,47,373,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2500,0.9007
+shuffled,47,374,agent5,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,48,375,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2500,0.9007
+shuffled,80,376,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.7000,0.9630
+shuffled,80,377,agent3,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.2812,0.9630
+shuffled,80,378,agent4,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,80,379,agent5,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.7000,0.9630
+shuffled,38,380,agent4,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.8000,0.9630
+shuffled,38,381,agent5,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.9000,0.9630
+shuffled,39,382,agent1,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,1.0000,0.9007
+shuffled,39,383,agent2,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.2500,0.9630
+shuffled,42,384,agent4,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.7000,0.9007
+shuffled,42,385,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",unknown,rest,0,0.2812,0.9630
+shuffled,43,386,agent1,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,43,387,agent2,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.7000,0.9630
+shuffled,37,388,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2500,0.9007
+shuffled,37,389,agent2,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2812,0.9007
+shuffled,37,390,agent3,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,37,391,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2500,0.9007
+shuffled,71,392,agent3,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,71,393,agent4,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.7000,0.9630
+shuffled,71,394,agent5,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.8000,0.9630
+shuffled,72,395,agent1,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.9000,0.9630
+shuffled,57,396,agent1,No consistent transition pattern emerges from the random ordering.,move,rest,0,0.2500,0.9630
+shuffled,57,397,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2812,0.9007
+shuffled,57,398,agent3,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.2500,0.9630
+shuffled,57,399,agent4,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.7000,0.9007
+shuffled,11,400,agent3,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.8000,0.9630
+shuffled,11,401,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.2500,0.9630
+shuffled,11,402,agent5,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,12,403,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.2500,0.9630
+shuffled,13,404,agent1,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,13,405,agent2,No consistent transition pattern emerges from the random ordering.,eat,rest,0,0.2500,0.9630
+shuffled,13,406,agent3,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.2500,0.9630
+shuffled,13,407,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",unknown,rest,0,0.2500,0.9630
+shuffled,9,408,agent5,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,10,409,agent1,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.7000,0.9630
+shuffled,10,410,agent2,No consistent transition pattern emerges from the random ordering.,eat,rest,0,0.2500,0.9630
+shuffled,10,411,agent3,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,29,412,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",migrate,rest,0,0.2500,0.9630
+shuffled,29,413,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.7000,0.9007
+shuffled,29,414,agent3,Shuffled fragments do not expose a stable causal rule.,rest,eat,0,0.2500,0.9007
+shuffled,29,415,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2500,0.9007
+shuffled,90,416,agent4,Shuffled fragments do not expose a stable causal rule.,migrate,eat,0,0.2500,0.9630
+shuffled,90,417,agent5,Shuffled fragments do not expose a stable causal rule.,rest,eat,0,0.7000,0.9007
+shuffled,91,418,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",unknown,rest,0,0.2500,0.9630
+shuffled,91,419,agent2,No consistent transition pattern emerges from the random ordering.,die,eat,0,0.2812,0.9630
+shuffled,76,420,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.2812,0.9630
+shuffled,76,421,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.7000,0.9630
+shuffled,76,422,agent4,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2812,0.9630
+shuffled,76,423,agent5,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9630
+shuffled,31,424,agent3,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,31,425,agent4,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.7000,0.9007
+shuffled,31,426,agent5,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.2500,0.9630
+shuffled,32,427,agent1,No consistent transition pattern emerges from the random ordering.,move,eat,0,0.2500,0.9630
+shuffled,88,428,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",migrate,rest,0,0.2812,0.9630
+shuffled,88,429,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.7000,0.9630
+shuffled,88,430,agent4,No consistent transition pattern emerges from the random ordering.,eat,rest,0,0.2812,0.9630
+shuffled,88,431,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.2812,0.9630
+shuffled,75,432,agent3,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.2500,0.9630
+shuffled,75,433,agent4,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.7000,0.9630
+shuffled,75,434,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.2500,0.9007
+shuffled,76,435,agent1,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9007
+shuffled,84,436,agent2,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.7000,0.9007
+shuffled,84,437,agent3,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.8000,0.9630
+shuffled,84,438,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2500,0.9007
+shuffled,84,439,agent5,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2812,0.9007
+shuffled,61,440,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.2812,0.9630
+shuffled,62,441,agent1,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2812,0.9630
+shuffled,62,442,agent2,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.7000,0.9007
+shuffled,62,443,agent3,Shuffled fragments do not expose a stable causal rule.,migrate,rest,0,0.2500,0.9630
+shuffled,66,444,agent4,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2500,0.9630
+shuffled,66,445,agent5,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.2500,0.9630
+shuffled,67,446,agent1,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.7000,0.9630
+shuffled,67,447,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2500,0.9007
+shuffled,86,448,agent4,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2812,0.9007
+shuffled,86,449,agent5,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.7000,0.9630
+shuffled,87,450,agent1,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.2500,0.9630
+shuffled,87,451,agent2,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.2500,0.9630
+shuffled,85,452,agent5,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.7000,0.9630
+shuffled,86,453,agent1,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.8000,0.9630
+shuffled,86,454,agent2,Shuffled fragments do not expose a stable causal rule.,unknown,rest,0,0.2500,0.9630
+shuffled,86,455,agent3,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.2500,0.9630
+shuffled,44,456,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.2812,0.9630
+shuffled,44,457,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.7000,0.9007
+shuffled,44,458,agent4,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,44,459,agent5,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.7000,0.9007
+shuffled,5,460,agent1,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2500,0.9630
+shuffled,5,461,agent2,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.7000,0.9007
+shuffled,5,462,agent3,"The trajectory appears incoherent, so hypotheses remain tentative.",migrate,rest,0,0.2812,0.9630
+shuffled,5,463,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.7000,0.9007
+shuffled,41,464,agent5,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,42,465,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",migrate,rest,0,0.2500,0.9630
+shuffled,42,466,agent2,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,42,467,agent3,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.7000,0.9007
+shuffled,83,468,agent3,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.2500,0.9630
+shuffled,83,469,agent4,No consistent transition pattern emerges from the random ordering.,die,rest,0,0.7000,0.9630
+shuffled,83,470,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2812,0.9007
+shuffled,84,471,agent1,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,73,472,agent1,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.7000,0.9007
+shuffled,73,473,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",move,rest,0,0.2500,0.9630
+shuffled,73,474,agent3,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.2500,0.9630
+shuffled,73,475,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",unknown,rest,0,0.2500,0.9630
+shuffled,20,476,agent2,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.7000,0.9630
+shuffled,20,477,agent3,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.2812,0.9630
+shuffled,20,478,agent4,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.7000,0.9007
+shuffled,20,479,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2812,0.9007
+shuffled,60,480,agent2,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,60,481,agent3,Shuffled fragments do not expose a stable causal rule.,eat,rest,0,0.7000,0.9630
+shuffled,60,482,agent4,Shuffled fragments do not expose a stable causal rule.,move,rest,0,0.8000,0.9630
+shuffled,60,483,agent5,No consistent transition pattern emerges from the random ordering.,eat,rest,0,0.2500,0.9630
+shuffled,43,484,agent3,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.7000,0.9007
+shuffled,43,485,agent4,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.8000,0.9630
+shuffled,43,486,agent5,"The trajectory appears incoherent, so hypotheses remain tentative.",die,rest,0,0.2812,0.9630
+shuffled,44,487,agent1,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.2500,0.9630
+shuffled,51,488,agent3,No consistent transition pattern emerges from the random ordering.,rest,rest,1,0.2500,0.9007
+shuffled,51,489,agent4,No consistent transition pattern emerges from the random ordering.,unknown,rest,0,0.7000,0.9630
+shuffled,51,490,agent5,Shuffled fragments do not expose a stable causal rule.,die,rest,0,0.2500,0.9630
+shuffled,52,491,agent1,No consistent transition pattern emerges from the random ordering.,migrate,rest,0,0.2500,0.9630
+shuffled,22,492,agent4,"The trajectory appears incoherent, so hypotheses remain tentative.",rest,rest,1,0.2812,0.9007
+shuffled,22,493,agent5,Shuffled fragments do not expose a stable causal rule.,rest,rest,1,0.2500,0.9007
+shuffled,23,494,agent1,"The trajectory appears incoherent, so hypotheses remain tentative.",eat,rest,0,0.2500,0.9630

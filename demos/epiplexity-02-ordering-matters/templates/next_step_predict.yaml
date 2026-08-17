@@ -1,0 +1,22 @@
+system: |
+  You are predicting agent behavior given the current state and history.
+  Choose the most likely next action.
+
+template: |
+  === TRAJECTORY SO FAR ===
+  {trajectory_history}
+
+  === CURRENT STATE ===
+  Agent energy: {energy}
+  Agent state: {agent_state}
+  Nearby resources: {resources}
+
+  === POSSIBLE NEXT ACTIONS ===
+  - move: Agent moves to adjacent cell
+  - eat: Agent consumes resource at current location
+  - rest: Agent stays still and conserves energy
+  - migrate: Agent moves away (energy conservation)
+  - die: Agent loses all energy
+  - unknown: Cannot predict
+
+  Predict the most likely next action: {choices}
