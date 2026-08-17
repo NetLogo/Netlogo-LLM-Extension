@@ -1,0 +1,10 @@
+0000000000000000000000000000000000000000 2532491def4ccebaccd35f65ca709b139128f86e JNK234 <jwalapuramnarasimha@gmail.com> 1762544523 -0600	branch: Created from HEAD
+2532491def4ccebaccd35f65ca709b139128f86e 3e17196ef374c6d038e810d4c27bfe4b50abbbfc JNK234 <jwalapuramnarasimha@gmail.com> 1762544585 -0600	commit: Add provider status, config validation, and model registry
+3e17196ef374c6d038e810d4c27bfe4b50abbbfc f47ea99aefcb7a9b57df2fcefd100ea00355bfe9 JNK234 <jwalapuramnarasimha@gmail.com> 1763502920 -0600	commit: Add config validation tests and build documentation
+f47ea99aefcb7a9b57df2fcefd100ea00355bfe9 f094d2f3cc73cf2926f2416c681e0565253dfc7c JNK234 <jwalapuramnarasimha@gmail.com> 1763502954 -0600	commit (amend): Add config validation tests and build documentation
+f094d2f3cc73cf2926f2416c681e0565253dfc7c 7bad38bb4550ddafc6a7f18e4a15a3858a4da66c JNK234 <jwalapuramnarasimha@gmail.com> 1767751590 -0600	commit: Add external YAML-based model registry with override support
+7bad38bb4550ddafc6a7f18e4a15a3858a4da66c cdfce23fd43d9bdee48022079414f8f00e6917f7 JNK234 <jwalapuramnarasimha@gmail.com> 1767753429 -0600	commit: Fix provider base URL and API key configuration
+cdfce23fd43d9bdee48022079414f8f00e6917f7 b514504cc39c207c9c5c5337071ce8a5b3c1b89c JNK234 <jwalapuramnarasimha@gmail.com> 1767753687 -0600	commit: Add quick command reference table to API documentation
+b514504cc39c207c9c5c5337071ce8a5b3c1b89c 5048b1cc71089940eb1bf315c8eeeb2b7d614b83 JNK234 <jwalapuramnarasimha@gmail.com> 1768075439 -0600	commit: docs: clarify provider discovery primitives and remove review comments
+5048b1cc71089940eb1bf315c8eeeb2b7d614b83 85b3a84a6bba41697ea587ac050cd110820cea19 JNK234 <jwalapuramnarasimha@gmail.com> 1771230507 +0530	merge llm/config-update: Fast-forward
+85b3a84a6bba41697ea587ac050cd110820cea19 be459e9b64643a7d0626e55d534913de38f0c50c JNK234 <jwalapuramnarasimha@gmail.com> 1771231041 +0530	commit (merge): merge: resolve conflicts merging main into config-update

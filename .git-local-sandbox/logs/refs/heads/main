@@ -1,0 +1,35 @@
+0000000000000000000000000000000000000000 3a3b80eab4360c0b34b486f6dd8533b459e0ecf8 JNK234 <jwalapuramnarasimha@gmail.com> 1749848925 -0500	commit (initial): Initial specification for NetLogo Multi-LLM Extension
+3a3b80eab4360c0b34b486f6dd8533b459e0ecf8 0103521158a63b16393c0eb00d3efafc4ee386bc JNK234 <jwalapuramnarasimha@gmail.com> 1749849384 -0500	commit: Add detailed TDD implementation plan and TODO tracker
+0103521158a63b16393c0eb00d3efafc4ee386bc 93fce648b53e4816d011aff59ddf7f7ba9fdac03 JNK234 <jwalapuramnarasimha@gmail.com> 1749850117 -0500	commit: Step 1: Complete project structure and build setup
+93fce648b53e4816d011aff59ddf7f7ba9fdac03 8a504a7049923cd4052b748d08c0bd5cf7c47efb JNK234 <jwalapuramnarasimha@gmail.com> 1749850710 -0500	commit: Step 2: Complete data models and core abstractions
+8a504a7049923cd4052b748d08c0bd5cf7c47efb 16cd4ba85529a6cd02e364a303a3a677f6fbbab2 JNK234 <jwalapuramnarasimha@gmail.com> 1749851186 -0500	commit: Step 3: Complete configuration management and demo files
+16cd4ba85529a6cd02e364a303a3a677f6fbbab2 0f067a99d7bd75869af9f492a9b23af6e2a34377 JNK234 <jwalapuramnarasimha@gmail.com> 1749851539 -0500	commit: Step 4: Complete OpenAI provider implementation
+0f067a99d7bd75869af9f492a9b23af6e2a34377 3412a057e00f5fef52b4a3684cf1d4bf2e9d64cb JNK234 <jwalapuramnarasimha@gmail.com> 1749851845 -0500	commit: Step 5: Complete provider factory + color-sharing demo
+3412a057e00f5fef52b4a3684cf1d4bf2e9d64cb 9f1ffd84fabc4d1221d77f61c62b163ad8a722ba JNK234 <jwalapuramnarasimha@gmail.com> 1749852099 -0500	commit: Step 6: Complete main extension class with NetLogo primitives
+9f1ffd84fabc4d1221d77f61c62b163ad8a722ba c5d7aac1fa5547e4a4c6fbfa127957eb5d20c78f JNK234 <jwalapuramnarasimha@gmail.com> 1749854632 -0500	commit: Fix NetLogo demo files: define show-debug variable
+c5d7aac1fa5547e4a4c6fbfa127957eb5d20c78f 3bfc1f0668fc6452aae12d1eb247fccc840de82a JNK234 <jwalapuramnarasimha@gmail.com> 1749854837 -0500	commit: Fix string extension function call in NetLogo demo
+3bfc1f0668fc6452aae12d1eb247fccc840de82a ac47aa86a825de86d58bae98015e0f10c9ef503f JNK234 <jwalapuramnarasimha@gmail.com> 1749882191 -0500	commit: Fix NetLogo demo and improve configuration loading
+ac47aa86a825de86d58bae98015e0f10c9ef503f b2757ce1583af74ba4f2ac93b678c08201a18ed2 JNK234 <jwalapuramnarasimha@gmail.com> 1749882239 -0500	commit (amend): Fix NetLogo demo and improve configuration loading
+b2757ce1583af74ba4f2ac93b678c08201a18ed2 6408fb84dd529e6ace84196ae88e9fdc735c5916 JNK234 <jwalapuramnarasimha@gmail.com> 1749882576 -0500	commit: Update plan.md with Phase 1 completion and realistic Phase 2-4 roadmap
+6408fb84dd529e6ace84196ae88e9fdc735c5916 793b771408fa66fb37339ded3d549ccf5a361394 JNK234 <jwalapuramnarasimha@gmail.com> 1749882596 -0500	commit (amend): Update plan.md with Phase 1 completion and realistic Phase 2-4 roadmap
+793b771408fa66fb37339ded3d549ccf5a361394 6a0ec102c25444e5d7c879a8913950965d8f9730 JNK234 <jwalapuramnarasimha@gmail.com> 1750142775 -0500	commit: Implement Step 11: Fix Async + Add Constrained Choice
+6a0ec102c25444e5d7c879a8913950965d8f9730 bcb62e2aaba1fcc4c197565083df3af1b6f04280 JNK234 <jwalapuramnarasimha@gmail.com> 1754970117 -0500	commit: chore: ignore LLM-related docs and local config files; keep repo focused on model and extension
+bcb62e2aaba1fcc4c197565083df3af1b6f04280 3fcd8b5ec05dab981b029c57310871d1c3c786c2 JNK234 <jwalapuramnarasimha@gmail.com> 1754970271 -0500	commit: security: scrub demo config key; add secret scan script and pre-commit hook
+3fcd8b5ec05dab981b029c57310871d1c3c786c2 ffb6702c65e6e2064dc2947943668937ad5107a6 JNK234 <jwalapuramnarasimha@gmail.com> 1754970333 -0500	commit: chore: make pre-commit hook path robust for monorepo (llm/scripts)
+ffb6702c65e6e2064dc2947943668937ad5107a6 6c292fff0ec2fc50580a23594f50d61fcf544341 JNK234 <jwalapuramnarasimha@gmail.com> 1757376306 +0530	commit: Cleaned Repo, added docs
+6c292fff0ec2fc50580a23594f50d61fcf544341 a01b59f61628e4161c3d814df84d66ca77c1d510 JNK234 <jwalapuramnarasimha@gmail.com> 1757376642 +0530	commit: Restructure repository to track only LLM extension
+a01b59f61628e4161c3d814df84d66ca77c1d510 753da56c9a61edd1fbe34524506441a4b7bb7a18 JNK234 <jwalapuramnarasimha@gmail.com> 1757376642 +0530	filter-branch: rewrite
+753da56c9a61edd1fbe34524506441a4b7bb7a18 79b454924e9726aacdfce14bcddd8bd63feb6b48 JNK234 <jwalapuramnarasimha@gmail.com> 1758215598 +0530	commit: Added Jar files and Updated .gitignore
+79b454924e9726aacdfce14bcddd8bd63feb6b48 95af6f9c4de03bd3b391ab2c802bd2dd59a91596 JNK234 <jwalapuramnarasimha@gmail.com> 1758453549 +0530	commit: Reorganize demos folder structure
+95af6f9c4de03bd3b391ab2c802bd2dd59a91596 cfece78e9ef3f2341e618ce729522decab2b1224 JNK234 <jwalapuramnarasimha@gmail.com> 1758555936 +0530	commit (amend): Reorganize demos folder structure
+cfece78e9ef3f2341e618ce729522decab2b1224 75abde1327b8b8e17c5e1f7dbd9db45addbd2b8d JNK234 <jwalapuramnarasimha@gmail.com> 1763503533 -0600	pull llm main: Fast-forward
+75abde1327b8b8e17c5e1f7dbd9db45addbd2b8d ebcd219bcdd1ce7edcc7621d5933793ea0fa04b1 JNK234 <jwalapuramnarasimha@gmail.com> 1771231108 +0530	pull llm main: Fast-forward
+ebcd219bcdd1ce7edcc7621d5933793ea0fa04b1 e33b282b4d31f32c6a7c98a8228e250e97bb3e5a JNK234 <jwalapuramnarasimha@gmail.com> 1771231534 +0530	fast-import
+e33b282b4d31f32c6a7c98a8228e250e97bb3e5a f66665fc44c77ac7bd3ab62a0a1337744714e159 JNK234 <jwalapuramnarasimha@gmail.com> 1771231550 +0530	fast-import
+f66665fc44c77ac7bd3ab62a0a1337744714e159 b654ab0666a9e0f9f89a410bc8938a0b10eae2e0 JNK234 <jwalapuramnarasimha@gmail.com> 1771231566 +0530	fast-import
+b654ab0666a9e0f9f89a410bc8938a0b10eae2e0 250562c7c294239c9e5579ad0f14e23dffbc7f7b JNK234 <jwalapuramnarasimha@gmail.com> 1771232587 +0530	commit: chore: remove FLOW_ANALYSIS.md from root
+250562c7c294239c9e5579ad0f14e23dffbc7f7b 013f3a6cb2ab6d32adfd5b7be1b534ccf5be4e08 JNK234 <jwalapuramnarasimha@gmail.com> 1772154322 -0600	commit: feat: create topology-tournament.nlogo with mesh/hierarchy/chain breeds
+013f3a6cb2ab6d32adfd5b7be1b534ccf5be4e08 76c59e9a26c638f5a5bbe908f2de4f8bd1a12d5c JNK234 <jwalapuramnarasimha@gmail.com> 1772154326 -0600	commit: feat: add coordinator-template.yaml for LLM decisions
+76c59e9a26c638f5a5bbe908f2de4f8bd1a12d5c 10c96c548e712373e650226cb962684822146d22 JNK234 <jwalapuramnarasimha@gmail.com> 1772154353 -0600	commit: feat: add config.txt with provider settings
+10c96c548e712373e650226cb962684822146d22 0ecea4dda913e345f272e773e663bb73a0f4dfe1 JNK234 <jwalapuramnarasimha@gmail.com> 1772154357 -0600	commit: docs: add comprehensive README.md for topology-tournament
+0ecea4dda913e345f272e773e663bb73a0f4dfe1 402708bd9b98bc7ab443b1440f213a462ea96b83 JNK234 <jwalapuramnarasimha@gmail.com> 1772154362 -0600	commit: feat: add BehaviorSpace config, analysis script, and tests

@@ -1,0 +1,10 @@
+0000000000000000000000000000000000000000 250562c7c294239c9e5579ad0f14e23dffbc7f7b JNK234 <jwalapuramnarasimha@gmail.com> 1772151438 -0600	branch: Created from HEAD
+250562c7c294239c9e5579ad0f14e23dffbc7f7b 34ac5050f6092aa82e1fac31e9b497941139e4fc JNK234 <jwalapuramnarasimha@gmail.com> 1772155192 -0600	commit: feat: add ordering-matters demo
+34ac5050f6092aa82e1fac31e9b497941139e4fc 9289d89fdc1557f4f652abd9ad4a647594c63fe5 JNK234 <jwalapuramnarasimha@gmail.com> 1772162779 -0600	commit: feat(ordering-matters): rebuild NetLogo demo around trajectory ordering inference
+9289d89fdc1557f4f652abd9ad4a647594c63fe5 786c5312d4fa67ee1a3bcece20c359069b3016cc JNK234 <jwalapuramnarasimha@gmail.com> 1772162783 -0600	commit: feat(prompt): add ordering-aware rule inference template
+786c5312d4fa67ee1a3bcece20c359069b3016cc 1d00e0df8ee4b7725ef623d84393a4069fec6f7a JNK234 <jwalapuramnarasimha@gmail.com> 1772162791 -0600	commit: chore(config): switch demo to explicit config.txt provider file
+1d00e0df8ee4b7725ef623d84393a4069fec6f7a 8d1f0d7bec88b4c04c845b8be351c75612c343f9 JNK234 <jwalapuramnarasimha@gmail.com> 1772162796 -0600	commit: feat(analysis): score rule divergence across trajectory orderings
+8d1f0d7bec88b4c04c845b8be351c75612c343f9 094c3ac32f6b3fc6b6e81c02f6601a3271c87487 JNK234 <jwalapuramnarasimha@gmail.com> 1772162800 -0600	commit: test(ordering-matters): validate ordering sensitivity analysis pipeline
+094c3ac32f6b3fc6b6e81c02f6601a3271c87487 9c79968e5095861424c788fbf4ffe94ed5dad452 JNK234 <jwalapuramnarasimha@gmail.com> 1772162806 -0600	commit: data(results): add sample trajectory and inference datasets
+9c79968e5095861424c788fbf4ffe94ed5dad452 2294ab875141796f0d92546149c2e86a4562df55 JNK234 <jwalapuramnarasimha@gmail.com> 1772162810 -0600	commit: data(results): include sample analysis summary and visualization
+2294ab875141796f0d92546149c2e86a4562df55 c2f4b59bf40aa37946afdc1734ca3c1366ee79af JNK234 <jwalapuramnarasimha@gmail.com> 1772162814 -0600	commit: docs(ordering-matters): document workflow, exports, and analysis usage

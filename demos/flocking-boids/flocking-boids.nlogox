@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="utf-8"?>
+<model version="NetLogo 7.0.3" snapToGrid="true">
+  <code><![CDATA[breed [boids boid]
+
+boids-own [
+  vx
+  vy
+  next-vx
+  next-vy
+]
+
+to setup
+  clear-all
+  set-default-shape boids "triangle"
+
+  create-boids num-boids [
+    set size 1.8
+    set color 95 + random 10
+    setxy random-xcor random-ycor
+
+    let initial-heading random-float 360
+    let initial-speed minimum-speed + random-float (max-speed - minimum-speed)
+
+    set vx initial-speed * sin initial-heading
+    set vy initial-speed * cos initial-heading
+    set next-vx vx
+    set next-vy vy
+  ]
+
+  reset-ticks
+end
+
+to go
+  if not any? boids [ stop ]
+
+  ask boids [
+    calculate-next-velocity
+  ]
+
+  ask boids [
+    apply-motion
+  ]
+
+  tick
+end
+
+to calculate-next-velocity  ;; turtle procedure
+  let separation-force boids-separation
+  let alignment-force boids-alignment
+  let cohesion-force boids-cohesion
+
+  let candidate-vx vx + item 0 separation-force + item 0 alignment-force + item 0 cohesion-force
+  let candidate-vy vy + item 1 separation-force + item 1 alignment-force + item 1 cohesion-force
+  let adjusted-velocity clamp-speed candidate-vx candidate-vy
+
+  set next-vx item 0 adjusted-velocity
+  set next-vy item 1 adjusted-velocity
+end
+
+to-report boids-separation  ;; turtle procedure
+  let nearby-boids other boids in-radius separation-radius
+  if not any? nearby-boids [
+    report (list 0 0)
+  ]
+
+  ; Close neighbors contribute stronger repulsion than distant ones.
+  let force-x sum [sin (towards myself) / ((distance myself + 0.05) ^ 2)] of nearby-boids
+  let force-y sum [cos (towards myself) / ((distance myself + 0.05) ^ 2)] of nearby-boids
+
+  report (list (force-x * separation-weight) (force-y * separation-weight))
+end
+
+to-report boids-alignment  ;; turtle procedure
+  let nearby-boids other boids in-radius alignment-radius
+  if not any? nearby-boids [
+    report (list 0 0)
+  ]
+
+  let mean-vx mean [vx] of nearby-boids
+  let mean-vy mean [vy] of nearby-boids
+
+  report (list ((mean-vx - vx) * alignment-weight)
+               ((mean-vy - vy) * alignment-weight))
+end
+
+to-report boids-cohesion  ;; turtle procedure
+  let nearby-boids other boids in-radius cohesion-radius
+  if not any? nearby-boids [
+    report (list 0 0)
+  ]
+
+  ; Average the directions toward neighbors to pull the local flock together.
+  let force-x mean [sin (towards myself + 180)] of nearby-boids
+  let force-y mean [cos (towards myself + 180)] of nearby-boids
+
+  report (list (force-x * cohesion-weight) (force-y * cohesion-weight))
+end
+
+to apply-motion  ;; turtle procedure
+  set vx next-vx
+  set vy next-vy
+  set heading atan vx vy
+  setxy (wrapped-x (xcor + vx)) (wrapped-y (ycor + vy))
+end
+
+to-report clamp-speed [candidate-vx candidate-vy]
+  let speed vector-speed candidate-vx candidate-vy
+
+  if speed = 0 [
+    let random-heading random-float 360
+    report (list (minimum-speed * sin random-heading)
+                 (minimum-speed * cos random-heading))
+  ]
+
+  if speed > max-speed [
+    let factor max-speed / speed
+    report (list (candidate-vx * factor) (candidate-vy * factor))
+  ]
+
+  if speed < minimum-speed [
+    let factor minimum-speed / speed
+    report (list (candidate-vx * factor) (candidate-vy * factor))
+  ]
+
+  report (list candidate-vx candidate-vy)
+end
+
+to-report minimum-speed
+  report max-speed * 0.35
+end
+
+to-report vector-speed [x-component y-component]
+  report sqrt ((x-component * x-component) + (y-component * y-component))
+end
+
+to-report wrapped-x [candidate-x]
+  let span (max-pxcor - min-pxcor + 1)
+  if candidate-x > max-pxcor [ report candidate-x - span ]
+  if candidate-x < min-pxcor [ report candidate-x + span ]
+  report candidate-x
+end
+
+to-report wrapped-y [candidate-y]
+  let span (max-pycor - min-pycor + 1)
+  if candidate-y > max-pycor [ report candidate-y - span ]
+  if candidate-y < min-pycor [ report candidate-y + span ]
+  report candidate-y
+end
+
+to-report avg-speed
+  if not any? boids [ report 0 ]
+  report mean [vector-speed vx vy] of boids
+end
+
+to-report flock-size
+  if not any? boids [ report 0 ]
+  report max [count other boids in-radius cohesion-radius + 1] of boids
+end]]></code>
+  <widgets>
+    <view x="230" wrappingAllowedX="true" y="10" frameRate="30.0" minPycor="-20" height="505" showTickCounter="true" patchSize="12.0" fontSize="10" wrappingAllowedY="true" width="505" tickCounterLabel="ticks" maxPycor="20" updateMode="1" maxPxcor="20" minPxcor="-20"></view>
+    <button x="15" y="15" height="33" disableUntilTicks="false" forever="false" kind="Observer" width="85">setup</button>
+    <button x="110" y="15" height="33" disableUntilTicks="true" forever="true" kind="Observer" width="85">go</button>
+    <slider x="15" step="5" y="65" max="300.0" width="200" display="num-boids" height="50" min="10.0" direction="Horizontal" default="120.0" variable="num-boids"></slider>
+    <slider x="15" step="0.1" y="120" max="3.0" width="200" display="max-speed" height="50" min="0.2" direction="Horizontal" default="1.4" variable="max-speed"></slider>
+    <slider x="15" step="0.1" y="175" max="5.0" width="200" display="separation-radius" height="50" min="0.5" direction="Horizontal" default="1.5" variable="separation-radius"></slider>
+    <slider x="15" step="0.5" y="230" max="12.0" width="200" display="alignment-radius" height="50" min="1.0" direction="Horizontal" default="5.0" variable="alignment-radius"></slider>
+    <slider x="15" step="0.5" y="285" max="15.0" width="200" display="cohesion-radius" height="50" min="1.0" direction="Horizontal" default="9.0" variable="cohesion-radius"></slider>
+    <slider x="15" step="0.1" y="340" max="3.0" width="200" display="separation-weight" height="50" min="0.0" direction="Horizontal" default="1.2" variable="separation-weight"></slider>
+    <slider x="15" step="0.05" y="395" max="2.0" width="200" display="alignment-weight" height="50" min="0.0" direction="Horizontal" default="0.5" variable="alignment-weight"></slider>
+    <slider x="15" step="0.05" y="450" max="2.0" width="200" display="cohesion-weight" height="50" min="0.0" direction="Horizontal" default="0.4" variable="cohesion-weight"></slider>
+    <monitor x="15" precision="2" y="510" height="50" fontSize="11" width="95" display="avg-speed">avg-speed</monitor>
+    <monitor x="120" precision="0" y="510" height="50" fontSize="11" width="95" display="flock-size">flock-size</monitor>
+  </widgets>
+  <previewCommands>setup
+repeat 200 [ go ]</previewCommands>
+  <info><![CDATA[## WHAT IS IT?
+
+This model simulates a classic boids flock in NetLogo. Each boid follows local separation, alignment, and cohesion rules, and coordinated motion emerges without any leader.
+
+## HOW IT WORKS
+
+Each boid measures nearby flockmates within three configurable radii. Separation pushes away from close neighbors, alignment steers toward the local average velocity, and cohesion pulls toward nearby group centers.
+
+## HOW TO USE IT
+
+1. Set the sliders for population, speed, radii, and rule weights.
+2. Click `setup`.
+3. Click `go`.
+
+## THINGS TO NOTICE
+
+- Higher separation produces more spacing and more breakaway motion.
+- Higher alignment produces smoother coordinated swarms.
+- Higher cohesion pulls scattered boids into denser local flocks.
+- With the default settings, you should see coordinated swarms, curved bands, and occasional V-like groupings.
+
+## CREDITS AND REFERENCES
+
+This model follows the classic boids idea introduced in Reynolds, C. W. (1986). "Flocks, herds and schools: A distributed behavioral model." SIGGRAPH '86.]]></info>
+  <turtleShapes>
+    <shape name="default" rotatable="true" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="5"></point>
+        <point x="40" y="250"></point>
+        <point x="150" y="205"></point>
+        <point x="260" y="250"></point>
+      </polygon>
+    </shape>
+    <shape name="triangle" rotatable="true" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="30"></point>
+        <point x="15" y="255"></point>
+        <point x="285" y="255"></point>
+      </polygon>
+    </shape>
+  </turtleShapes>
+  <linkShapes>
+    <shape name="default" curviness="0.0">
+      <lines>
+        <line x="-0.2" visible="false">
+          <dash value="0.0"></dash>
+          <dash value="1.0"></dash>
+        </line>
+        <line x="0.0" visible="true">
+          <dash value="1.0"></dash>
+          <dash value="0.0"></dash>
+        </line>
+        <line x="0.2" visible="false">
+          <dash value="0.0"></dash>
+          <dash value="1.0"></dash>
+        </line>
+      </lines>
+      <indicator>
+        <shape name="link direction" rotatable="true" editableColorIndex="0">
+          <line endX="90" startY="150" marked="true" color="-1920102913" endY="180" startX="150"></line>
+          <line endX="210" startY="150" marked="true" color="-1920102913" endY="180" startX="150"></line>
+        </shape>
+      </indicator>
+    </shape>
+  </linkShapes>
+</model>

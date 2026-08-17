@@ -1,0 +1,8 @@
+0000000000000000000000000000000000000000 250562c7c294239c9e5579ad0f14e23dffbc7f7b JNK234 <jwalapuramnarasimha@gmail.com> 1772154678 -0600
+250562c7c294239c9e5579ad0f14e23dffbc7f7b 250562c7c294239c9e5579ad0f14e23dffbc7f7b JNK234 <jwalapuramnarasimha@gmail.com> 1772154679 -0600	reset: moving to HEAD
+250562c7c294239c9e5579ad0f14e23dffbc7f7b 59e40689498f445dea7bd243180836912ad38b50 JNK234 <jwalapuramnarasimha@gmail.com> 1772155224 -0600	commit: feat: add provider-sensitivity demo with multi-provider comparison
+59e40689498f445dea7bd243180836912ad38b50 72629ee9059e18d86b3179fbdf0c7a8d13efd8fb JNK234 <jwalapuramnarasimha@gmail.com> 1772162494 -0600	commit: demo3: add multi-provider config template
+72629ee9059e18d86b3179fbdf0c7a8d13efd8fb 08d86249b7a6d8d24a6b34c01ba2f5209cea1d40 JNK234 <jwalapuramnarasimha@gmail.com> 1772162691 -0600	commit: demo3: add runtime provider switching and sensitivity metrics
+08d86249b7a6d8d24a6b34c01ba2f5209cea1d40 8494670cf96d4780259763dfc1281fa6f7015ae2 JNK234 <jwalapuramnarasimha@gmail.com> 1772162783 -0600	commit: demo3: add provider benchmark harness model
+8494670cf96d4780259763dfc1281fa6f7015ae2 faed7c46e2477bc680be0a9ce636b16f0cbf3e25 JNK234 <jwalapuramnarasimha@gmail.com> 1772162844 -0600	commit: demo3: add provider comparison tests suite
+faed7c46e2477bc680be0a9ce636b16f0cbf3e25 a3b3abd2e516b23b46ca92d02ad60da9d47e293b JNK234 <jwalapuramnarasimha@gmail.com> 1772162869 -0600	commit: demo3: document provider comparison workflow and metrics

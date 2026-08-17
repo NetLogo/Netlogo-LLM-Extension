@@ -1,0 +1,4 @@
+0000000000000000000000000000000000000000 638b829e19362bb060e0c2f9c3d639fc1f4e337d JNK234 <jwalapuramnarasimha@gmail.com> 1759703615 -0500	branch: Created from thebizzle/main
+638b829e19362bb060e0c2f9c3d639fc1f4e337d a00c17efb330c442f408aaea027c3ba623352f4b JNK234 <jwalapuramnarasimha@gmail.com> 1759783988 -0500	commit: Merge: Integrate path resolution enhancements from main
+a00c17efb330c442f408aaea027c3ba623352f4b 1faf9795122dedcdb187f625d117880e28beb660 JNK234 <jwalapuramnarasimha@gmail.com> 1760478148 -0500	commit: Fix ujson dependency and improve build process
+1faf9795122dedcdb187f625d117880e28beb660 5439fe3017b593e331325c52ccfaf2b863aa2520 JNK234 <jwalapuramnarasimha@gmail.com> 1760479361 -0500	commit: Add BSD 3-Clause License

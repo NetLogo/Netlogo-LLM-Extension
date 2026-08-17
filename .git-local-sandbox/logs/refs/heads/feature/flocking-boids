@@ -1,0 +1,7 @@
+0000000000000000000000000000000000000000 402708bd9b98bc7ab443b1440f213a462ea96b83 JNK234 <jwalapuramnarasimha@gmail.com> 1772241515 -0600	branch: Created from HEAD
+402708bd9b98bc7ab443b1440f213a462ea96b83 489f3811217bc4764cb18011e971f4ca51fcb643 JNK234 <jwalapuramnarasimha@gmail.com> 1772243160 -0600	commit: feat: add boids flocking model
+489f3811217bc4764cb18011e971f4ca51fcb643 dfe6a77c4cbaf97b012b6ac3e63bd6fbe9a6b9dc JNK234 <jwalapuramnarasimha@gmail.com> 1772243199 -0600	commit: feat: add behaviorspace sweep for boids
+dfe6a77c4cbaf97b012b6ac3e63bd6fbe9a6b9dc a3efc386c788418f89474f7d0dfa834dc3dc91d5 JNK234 <jwalapuramnarasimha@gmail.com> 1772243216 -0600	commit: docs: add flocking boids README
+a3efc386c788418f89474f7d0dfa834dc3dc91d5 402708bd9b98bc7ab443b1440f213a462ea96b83 JNK234 <jwalapuramnarasimha@gmail.com> 1772250411 -0600	reset: moving to HEAD~3
+402708bd9b98bc7ab443b1440f213a462ea96b83 2ab185f3b7af2f296580372572db1aa08d20eaf6 JNK234 <jwalapuramnarasimha@gmail.com> 1772250429 -0600	reset: moving to origin/main
+2ab185f3b7af2f296580372572db1aa08d20eaf6 6e96d725f7b93c1e27cc1424901a29fa34a5e987 JNK234 <jwalapuramnarasimha@gmail.com> 1772250442 -0600	commit: feat: Flocking Boids demo - pure NetLogo boids simulation

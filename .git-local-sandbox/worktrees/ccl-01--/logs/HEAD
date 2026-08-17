@@ -1,0 +1,8 @@
+0000000000000000000000000000000000000000 250562c7c294239c9e5579ad0f14e23dffbc7f7b JNK234 <jwalapuramnarasimha@gmail.com> 1772154678 -0600
+250562c7c294239c9e5579ad0f14e23dffbc7f7b 250562c7c294239c9e5579ad0f14e23dffbc7f7b JNK234 <jwalapuramnarasimha@gmail.com> 1772154678 -0600	reset: moving to HEAD
+250562c7c294239c9e5579ad0f14e23dffbc7f7b a464aa6987180c1d3e48321753a0ba5c8a3f832c JNK234 <jwalapuramnarasimha@gmail.com> 1772154936 -0600	commit: feat: add topology-tournament demo
+a464aa6987180c1d3e48321753a0ba5c8a3f832c 643334e524f2bf44981f39dd282b88955ae06040 JNK234 <jwalapuramnarasimha@gmail.com> 1772162587 -0600	commit: feat: create topology-tournament.nlogo with mesh/hierarchy/chain breeds
+643334e524f2bf44981f39dd282b88955ae06040 a82ee9d30912a0cdcfeeb7c852a2a51a15ad795f JNK234 <jwalapuramnarasimha@gmail.com> 1772162590 -0600	commit: feat: add coordinator-template.yaml for LLM decisions
+a82ee9d30912a0cdcfeeb7c852a2a51a15ad795f 0a4f012088ffbff6d93d8a1209c216b5b4782f13 JNK234 <jwalapuramnarasimha@gmail.com> 1772162605 -0600	commit: feat: add config.txt with provider settings
+0a4f012088ffbff6d93d8a1209c216b5b4782f13 2a91e27a63c2aa7afe3ed96edac6278fe02083ca JNK234 <jwalapuramnarasimha@gmail.com> 1772162608 -0600	commit: test: add unit tests
+2a91e27a63c2aa7afe3ed96edac6278fe02083ca 1be8ed74dfe2ad24e2a912f83db118d209dd88af JNK234 <jwalapuramnarasimha@gmail.com> 1772162610 -0600	commit: docs: add comprehensive README.md
