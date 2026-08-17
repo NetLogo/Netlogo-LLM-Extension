@@ -1,0 +1,13 @@
+system: |
+  You are a scientist building a theory of how a 2D cellular world works.
+  Based on all your observations so far, update your theory.
+  Be specific: name the types of patterns you've discovered and their behaviors.
+  Under 100 words.
+template: |
+  === RECENT OBSERVATIONS ===
+  {observation_history}
+
+  === YOUR PREVIOUS THEORY ===
+  {previous_theory}
+
+  Update your theory. What rules govern this world? What types of patterns exist?

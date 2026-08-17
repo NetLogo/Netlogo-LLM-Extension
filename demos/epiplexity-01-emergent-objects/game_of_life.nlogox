@@ -1,0 +1,899 @@
+<?xml version="1.0" encoding="utf-8"?>
+<model version="NetLogo 7.0.3" snapToGrid="true">
+  <code><![CDATA[;; ABOUTME: Epiplexity Demo 1 — LLM as scientific observer of Conway's Game of Life.
+;; ABOUTME: Validates Paradox 1 from Finzi et al. 2026: bounded observers with memory discover emergent structure.
+
+extensions [ llm csv ]
+
+breed [ observers an-observer ]
+
+patches-own [
+  alive?
+  next-alive?
+]
+
+globals [
+  grid-size
+  window-radius
+  ticks-per-waypoint
+
+  pattern-waypoints
+  current-waypoint-index
+  observer-target-x
+  observer-target-y
+
+  current-description
+  current-prediction
+  current-theory
+  current-grid-match
+  observation-buffer
+
+  llm-call-count
+  llm-config-loaded?
+  config-file
+  output-file-path
+  active-provider
+  active-model
+
+  glider-pattern-hashes
+]
+
+;;; ============ SETUP ============
+
+to setup
+  clear-all
+  setup-defaults
+  setup-world
+  seed-initial-patterns
+  setup-observer
+  load-llm-configuration
+  refresh-patch-colors
+  highlight-observer-window
+
+  set output-file-path "results/demo-output.csv"
+  initialize-output-file output-file-path
+
+  reset-ticks
+end
+
+to setup-defaults
+  random-seed 260103220
+  set grid-size 50
+  set window-radius 2
+  set ticks-per-waypoint 12
+
+  set pattern-waypoints (list
+    (list 25 25)   ;; R-pentomino center (explosion)
+    (list 20 38)   ;; Glider gun emission zone (near gun output)
+    (list 40 15)   ;; Pulsar (oscillator)
+    (list 30 30)   ;; R-pentomino debris (northeast spread)
+    (list 25 20)   ;; R-pentomino debris (south spread)
+  )
+  set current-waypoint-index 0
+  set observer-target-x item 0 (item 0 pattern-waypoints)
+  set observer-target-y item 1 (item 0 pattern-waypoints)
+
+  set glider-pattern-hashes [
+    "..X/X.X/.XX"
+    ".X./..X/XXX"
+    ".X./X../XXX"
+    ".XX/X.X/..X"
+    "X../X.X/XX."
+    "XX./X.X/X.."
+    "XXX/..X/.X."
+    "XXX/X../.X."
+  ]
+
+  set current-description ""
+  set current-prediction ""
+  set current-theory "No theory yet."
+  set current-grid-match 0
+  set observation-buffer []
+  set llm-call-count 0
+  set llm-config-loaded? false
+  set config-file "config.txt"
+  set active-provider "unknown"
+  set active-model "unknown"
+end
+
+to setup-world
+  resize-world 0 (grid-size - 1) 0 (grid-size - 1)
+  ask patches [
+    set alive? false
+    set next-alive? false
+    set pcolor black
+  ]
+end
+
+;;; ============ PATTERN SEEDS ============
+
+to seed-initial-patterns
+  place-r-pentomino 25 25
+  place-glider-gun 1 38
+  place-pulsar 40 15
+end
+
+to place-r-pentomino [x y]
+  ;; 5-cell methuselah: explodes into 100+ cells over ~1100 ticks
+  set-alive-cell x       (y + 1)
+  set-alive-cell (x + 1) (y + 1)
+  set-alive-cell (x - 1) y
+  set-alive-cell x       y
+  set-alive-cell x       (y - 1)
+end
+
+to place-glider-gun [x y]
+  ;; Gosper glider gun: emits a glider every 30 ticks
+  ;; Left block
+  set-alive-cell (x + 0) (y + 4)
+  set-alive-cell (x + 0) (y + 5)
+  set-alive-cell (x + 1) (y + 4)
+  set-alive-cell (x + 1) (y + 5)
+  ;; Left structure
+  set-alive-cell (x + 10) (y + 4)
+  set-alive-cell (x + 10) (y + 5)
+  set-alive-cell (x + 10) (y + 6)
+  set-alive-cell (x + 11) (y + 3)
+  set-alive-cell (x + 11) (y + 7)
+  set-alive-cell (x + 12) (y + 2)
+  set-alive-cell (x + 12) (y + 8)
+  set-alive-cell (x + 13) (y + 2)
+  set-alive-cell (x + 13) (y + 8)
+  set-alive-cell (x + 14) (y + 5)
+  set-alive-cell (x + 15) (y + 3)
+  set-alive-cell (x + 15) (y + 7)
+  set-alive-cell (x + 16) (y + 4)
+  set-alive-cell (x + 16) (y + 5)
+  set-alive-cell (x + 16) (y + 6)
+  set-alive-cell (x + 17) (y + 5)
+  ;; Right structure
+  set-alive-cell (x + 20) (y + 2)
+  set-alive-cell (x + 20) (y + 3)
+  set-alive-cell (x + 20) (y + 4)
+  set-alive-cell (x + 21) (y + 2)
+  set-alive-cell (x + 21) (y + 3)
+  set-alive-cell (x + 21) (y + 4)
+  set-alive-cell (x + 22) (y + 1)
+  set-alive-cell (x + 22) (y + 5)
+  set-alive-cell (x + 24) (y + 0)
+  set-alive-cell (x + 24) (y + 1)
+  set-alive-cell (x + 24) (y + 5)
+  set-alive-cell (x + 24) (y + 6)
+  ;; Right block
+  set-alive-cell (x + 34) (y + 2)
+  set-alive-cell (x + 34) (y + 3)
+  set-alive-cell (x + 35) (y + 2)
+  set-alive-cell (x + 35) (y + 3)
+end
+
+to place-pulsar [x y]
+  ;; Canonical period-3 oscillator (48 cells, 13x13 footprint)
+  ;; Symmetric in all 4 quadrants. Offsets from center (x, y).
+  foreach (list -1 1) [ sx ->
+    foreach (list -1 1) [ sy ->
+      ;; Horizontal bars (3 cells each, at rows +/-2 and +/-6)
+      set-alive-cell (x + sx * 2) (y + sy * 1)
+      set-alive-cell (x + sx * 3) (y + sy * 1)
+      set-alive-cell (x + sx * 4) (y + sy * 1)
+      set-alive-cell (x + sx * 2) (y + sy * 6)
+      set-alive-cell (x + sx * 3) (y + sy * 6)
+      set-alive-cell (x + sx * 4) (y + sy * 6)
+      ;; Vertical bars (3 cells each, at cols +/-2 and +/-6)
+      set-alive-cell (x + sx * 1) (y + sy * 2)
+      set-alive-cell (x + sx * 1) (y + sy * 3)
+      set-alive-cell (x + sx * 1) (y + sy * 4)
+      set-alive-cell (x + sx * 6) (y + sy * 2)
+      set-alive-cell (x + sx * 6) (y + sy * 3)
+      set-alive-cell (x + sx * 6) (y + sy * 4)
+    ]
+  ]
+end
+
+to set-alive-cell [x y]
+  let px wrap-coordinate x min-pxcor max-pxcor
+  let py wrap-coordinate y min-pycor max-pycor
+  ask patch px py [
+    set alive? true
+  ]
+end
+
+;;; ============ OBSERVER SETUP ============
+
+to setup-observer
+  create-observers 1 [
+    setxy observer-target-x observer-target-y
+    set shape "circle"
+    set color yellow
+    set size 2
+    set label ""
+  ]
+end
+
+;;; ============ LLM CONFIG ============
+
+to load-llm-configuration
+  carefully [
+    llm:load-config config-file
+    set llm-config-loaded? true
+  ] [
+    output-print (word "LLM config warning: " error-message)
+  ]
+  capture-active-model
+  output-print (word "Config: " config-file " | " active-provider "/" active-model)
+end
+
+to capture-active-model
+  carefully [
+    let active llm:active
+    if is-list? active [
+      if length active >= 2 [
+        set active-provider item 0 active
+        set active-model item 1 active
+      ]
+    ]
+  ] [
+    ; silent
+  ]
+end
+
+;;; ============ MAIN GO LOOP ============
+
+to go
+  if ticks >= episode-length [ stop ]
+  if not llm-config-loaded? [
+    output-print "LLM config not loaded. Check config.txt."
+    stop
+  ]
+
+  ;; 1. Memory mode transition (BEFORE any LLM calls per Codex review)
+  ask observers [
+    ifelse memory-mode = "bounded" [
+      llm:clear-history
+    ] [
+      ;; Persistent: cap history at last 20 exchanges
+      let hist llm:history
+      if length hist > 20 [
+        llm:set-history sublist hist (length hist - 20) (length hist)
+      ]
+    ]
+  ]
+
+  ;; 2. Position observer (move BEFORE observing per Codex review)
+  move-observer-to-waypoint
+
+  ;; 3. Refresh display with observer at final position
+  refresh-patch-colors
+  highlight-observer-window
+
+  ;; 4. Observe current window and capture ground truth BEFORE any state changes
+  let window-grid observe-window
+  let ws (word (2 * window-radius + 1))
+  let truth classify-window current-window-rows
+  let truth-rows current-window-rows
+
+  ;; 5. LLM DESCRIBE
+  ask one-of observers [
+    carefully [
+      let vars (list
+        (list "window_size" ws)
+        (list "window_grid" window-grid)
+      )
+      set current-description llm:chat-with-template "templates/describe.yaml" vars
+      set llm-call-count llm-call-count + 1
+    ] [
+      if member? "rate_limit" error-message [
+        output-print "Rate limited - waiting 2s..."
+        wait 2
+        stop
+      ]
+      output-print (word "Describe error: " error-message)
+      set current-description "(error)"
+    ]
+  ]
+
+  if show-observations? [
+    output-print (word "=== Tick " ticks " [" memory-mode "] ===")
+    output-print window-grid
+    output-print (word "LLM: " current-description)
+  ]
+
+  ;; 6. Update observation buffer AFTER describe so reflect sees current tick
+  update-observation-buffer ticks current-description
+
+  ;; 7. LLM PREDICT
+  ask one-of observers [
+    carefully [
+      let vars (list
+        (list "window_size" ws)
+        (list "window_grid" window-grid)
+        (list "description" current-description)
+      )
+      set current-prediction llm:chat-with-template "templates/predict_grid.yaml" vars
+      set llm-call-count llm-call-count + 1
+    ] [
+      if member? "rate_limit" error-message [
+        output-print "Rate limited - waiting 2s..."
+        wait 2
+        stop
+      ]
+      output-print (word "Predict error: " error-message)
+      set current-prediction ""
+    ]
+  ]
+
+  ;; 8. LLM REFLECT (periodic, isolated from main history)
+  if ticks > 0 and (ticks mod reflect-every = 0) [
+    ask one-of observers [
+      let saved-hist llm:history
+      llm:clear-history
+      carefully [
+        let vars (list
+          (list "observation_history" format-observation-buffer)
+          (list "previous_theory" current-theory)
+        )
+        set current-theory llm:chat-with-template "templates/reflect.yaml" vars
+        set llm-call-count llm-call-count + 1
+      ] [
+        if member? "rate_limit" error-message [
+          output-print "Rate limited - waiting 2s..."
+          wait 2
+        ]
+        output-print (word "Reflect error: " error-message)
+      ]
+      llm:set-history saved-hist
+    ]
+  ]
+
+  ;; 9. Score prediction against actual next state
+  compute-next-state
+  let actual-next-rows next-window-rows
+  set current-grid-match grid-match-percent current-prediction actual-next-rows
+
+  ;; 10. Advance GoL
+  apply-next-state
+
+  ;; 11. Log CSV (using pre-captured truth from before GoL advance)
+  let ox round [xcor] of one-of observers
+  let oy round [ycor] of one-of observers
+  let row (list
+    ticks ox oy
+    (rows-to-hash truth-rows)
+    current-description
+    current-prediction
+    truth
+    current-grid-match
+    memory-mode
+    active-provider
+    active-model
+  )
+  append-output-row output-file-path row
+
+  ;; 12. Narrate
+  if not show-observations? [
+    output-print (word "Tick " ticks " [" memory-mode "] truth=" truth " match=" (precision current-grid-match 1) "%")
+  ]
+
+  tick
+end
+
+;;; ============ OBSERVER MOVEMENT ============
+
+to move-observer-to-waypoint
+  ;; Update waypoint target periodically
+  if ticks > 0 and (ticks mod ticks-per-waypoint = 0) [
+    set current-waypoint-index (current-waypoint-index + 1) mod (length pattern-waypoints)
+    let wp item current-waypoint-index pattern-waypoints
+    set observer-target-x item 0 wp
+    set observer-target-y item 1 wp
+  ]
+
+  ;; Integer-stepped movement toward target (1 cell per tick per axis)
+  ask observers [
+    let curr-x round xcor
+    let curr-y round ycor
+    let new-x curr-x
+    let new-y curr-y
+
+    if curr-x < observer-target-x [ set new-x curr-x + 1 ]
+    if curr-x > observer-target-x [ set new-x curr-x - 1 ]
+    if curr-y < observer-target-y [ set new-y curr-y + 1 ]
+    if curr-y > observer-target-y [ set new-y curr-y - 1 ]
+
+    setxy new-x new-y
+  ]
+end
+
+;;; ============ DISPLAY ============
+
+to refresh-patch-colors
+  ask patches [
+    ifelse alive? [ set pcolor white ] [ set pcolor black ]
+  ]
+end
+
+to highlight-observer-window
+  let ox round [xcor] of one-of observers
+  let oy round [ycor] of one-of observers
+  let r window-radius
+  let y-off (- r)
+  while [ y-off <= r ] [
+    let x-off (- r)
+    while [ x-off <= r ] [
+      let px wrap-coordinate (ox + x-off) min-pxcor max-pxcor
+      let py wrap-coordinate (oy + y-off) min-pycor max-pycor
+      ask patch px py [
+        if (abs x-off = r) or (abs y-off = r) [
+          set pcolor yellow - 2
+        ]
+      ]
+      set x-off x-off + 1
+    ]
+    set y-off y-off + 1
+  ]
+end
+
+;;; ============ GAME OF LIFE RULES ============
+
+to compute-next-state
+  ask patches [
+    let live-neighbors count neighbors with [ alive? ]
+    ifelse alive? [
+      set next-alive? ((live-neighbors = 2) or (live-neighbors = 3))
+    ] [
+      set next-alive? (live-neighbors = 3)
+    ]
+  ]
+end
+
+to apply-next-state
+  ask patches [ set alive? next-alive? ]
+end
+
+;;; ============ WINDOW OBSERVATION ============
+
+to-report current-window-rows
+  let ox round [xcor] of one-of observers
+  let oy round [ycor] of one-of observers
+  report window-rows-at ox oy false
+end
+
+to-report next-window-rows
+  let ox round [xcor] of one-of observers
+  let oy round [ycor] of one-of observers
+  report window-rows-at ox oy true
+end
+
+to-report observe-window
+  report rows-to-ascii current-window-rows
+end
+
+to-report window-rows-at [cx cy use-next-state?]
+  let rows []
+  let y-offset (- window-radius)
+  while [ y-offset <= window-radius ] [
+    let row ""
+    let x-offset (- window-radius)
+    while [ x-offset <= window-radius ] [
+      let px wrap-coordinate (cx + x-offset) min-pxcor max-pxcor
+      let py wrap-coordinate (cy + y-offset) min-pycor max-pycor
+      let target patch px py
+      let is-live false
+      ifelse use-next-state? [
+        set is-live [next-alive?] of target
+      ] [
+        set is-live [alive?] of target
+      ]
+      set row word row (ifelse-value is-live ["X"] ["."])
+      set x-offset x-offset + 1
+    ]
+    set rows lput row rows
+    set y-offset y-offset + 1
+  ]
+  report rows
+end
+
+to-report rows-to-ascii [rows]
+  if empty? rows [ report "" ]
+  let text first rows
+  foreach but-first rows [ row ->
+    set text (word text "\n" row)
+  ]
+  report text
+end
+
+to-report rows-to-hash [rows]
+  if empty? rows [ report "" ]
+  let text first rows
+  foreach but-first rows [ row ->
+    set text (word text "/" row)
+  ]
+  report text
+end
+
+to-report wrap-coordinate [value lo hi]
+  let span (hi - lo + 1)
+  report lo + (((value - lo) mod span + span) mod span)
+end
+
+;;; ============ GROUND TRUTH CLASSIFIERS ============
+
+to-report classify-window [rows]
+  let alive-count count-live-in-rows rows
+  if alive-count = 0 [ report "empty" ]
+  if has-block? rows [ report "stable" ]
+  if has-blinker? rows [ report "oscillator" ]
+  if has-glider-shape? rows [ report "glider-like" ]
+  if alive-count < 3 [ report "unknown" ]
+  report "chaotic"
+end
+
+to-report count-live-in-rows [rows]
+  let total 0
+  foreach rows [ row ->
+    let idx 0
+    while [ idx < length row ] [
+      if substring row idx (idx + 1) = "X" [ set total total + 1 ]
+      set idx idx + 1
+    ]
+  ]
+  report total
+end
+
+to-report has-block? [rows]
+  let y 0
+  while [ y <= 3 ] [
+    let x 0
+    while [ x <= 3 ] [
+      if (cell-at rows x y = "X") and
+         (cell-at rows (x + 1) y = "X") and
+         (cell-at rows x (y + 1) = "X") and
+         (cell-at rows (x + 1) (y + 1) = "X") [
+        report true
+      ]
+      set x x + 1
+    ]
+    set y y + 1
+  ]
+  report false
+end
+
+to-report has-blinker? [rows]
+  report has-horizontal-triple? rows or has-vertical-triple? rows
+end
+
+to-report has-horizontal-triple? [rows]
+  let y 0
+  while [ y < length rows ] [
+    let row item y rows
+    let x 0
+    while [ x <= (length row - 3) ] [
+      if (substring row x (x + 1) = "X") and
+         (substring row (x + 1) (x + 2) = "X") and
+         (substring row (x + 2) (x + 3) = "X") [
+        report true
+      ]
+      set x x + 1
+    ]
+    set y y + 1
+  ]
+  report false
+end
+
+to-report has-vertical-triple? [rows]
+  let x 0
+  while [ x < length (first rows) ] [
+    let y 0
+    while [ y <= (length rows - 3) ] [
+      if (cell-at rows x y = "X") and
+         (cell-at rows x (y + 1) = "X") and
+         (cell-at rows x (y + 2) = "X") [
+        report true
+      ]
+      set y y + 1
+    ]
+    set x x + 1
+  ]
+  report false
+end
+
+to-report has-glider-shape? [rows]
+  let y 0
+  while [ y <= 2 ] [
+    let x 0
+    while [ x <= 2 ] [
+      if member? (subgrid-hash rows x y) glider-pattern-hashes [
+        report true
+      ]
+      set x x + 1
+    ]
+    set y y + 1
+  ]
+  report false
+end
+
+to-report subgrid-hash [rows start-x start-y]
+  let pieces []
+  let y start-y
+  while [ y < start-y + 3 ] [
+    let row ""
+    let x start-x
+    while [ x < start-x + 3 ] [
+      set row (word row (cell-at rows x y))
+      set x x + 1
+    ]
+    set pieces lput row pieces
+    set y y + 1
+  ]
+  report rows-to-hash pieces
+end
+
+to-report cell-at [rows x y]
+  if y >= length rows or y < 0 [ report "." ]
+  let row item y rows
+  if x >= length row or x < 0 [ report "." ]
+  report substring row x (x + 1)
+end
+
+;;; ============ PREDICTION SCORING ============
+
+to-report grid-match-percent [predicted-text actual-rows]
+  if predicted-text = "" or predicted-text = nobody [ report 0 ]
+
+  ;; Extract only X and . characters from predicted text
+  let predicted-chars []
+  let i 0
+  while [ i < length predicted-text ] [
+    let ch substring predicted-text i (i + 1)
+    if ch = "X" or ch = "." [
+      set predicted-chars lput ch predicted-chars
+    ]
+    set i i + 1
+  ]
+
+  ;; Build flat list of actual chars
+  let actual-chars []
+  foreach actual-rows [ row ->
+    let j 0
+    while [ j < length row ] [
+      set actual-chars lput (substring row j (j + 1)) actual-chars
+      set j j + 1
+    ]
+  ]
+
+  let window-size (2 * window-radius + 1)
+  let expected-count window-size * window-size
+  if length predicted-chars < expected-count [ report 0 ]
+
+  let matches 0
+  let k 0
+  while [ k < expected-count ] [
+    if (item k predicted-chars) = (item k actual-chars) [
+      set matches matches + 1
+    ]
+    set k k + 1
+  ]
+
+  report (matches / expected-count) * 100
+end
+
+;;; ============ OBSERVATION BUFFER ============
+
+to update-observation-buffer [tick-num desc]
+  if desc = "" [ set desc "(no observation yet)" ]
+  set observation-buffer lput (list tick-num desc) observation-buffer
+  if length observation-buffer > 10 [
+    set observation-buffer sublist observation-buffer (length observation-buffer - 10) (length observation-buffer)
+  ]
+end
+
+to-report format-observation-buffer
+  if empty? observation-buffer [ report "No observations yet." ]
+  let text ""
+  foreach observation-buffer [ entry ->
+    let t item 0 entry
+    let d item 1 entry
+    ifelse text = "" [
+      set text (word "Tick " t ": " d)
+    ] [
+      set text (word text "\nTick " t ": " d)
+    ]
+  ]
+  report text
+end
+
+;;; ============ CSV LOGGING ============
+
+to initialize-output-file [path]
+  if file-exists? path [ file-delete path ]
+  file-open path
+  file-print csv:to-row [
+    "tick"
+    "observer_x"
+    "observer_y"
+    "window_pattern"
+    "llm_description"
+    "llm_predicted_grid"
+    "ground_truth_label"
+    "grid_match_percent"
+    "memory_mode"
+    "llm_provider"
+    "llm_model"
+  ]
+  file-close
+end
+
+to append-output-row [path row]
+  file-open path
+  file-print csv:to-row row
+  file-close
+end
+
+;;; ============ UTILITIES ============
+
+to-report to-lower-case [str]
+  let upper "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  let lower "abcdefghijklmnopqrstuvwxyz"
+  let result ""
+  let i 0
+  while [ i < length str ] [
+    let ch substring str i (i + 1)
+    let pos position ch upper
+    ifelse (pos != false) [
+      set result (word result substring lower pos (pos + 1))
+    ] [
+      set result (word result ch)
+    ]
+    set i i + 1
+  ]
+  report result
+end
+
+to test-llm
+  if not llm-config-loaded? [
+    output-print "LLM not configured. Click Setup first."
+    stop
+  ]
+  let window-grid observe-window
+  let ws (word (2 * window-radius + 1))
+  ask one-of observers [
+    ;; Isolate test call so it does not pollute persistent history
+    let saved-hist llm:history
+    llm:clear-history
+    carefully [
+      let vars (list (list "window_size" ws) (list "window_grid" window-grid))
+      let result llm:chat-with-template "templates/describe.yaml" vars
+      output-print (word "LLM test OK: " result)
+    ] [
+      output-print (word "LLM test FAILED: " error-message)
+    ]
+    llm:set-history saved-hist
+  ]
+end]]></code>
+  <widgets>
+    <button x="10" y="10" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="90" display="Setup">setup</button>
+    <button x="105" y="10" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="95" display="Go">go</button>
+    <button x="10" y="60" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="190" display="Test LLM">test-llm</button>
+    <chooser x="10" y="110" height="60" variable="memory-mode" current="0" width="190" display="memory-mode">
+      <choice type="string" value="bounded"></choice>
+      <choice type="string" value="persistent"></choice>
+    </chooser>
+    <switch x="10" y="180" height="40" on="false" variable="show-observations?" width="190" display="show-observations?"></switch>
+    <slider x="10" step="1" y="230" max="10" width="190" display="reflect-every" height="50" min="3" direction="Horizontal" default="5.0" variable="reflect-every"></slider>
+    <slider x="10" step="10" y="290" max="200" width="190" display="episode-length" height="50" min="20" direction="Horizontal" default="80.0" variable="episode-length"></slider>
+    <monitor x="10" precision="17" y="350" height="45" fontSize="9" width="190" display="Config"><![CDATA[(word config-file " | " active-model)]]></monitor>
+    <monitor x="10" precision="17" y="405" height="55" fontSize="10" width="190" display="Ground Truth">classify-window current-window-rows</monitor>
+    <monitor x="10" precision="17" y="465" height="55" fontSize="9" width="190" display="LLM Says">current-description</monitor>
+    <monitor x="10" precision="1" y="525" height="55" fontSize="11" width="190" display="Grid Match %">current-grid-match</monitor>
+    <monitor x="10" precision="0" y="585" height="55" fontSize="11" width="90" display="Ticks">ticks</monitor>
+    <monitor x="105" precision="0" y="585" height="55" fontSize="11" width="95" display="LLM Calls">llm-call-count</monitor>
+    <view x="220" wrappingAllowedX="true" y="10" frameRate="30.0" minPycor="0" height="689" showTickCounter="true" patchSize="13.7" fontSize="10" wrappingAllowedY="true" width="689" tickCounterLabel="ticks" maxPycor="49" updateMode="1" maxPxcor="49" minPxcor="0"></view>
+    <plot x="930" autoPlotX="true" yMax="100.0" autoPlotY="true" yAxis="Grid Match %" y="10" xMin="0.0" height="250" legend="true" xMax="80.0" yMin="0.0" width="580" xAxis="Ticks" display="Prediction Accuracy Over Time">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="bounded" color="-2674135" legend="true">
+        <setup></setup>
+        <update>if memory-mode = "bounded" [ plot current-grid-match ]</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="persistent" color="-13345367" legend="true">
+        <setup></setup>
+        <update>if memory-mode = "persistent" [ plot current-grid-match ]</update>
+      </pen>
+    </plot>
+    <monitor x="930" precision="17" y="270" height="80" fontSize="9" width="280" display="Current Window">observe-window</monitor>
+    <monitor x="1220" precision="17" y="270" height="80" fontSize="9" width="290" display="Predicted Grid">current-prediction</monitor>
+    <monitor x="930" precision="17" y="360" height="120" fontSize="9" width="580" display="LLM Theory">current-theory</monitor>
+    <output x="930" y="490" height="320" fontSize="10" width="580"></output>
+  </widgets>
+  <info><![CDATA[## WHAT IS IT?
+
+An LLM acts as a scientific observer of Conway's Game of Life, describing patterns, predicting future states, and building theories about how the world works.
+
+This demo validates **Paradox 1** from Finzi et al. (2026) "From Entropy to Epiplexity": deterministic micro-rules expose extractable macro-structure to a computationally bounded observer with memory.
+
+## HOW IT WORKS
+
+1. The world runs deterministic Game of Life rules on a 50x50 grid.
+2. Three dramatic seeds create rich, evolving dynamics:
+   - **R-pentomino** (center): a 5-cell methuselah that explodes into chaos, producing gliders, blinkers, blocks, and beehives as emergent byproducts
+   - **Gosper glider gun** (top-left): continuously emits gliders every 30 ticks
+   - **Pulsar** (bottom-right): a period-3 oscillator with dramatic rhythmic pulsing
+3. A single LLM observer scans the grid through a 5x5 local window.
+4. Each tick, the observer:
+   - **Describes** what it sees (free-text, via `llm:chat-with-template`)
+   - **Predicts** the next 5x5 grid state (via `llm:chat-with-template`)
+   - **Reflects** periodically to update its theory of the world
+
+## MEMORY MODES
+
+The key interactive toggle:
+
+- **Bounded**: LLM history is cleared every tick. The observer has amnesia — perpetually confused.
+- **Persistent**: LLM history accumulates across ticks. The observer builds context, recognizes recurring patterns, and develops theories.
+
+Switch between modes mid-run using the `memory-mode` chooser.
+
+## HOW TO USE IT
+
+1. Start Ollama: `ollama serve`
+2. Pull the model: `ollama pull qwen3.5:latest`
+3. Click **Setup** to initialize
+4. Click **Test LLM** to verify connectivity
+5. Start in **bounded** mode, click **Go**
+6. After ~10 ticks, switch to **persistent** mode
+7. Watch the theory evolve and accuracy diverge
+
+## THINGS TO NOTICE
+
+- The **LLM Theory** monitor evolves from vague observations to specific pattern descriptions
+- The **Prediction Accuracy** plot shows bounded (red) staying flat while persistent (blue) climbs
+- The gap between the lines is the **epiplexity signal** — proof that memory enables structure extraction
+
+## THINGS TO TRY
+
+- Toggle `show-observations?` to see exactly what the LLM receives
+- Adjust `reflect-every` to change how often the LLM updates its theory
+- Compare different `episode-length` values
+
+## REFERENCES
+
+- Finzi et al. (2026), "From Entropy to Epiplexity: Rethinking Information for Computationally Bounded Intelligence"
+- arXiv: https://arxiv.org/abs/2601.03220]]></info>
+  <turtleShapes>
+    <shape name="default" rotatable="true" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="5"></point>
+        <point x="40" y="250"></point>
+        <point x="150" y="205"></point>
+        <point x="260" y="250"></point>
+      </polygon>
+    </shape>
+    <shape name="circle" rotatable="false" editableColorIndex="0">
+      <circle x="0" y="0" marked="true" color="-1920102913" diameter="300" filled="true"></circle>
+    </shape>
+  </turtleShapes>
+  <linkShapes>
+    <shape name="default" curviness="0.0">
+      <lines>
+        <line x="-0.2" visible="false">
+          <dash value="0.0"></dash>
+          <dash value="1.0"></dash>
+        </line>
+        <line x="0.0" visible="true">
+          <dash value="1.0"></dash>
+          <dash value="0.0"></dash>
+        </line>
+        <line x="0.2" visible="false">
+          <dash value="0.0"></dash>
+          <dash value="1.0"></dash>
+        </line>
+      </lines>
+      <indicator>
+        <shape name="link direction" rotatable="true" editableColorIndex="0">
+          <line endX="90" startY="150" marked="true" color="-1920102913" endY="180" startX="150"></line>
+          <line endX="210" startY="150" marked="true" color="-1920102913" endY="180" startX="150"></line>
+        </shape>
+      </indicator>
+    </shape>
+  </linkShapes>
+  <previewCommands>setup</previewCommands>
+</model>

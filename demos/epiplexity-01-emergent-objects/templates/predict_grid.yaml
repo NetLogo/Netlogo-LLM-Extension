@@ -1,0 +1,13 @@
+system: |
+  You are predicting the next state of a cellular world window.
+  Return ONLY the grid rows. Use X for alive cells and . for dead cells.
+  No other text, no explanation, no markdown.
+template: |
+  === CURRENT WINDOW ({window_size}x{window_size}) ===
+  {window_grid}
+
+  === YOUR DESCRIPTION ===
+  {description}
+
+  Predict the exact {window_size}x{window_size} grid for the NEXT tick.
+  Return ONLY {window_size} rows of {window_size} characters (X or .), nothing else.
