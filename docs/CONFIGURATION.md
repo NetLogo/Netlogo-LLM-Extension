@@ -28,6 +28,7 @@ Starting from this version, configuration is validated immediately:
 - No quotes required; avoid trailing spaces around `=`.
 - **Supported keys**:
   - Common: `provider`, `model`, `temperature`, `max_tokens`, `timeout_seconds`
+  - Rate limiting: `retry_max_retries`, `retry_max_elapsed_seconds`, `max_concurrent_requests`, `min_request_interval_ms`
   - Provider-specific API keys: `openai_api_key`, `anthropic_api_key`, `gemini_api_key`, `openrouter_api_key`, `together_api_key`
   - Provider-specific base URLs: `openai_base_url`, `anthropic_base_url`, `gemini_base_url`, `ollama_base_url`, `openrouter_base_url`, `together_base_url`
   - Legacy (still supported): `api_key`, `base_url` (applies to current provider)
@@ -123,6 +124,34 @@ model=gpt-4o-mini
 # llm:set-provider "anthropic"
 # llm:set-model "claude-3-5-sonnet-20241022"
 ```
+
+### Request Throttling (staying inside a rate limit)
+A model that calls the LLM once per agent per tick sends one request per agent
+simultaneously. On a free tier that exceeds the quota on the first tick.
+
+```
+# At most 4 requests in flight; start them at least 250ms apart
+max_concurrent_requests=4
+min_request_interval_ms=250
+```
+
+- `max_concurrent_requests` — whole number of simultaneous requests. Unset or `0` means
+  **disabled** (unbounded, the default). Negative or unparseable values are reported on
+  stderr and treated as disabled.
+- `min_request_interval_ms` — **milliseconds** between request starts. Unset or `0`
+  means **disabled**. Use this for a requests-per-minute quota; a concurrency cap alone
+  limits simultaneity, not rate.
+
+Excess requests queue rather than fail, occupy no thread while waiting, and are admitted
+in arrival order. The cap applies per provider and endpoint, using the provider-specific
+base URL key (`openai_base_url`, `gemini_base_url`, and so on) — the same value used to
+build the request — so different providers never share a cap. Spellings of one endpoint
+that differ only by trailing slash or letter case count as the same endpoint.
+
+Queue time is not added to `timeout_seconds`, so a cap set well below your agent
+population may require raising `timeout_seconds` too.
+
+See [SETUP.md](SETUP.md#request-throttling) for how to pick values.
 
 ## Ollama Quick Start (No API Key)
 Use Ollama to run models locally without any cloud credentials.

@@ -191,8 +191,65 @@ Browse the full catalog: [console.groq.com/docs/models](https://console.groq.com
 | `timeout_seconds` | Request timeout | No | 30 |
 | `retry_max_retries` | Retry attempts after a rate-limit (HTTP 429) response | No | 6 |
 | `retry_max_elapsed_seconds` | Total time allowed waiting out rate limits | No | 65 |
+| `max_concurrent_requests` | Maximum requests in flight at once, per provider | No | 0 (off) |
+| `min_request_interval_ms` | Minimum milliseconds between request starts | No | 0 (off) |
 
 *Not required for Ollama
+
+### Request throttling
+
+`retry_max_retries` recovers from a rate limit *after* it happens. Throttling exists
+to avoid tripping one in the first place.
+
+`ask turtles [ llm:chat-async ... ]` sends one request per turtle with nothing between
+the agents and the network, so 200 turtles open 200 connections on the first tick.
+`max_concurrent_requests` caps how many may be in flight at once; the rest queue and
+run as capacity frees up. No request is dropped — they are deferred, not discarded.
+
+```
+# At most 4 requests in flight, started at least 250ms apart
+max_concurrent_requests=4
+min_request_interval_ms=250
+```
+
+**Units and semantics:**
+
+- `max_concurrent_requests` — a whole number of requests. **Unset or `0` disables**
+  throttling, giving the unbounded behavior of earlier versions. Throttling is off by
+  default, so existing models are unaffected until you set it.
+- `min_request_interval_ms` — **milliseconds** between the starts of successive
+  requests. Unset or `0` disables pacing. Use it for a requests-per-minute quota: a
+  concurrency cap bounds how many run *at once*, not how many run *per minute*, so a
+  small cap recycling quickly can still exceed an RPM limit. For a 20 RPM quota, an
+  interval of `3000` keeps you inside it.
+- A **negative or unparseable** value is a mistake rather than a choice, so it is
+  reported on stderr and then treated as disabled. A typo will not stall your model,
+  but it will not pass silently either. Use `0` when you mean to switch throttling off.
+
+The limit is shared per provider and endpoint. Every request to the same provider and
+provider-specific base URL key (`openai_base_url`, `gemini_base_url`, and so on — the
+same value used to build the request) draws on one cap, no matter how many times the
+extension rebuilds its provider internally, while a different provider gets its own —
+a Gemini free tier will not throttle a paid OpenAI key running alongside it. Spellings
+of one endpoint that differ only by trailing slash or letter case count as the same
+endpoint. API keys are never part of that identity: it is rebuilt from scheme, host,
+port and path only, so a credential in a URL's userinfo or query string is discarded.
+
+Queued requests hold no thread while they wait, and are admitted in arrival order, so
+no agent can be starved by later arrivals.
+
+**Throttling and `timeout_seconds`:** queue time is *not* added to the timeout budget.
+How long a request waits depends on how many agents call in a tick, not on the cap, so
+there is no formula that could size an allowance for it honestly. This means a model
+whose fan-out greatly exceeds its cap can still exceed `timeout_seconds` while queued —
+if you set a small cap for a large population, raise `timeout_seconds` to match. An
+unthrottled model's timeout behavior is exactly as it was.
+
+Choosing a value: start from your provider's documented limits. A free tier allowing
+5 requests/minute suits `max_concurrent_requests=1` with `min_request_interval_ms=12000`.
+A paid key with generous limits may not need throttling at all. If a run still hits 429s
+with throttling on, the cap is above the quota — lower it, or reduce how often the model
+calls the LLM.
 
 ### Rate limits and retries
 

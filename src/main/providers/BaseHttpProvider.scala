@@ -104,6 +104,22 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
   protected def retryRandom: () => Double = () => scala.util.Random.nextDouble()
 
   /**
+   * Proactive throttle for this provider, or None when it is switched off.
+   *
+   * Resolved per request so a config change takes effect without recreating the
+   * provider, matching how retryPolicy is handled. The gate is shared across
+   * every instance addressing the same provider and endpoint — see
+   * RequestThrottle.identity for why that is the right granularity.
+   */
+  protected def requestThrottle: Option[RequestThrottle] =
+    RequestThrottle.forProvider(
+      providerName,
+      configStore.get(baseUrlConfigKey).getOrElse(defaultBaseUrl),
+      configStore.get(RequestThrottle.MAX_CONCURRENT_REQUESTS),
+      configStore.get(RequestThrottle.MIN_REQUEST_INTERVAL_MS)
+    )
+
+  /**
    * Reports a rate-limit wait to the modeler. A silent multi-second stall inside
    * `go` is indistinguishable from a hang, so long waits are announced on stderr.
    * Short waits stay quiet to avoid spamming the console on routine backoff.
@@ -261,6 +277,11 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
    * because retrying before a quota window reopens is guaranteed to fail. Waiting
    * is bounded by the policy's total elapsed budget rather than a fixed per-sleep
    * cap, so a quota window longer than the old 10s ceiling can actually be cleared.
+   *
+   * When a throttle is configured, the whole attempt sequence runs under a single
+   * permit. Holding it across retries rather than reacquiring per attempt is what
+   * keeps a retrying request from re-entering behind fresh arrivals and pushing
+   * the real in-flight count over the cap.
    */
   protected def executeWithRetry(
     httpRequest: Request[Either[String, String]],
@@ -298,7 +319,11 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
         }
       }
 
-    attempt(0, 0L)
+    requestThrottle match {
+      // One permit covers the complete logical request, including all retries.
+      case Some(throttle) => throttle.withPermit(attempt(0, 0L))
+      case None           => attempt(0, 0L)
+    }
   }
 
   override def setConfig(key: String, value: String): Unit = {
