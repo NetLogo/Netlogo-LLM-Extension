@@ -124,11 +124,29 @@ class RequestThrottle(
         Some(p)
       }
     }
-    waiting match {
-      case None    => paceThenProceed()
-      case Some(p) => p.future.flatMap(_ => paceThenProceed())
+    // The permit is held from here on, but `withPermit` cannot register its
+    // release until this Future completes. Anything that fails in between would
+    // therefore strand the permit for good — and a stranded permit is far worse
+    // than a failed request: capacity never comes back, so with a cap of 1 the
+    // gate is dead and every later request waits forever for a permit nobody
+    // holds. Pacing is the reachable case (a scheduler that rejects work throws
+    // instead of returning a failed Future), so the release is attached here
+    // rather than left to the caller.
+    val paced =
+      waiting match {
+        case None    => pacedStart()
+        case Some(p) => p.future.flatMap(_ => pacedStart())
+      }
+    paced.recoverWith { case NonFatal(e) =>
+      release()
+      Future.failed(e)
     }
   }
+
+  /** `paceThenProceed`, with a synchronous throw normalised into the Future. */
+  private def pacedStart()(implicit ec: ExecutionContext): Future[Unit] =
+    try paceThenProceed()
+    catch { case NonFatal(e) => Future.failed(e) }
 
   /**
    * Delay the start of a request so successive starts are at least

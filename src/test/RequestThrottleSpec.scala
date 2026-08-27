@@ -47,6 +47,23 @@ class ManualClock(start: Long = 0L) extends ThrottleClock {
   }
 }
 
+/** Clock whose delays always fail, for the pacing-failure path. */
+object FailingClock extends ThrottleClock {
+  def nowMs: Long = 0L
+  def sleep(delayMs: Long): Future[Unit] =
+    Future.failed(new IllegalStateException("pacing delay failed"))
+}
+
+/**
+ * Clock whose `sleep` throws rather than returning a failed Future, mirroring a
+ * scheduler that rejects work because it has been shut down.
+ */
+object ThrowingClock extends ThrottleClock {
+  def nowMs: Long = 0L
+  def sleep(delayMs: Long): Future[Unit] =
+    throw new IllegalStateException("scheduler rejected the delay")
+}
+
 class RequestThrottleSpec extends AnyFunSuite {
 
   /** Text every bad-cap warning contains, used to count them. */
@@ -156,6 +173,39 @@ class RequestThrottleSpec extends AnyFunSuite {
 
     clock.advance(200)
     Await.result(Future.sequence(calls), 10.seconds)
+  }
+
+  test("a failing pacing delay releases the permit instead of leaking it") {
+    // The permit is taken before pacing runs, so a pacing delay that fails must
+    // still give it back. Otherwise one failure permanently removes capacity:
+    // with a cap of 1 the gate is dead, and every later request waits forever
+    // for a permit nobody holds. Losing a request is recoverable; losing the
+    // gate is not.
+    val throttle = new RequestThrottle(maxConcurrent = 1, minIntervalMs = 100, FailingClock)
+
+    intercept[IllegalStateException] {
+      Await.result(throttle.withPermit(Future.successful("never runs")), 5.seconds)
+    }
+
+    // Capacity must have returned. A leak makes this wait out the timeout.
+    intercept[IllegalStateException] {
+      Await.result(throttle.withPermit(Future.successful("never runs either")), 5.seconds)
+    }
+  }
+
+  test("a pacing delay that throws synchronously releases the permit") {
+    // SystemThrottleClock.sleep schedules on an executor, which throws
+    // RejectedExecutionException rather than returning a failed Future if that
+    // executor is shut down. That path must not lose the permit either.
+    val throttle = new RequestThrottle(maxConcurrent = 1, minIntervalMs = 100, ThrowingClock)
+
+    intercept[IllegalStateException] {
+      Await.result(throttle.withPermit(Future.successful("never runs")), 5.seconds)
+    }
+
+    intercept[IllegalStateException] {
+      Await.result(throttle.withPermit(Future.successful("never runs either")), 5.seconds)
+    }
   }
 
   test("pacing is skipped entirely when the interval is zero") {

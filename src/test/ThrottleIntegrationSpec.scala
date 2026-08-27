@@ -9,7 +9,7 @@ import sttp.client4.testing.{BackendStub, ResponseStub}
 import sttp.model.{StatusCode, Uri}
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, Future, blocking}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
@@ -44,7 +44,13 @@ class ProbeProvider(
         sendCount.incrementAndGet()
         val n = running.incrementAndGet()
         peakSeen.updateAndGet(p => math.max(p, n))
-        release.await()
+        // `blocking` is load-bearing, not decoration. Holding a send open parks
+        // a worker of the global fork-join pool, and these tests deliberately
+        // hold more sends open at once than a small machine has workers — the
+        // unthrottled case needs five. Without this hint the pool spawns no
+        // compensation thread, the fifth send never starts, and the test times
+        // out on a 4-core CI runner while the production code is perfectly fine.
+        blocking(release.await())
         running.decrementAndGet()
         ResponseStub.adjust("ok", StatusCode.Ok)
       }
