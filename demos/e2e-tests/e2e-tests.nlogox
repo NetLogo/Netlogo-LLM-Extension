@@ -276,6 +276,33 @@ to write-throttled-config [src dst cap interval-ms]
   file-close
 end
 
+;; ---------------------------------------------------------------------------
+;; T9 — token usage (#49)
+;;
+;; Every provider reports how many tokens a call consumed; the extension used
+;; to discard it. One real call must show up in the calling agent's usage
+;; and in the run total, with non-zero counts and a measured latency.
+;; ---------------------------------------------------------------------------
+
+to test-usage
+  log-line "T9 token usage"
+  let calls-before llm:get llm:usage "calls"
+  let run-before llm:get llm:usage-total "total-tokens"
+  carefully
+    [ let ignored llm:chat "Reply with exactly the word: OK" ]
+    [ log-line (word "  chat failed: " error-message) ]
+  let u llm:usage
+  log-line (word "  -> " u)
+  assert "one more call was recorded" (llm:get u "calls" = calls-before + 1)
+  assert "input tokens were reported" (llm:get u "input-tokens" > 0)
+  assert "output tokens were reported" (llm:get u "output-tokens" > 0)
+  assert "total equals input plus output"
+         (llm:get u "total-tokens" = (llm:get u "input-tokens") + (llm:get u "output-tokens"))
+  assert "latency was measured" (llm:get u "latency-ms" > 0)
+  assert "run total grew by this call" (llm:get llm:usage-total "total-tokens" > run-before)
+  report-totals
+end
+
 ;; Run everything in sequence.
 to run-headless
   carefully [ file-delete "e2e-results.txt" ] [ ]
@@ -298,6 +325,7 @@ to test-all
   test-structured-output
   test-choose
   test-throttling
+  test-usage
   output-print ""
   log-line (word "TOTAL  passed " pass-count "   failed " fail-count)
 end

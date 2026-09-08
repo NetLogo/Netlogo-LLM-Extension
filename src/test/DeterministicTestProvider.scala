@@ -1,7 +1,7 @@
 package org.nlogo.extensions.llm.providers
 
 import org.nlogo.extensions.llm.config.ConfigStore
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, Choice, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, Choice, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat, Usage}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 
@@ -20,18 +20,42 @@ class DeterministicTestProvider(implicit ec: ExecutionContext) extends LLMProvid
   private val testDelayRegex = """__TEST_DELAY:(\d+):(.*)""".r.unanchored
   // Captures to end of line so a raw choice may contain spaces, braces, or quotes.
   private val testRawChoiceRegex = """__TEST_RAW_CHOICE:(.*)""".r
+  // __TEST_USAGE:<in>,<out>[,<reasoning>] attaches a usage record to whatever
+  // response the rest of the stub produces, so accounting can be asserted
+  // independently of which primitive made the call.
+  private val testUsageRegex = """__TEST_USAGE:(\d+),(\d+)(?:,(\d+))?""".r.unanchored
+
+  private def lastUserContent(messages: Seq[ChatMessage]): String =
+    messages.reverseIterator.find(_.role == "user").map(_.content).getOrElse("")
+
+  private def withTestUsage(lastUserMessage: String, response: ChatResponse): ChatResponse =
+    lastUserMessage match {
+      case testUsageRegex(in, out, reasoning) =>
+        val i = in.toLong
+        val o = out.toLong
+        response.copy(usage = Some(Usage(
+          inputTokens = i,
+          outputTokens = o,
+          totalTokens = i + o,
+          reasoningTokens = Option(reasoning).map(_.toLong)
+        )))
+      case _ => response
+    }
 
   override def chat(request: ChatRequest): Future[ChatResponse] = {
     chat(request.messages).map { message =>
-      ChatResponse.simple(
+      withTestUsage(lastUserContent(request.messages), ChatResponse.simple(
         id = "deterministic-test-response",
         model = request.model,
         message = message
-      )
+      ))
     }
   }
 
-  override def chatWithFullResponse(messages: Seq[ChatMessage]): Future[ChatResponse] = {
+  override def chatWithFullResponse(messages: Seq[ChatMessage]): Future[ChatResponse] =
+    fullResponse(messages).map(withTestUsage(lastUserContent(messages), _))
+
+  private def fullResponse(messages: Seq[ChatMessage]): Future[ChatResponse] = {
     val lastUserMessage = messages.reverseIterator
       .find(_.role == "user")
       .map(_.content)
@@ -68,7 +92,10 @@ class DeterministicTestProvider(implicit ec: ExecutionContext) extends LLMProvid
    * request answers in the constrained `{"choice": ...}` shape, which is what
    * a real provider enforcing the constraint returns.
    */
-  override def chatWithFormat(messages: Seq[ChatMessage], format: ResponseFormat): Future[ChatResponse] = {
+  override def chatWithFormat(messages: Seq[ChatMessage], format: ResponseFormat): Future[ChatResponse] =
+    formatResponse(messages, format).map(withTestUsage(lastUserContent(messages), _))
+
+  private def formatResponse(messages: Seq[ChatMessage], format: ResponseFormat): Future[ChatResponse] = {
     val lastUserMessage = messages.reverseIterator
       .find(_.role == "user")
       .map(_.content)

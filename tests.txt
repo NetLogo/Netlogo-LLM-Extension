@@ -734,3 +734,105 @@ LLMChooseUnmatchedAfterDegradationLeavesHistoryClean
   llm:choose "__TEST_IGNORE_FORMAT __TEST_RAW_CHOICE:up" ["north" "south"] => ERROR Extension exception: llm:choose: response 'up' did not match any choice. Choices: north, south
   llm:history => []
   O> llm:clear-history
+
+LLMUsageStartsAtZero
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  llm:get llm:usage "input-tokens" => 0
+  llm:get llm:usage "output-tokens" => 0
+  llm:get llm:usage "total-tokens" => 0
+  llm:get llm:usage "calls" => 0
+  llm:get llm:usage "cost" => ""
+  llm:get llm:usage-total "calls" => 0
+
+LLMUsageAccumulatesAcrossCalls
+  extensions [llm]
+  globals [r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> set r llm:chat "__TEST_USAGE:10,5 hello"
+  O> set r llm:chat "__TEST_USAGE:20,7,3 again"
+  llm:get llm:usage "input-tokens" => 30
+  llm:get llm:usage "output-tokens" => 12
+  llm:get llm:usage "total-tokens" => 42
+  llm:get llm:usage "reasoning-tokens" => 3
+  llm:get llm:usage "calls" => 2
+  O> clear-all
+
+LLMUsageIsPerAgent
+  extensions [llm]
+  globals [r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> crt 2
+  O> ask turtles [ set r llm:chat (word "__TEST_USAGE:" (10 * (who + 1)) ",1 hi") ]
+  [llm:get llm:usage "input-tokens"] of turtle 0 => 10
+  [llm:get llm:usage "input-tokens"] of turtle 1 => 20
+  llm:get llm:usage "input-tokens" => 0
+  llm:get llm:usage-total "input-tokens" => 30
+  llm:get llm:usage-total "output-tokens" => 2
+  llm:get llm:usage-total "calls" => 2
+  O> clear-all
+
+LLMUsageResetsOnClearAll
+  extensions [llm]
+  globals [r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> set r llm:chat "__TEST_USAGE:10,5 hi"
+  llm:get llm:usage-total "calls" => 1
+  O> clear-all
+  llm:get llm:usage "calls" => 0
+  llm:get llm:usage-total "calls" => 0
+
+LLMUsageRecordsAsyncCalls
+  extensions [llm]
+  globals [p r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> set p llm:chat-async "__TEST_USAGE:4,3 hi"
+  O> set r (runresult p)
+  llm:get llm:usage "total-tokens" => 7
+  llm:get llm:usage "calls" => 1
+  O> clear-all
+
+LLMUsageRecordsEveryPrimitive
+  extensions [llm]
+  globals [r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> set r llm:choose "__TEST_USAGE:1,1 pick" ["north" "south"]
+  O> set r llm:chat-with-schema "__TEST_USAGE:2,1" "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}}}"
+  O> set r llm:chat-json "__TEST_USAGE:3,1"
+  O> set r llm:chat-with-thinking "__TEST_USAGE:4,1 think"
+  llm:get llm:usage "input-tokens" => 10
+  llm:get llm:usage "calls" => 4
+  O> clear-all
+
+LLMUsageCountsRejectedReply
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> carefully [ let r llm:chat-with-schema "__TEST_USAGE:9,2 __TEST_RESPOND:not-json" "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}}}" ] [ ]
+  llm:history => []
+  llm:get llm:usage "input-tokens" => 9
+  llm:get llm:usage "calls" => 1
+  O> clear-all
+
+LLMUsageUnchangedWhenCallFails
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> carefully [ let r llm:chat "__TEST_USAGE:9,2 __TEST_FAIL" ] [ ]
+  llm:get llm:usage "calls" => 0
+  llm:get llm:usage "input-tokens" => 0
+  O> clear-all

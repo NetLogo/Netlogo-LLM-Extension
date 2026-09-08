@@ -2,7 +2,7 @@
 // ABOUTME: Reduces boilerplate by providing shared implementation of config, validation, and HTTP request handling
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, ResponseFormat}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, ResponseFormat, Usage}
 import org.nlogo.extensions.llm.config.ConfigStore
 import sttp.client4._
 import sttp.client4.httpclient.HttpClientFutureBackend
@@ -290,6 +290,7 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
 
     val policy = retryPolicy
     val rng = retryRandom
+    val startedAt = System.currentTimeMillis()
 
     def isRateLimited(code: StatusCode, error: String): Boolean =
       code.code == 429 || error.toLowerCase.contains("rate_limit")
@@ -319,10 +320,18 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
         }
       }
 
-    requestThrottle match {
+    val completed = requestThrottle match {
       // One permit covers the complete logical request, including all retries.
       case Some(throttle) => throttle.withPermit(attempt(0, 0L))
       case None           => attempt(0, 0L)
+    }
+
+    // Latency is the whole logical call as the modeler waits for it: throttle
+    // queueing and rate-limit backoff included. It is stamped even when the
+    // provider reported no token counts, so every call still has a record.
+    completed.map { response =>
+      val elapsedMs = System.currentTimeMillis() - startedAt
+      response.copy(usage = Some(response.usage.getOrElse(Usage.empty).copy(latencyMs = Some(elapsedMs))))
     }
   }
 

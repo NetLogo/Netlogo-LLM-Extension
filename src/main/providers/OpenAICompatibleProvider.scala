@@ -2,7 +2,7 @@
 // ABOUTME: Shared by OpenAI, OpenRouter, and Together AI — subclasses override hooks for headers, reasoning, and thinking
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, Choice, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, Choice, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat, Usage}
 import org.nlogo.extensions.llm.config.ConfigStore
 import sttp.client4._
 import sttp.model.Uri
@@ -123,6 +123,28 @@ abstract class OpenAICompatibleProvider(implicit ec: ExecutionContext) extends B
       )
     )
 
+  /**
+   * Token usage in the OpenAI chat-completions shape. Reasoning tokens are a
+   * subset of completion_tokens and cached tokens a subset of prompt_tokens,
+   * so the headline counts already match the cross-provider definition.
+   * OpenRouter adds a dollar `cost`; it is passed through untouched.
+   */
+  protected def parseUsage(parsed: ujson.Value): Option[Usage] =
+    parsed.obj.get("usage").collect { case u: ujson.Obj => u }.flatMap { u =>
+      for {
+        input  <- Usage.longField(u, "prompt_tokens")
+        output <- Usage.longField(u, "completion_tokens")
+      } yield Usage(
+        inputTokens = input,
+        outputTokens = output,
+        totalTokens = Usage.longField(u, "total_tokens").getOrElse(input + output),
+        reasoningTokens = Usage.nestedLongField(u, "completion_tokens_details", "reasoning_tokens"),
+        cacheReadTokens = Usage.nestedLongField(u, "prompt_tokens_details", "cached_tokens"),
+        cacheWriteTokens = Usage.nestedLongField(u, "prompt_tokens_details", "cache_write_tokens"),
+        cost = u.value.get("cost").collect { case ujson.Num(n) => n }
+      )
+    }
+
   override protected def parseProviderResponse(responseBody: String, model: String): ChatResponse = {
     try {
       val parsed = ujson.read(responseBody)
@@ -147,7 +169,7 @@ abstract class OpenAICompatibleProvider(implicit ec: ExecutionContext) extends B
         .map(_("message"))
         .flatMap(extractThinking)
 
-      ChatResponse(id, created, model, choices, thinking)
+      ChatResponse(id, created, model, choices, thinking, usage = parseUsage(parsed))
     } catch {
       case e: Exception =>
         throw new RuntimeException(s"Failed to parse ${providerName} response: ${e.getMessage}\nResponse: $responseBody", e)

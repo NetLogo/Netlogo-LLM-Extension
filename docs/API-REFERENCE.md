@@ -20,6 +20,8 @@ The NetLogo Multi-LLM Extension provides a unified interface for multiple Large 
 | `llm:set-thinking bool`            | Reasoning     | Enable/disable reasoning mode for current provider         |
 | `llm:set-reasoning-effort level`   | Reasoning     | Set effort: `"low"`, `"medium"`, `"high"`                  |
 | `llm:set-thinking-budget n`        | Reasoning     | Token budget for thinking (min 1024; Anthropic + Gemini)   |
+| `llm:usage`                        | Usage         | Token counts, cost, latency and call count for this agent  |
+| `llm:usage-total`                  | Usage         | The same totals across every agent in the run              |
 | `llm:history`                      | History       | Get current agent's conversation history                   |
 | `llm:set-history list`             | History       | Set conversation history for current agent                 |
 | `llm:clear-history`                | History       | Clear conversation history for current agent               |
@@ -857,6 +859,75 @@ print llm:list-models  ; Shows all providers, with Anthropic marked as ACTIVE
 - Use this to discover available models across all providers
 - Custom models added via `models-override.yaml` are marked with `[custom]`
 - The currently active provider and model are marked with `[ACTIVE]`
+
+## Token Usage
+
+Every provider reports how many tokens a call consumed. The extension records
+that for each call and sums it per agent and for the whole run. Nothing is
+estimated: counts come from the provider's reply, cost only appears when a
+provider reports one, and latency is measured by the extension.
+
+### llm:usage
+
+**Syntax**: `llm:usage`
+
+**Description**: Token accounting for the calling agent since the last `clear-all`
+
+**Returns**: List of `[key value]` pairs, readable with `llm:get`
+
+| Key                  | Meaning                                                                 |
+| -------------------- | ----------------------------------------------------------------------- |
+| `input-tokens`       | Every prompt token the provider processed, cached tokens included       |
+| `output-tokens`      | Every generated token, reasoning tokens included                        |
+| `total-tokens`       | The provider's total, or input plus output when it reports none         |
+| `reasoning-tokens`   | Tokens spent on reasoning where reported separately, else 0             |
+| `cache-read-tokens`  | Prompt tokens served from a provider cache where reported, else 0       |
+| `cache-write-tokens` | Prompt tokens written to a provider cache where reported, else 0        |
+| `cost`               | Dollars, only when the provider reports it (OpenRouter); otherwise `""` |
+| `latency-ms`         | Summed wall time of the calls, including throttle waits and retries     |
+| `calls`              | How many provider replies contributed to these totals                   |
+
+**Example**:
+
+```netlogo
+ask turtles [
+  let reply llm:chat "Should I forage or rest?"
+  if llm:get llm:usage "total-tokens" > 5000 [
+    set color red   ;; this agent is expensive
+  ]
+]
+print (word "Run so far: " llm:get llm:usage-total "total-tokens" " tokens over "
+            llm:get llm:usage-total "calls" " calls")
+```
+
+**Notes**:
+
+- A reply the extension then rejects, such as a schema reply that does not
+  parse or an `llm:choose` answer that matches no option, still counts. The
+  provider billed those tokens. A call that never produced a reply records
+  nothing.
+- `cost` is `""` rather than `0` when unknown so an unknown cost is never
+  mistaken for a free call. Guard with `is-number?` before arithmetic.
+- Counters are cumulative. To measure one call, read `llm:usage` before and
+  after and subtract.
+- Providers define their fields differently; the mapping is normalised so the
+  headline numbers compare across providers:
+
+| Provider          | input-tokens                                             | output-tokens                          |
+| ----------------- | -------------------------------------------------------- | -------------------------------------- |
+| OpenAI-compatible | `prompt_tokens` (cached tokens are a subset)             | `completion_tokens` (reasoning subset) |
+| Anthropic         | `input_tokens` + cache creation + cache read             | `output_tokens` (thinking included)    |
+| Gemini            | `promptTokenCount` (cached content included)             | `candidatesTokenCount` + `thoughtsTokenCount` |
+| Ollama            | `prompt_eval_count`                                      | `eval_count`                           |
+
+### llm:usage-total
+
+**Syntax**: `llm:usage-total`
+
+**Description**: The same accounting summed over every agent in the run since
+the last `clear-all`, including agents that have since died
+
+**Returns**: List of `[key value]` pairs with the keys listed under `llm:usage`
 
 ## Structured Output Details
 
