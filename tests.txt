@@ -685,6 +685,15 @@ LLMChatWithSchemaSendsSchemaFormat
   llm:get result "name" => "netlogo_schema"
   O> llm:clear-history
 
+LLMChoosePromptMatchesEnumSchema
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  llm:choose "__TEST_ECHO_PROMPT_TAIL" ["north" "south"] => ERROR Extension exception: llm:choose: response 'Your choice as {"choice": "<option>"}:' did not match any choice. Choices: north, south
+  llm:history => []
+  O> llm:clear-history
+
 LLMChooseDegradesWhenFormatIgnored
   extensions [llm]
   globals [choice]
