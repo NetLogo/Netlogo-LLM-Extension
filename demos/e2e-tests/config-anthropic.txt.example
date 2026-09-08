@@ -1,0 +1,19 @@
+# E2E validation — Anthropic (PR #71 / issue #63)
+#
+# Get a key at https://console.anthropic.com/settings/keys (needs billing).
+#
+# What this config is for: verifying the adaptive-thinking request shape.
+# The review found the new code path is unreachable for every model bundled
+# in models.yaml — all 7 are 4.5-or-earlier and take the extended-thinking
+# branch. To exercise the adaptive branch you must set a 5-series model
+# explicitly, which llm:set-model permits with a warning.
+#
+# Swap `model` below to claude-opus-4-5-20251101 to test the EXTENDED path,
+# or to claude-sonnet-5 / claude-opus-5 to test the ADAPTIVE path.
+
+provider=anthropic
+anthropic_api_key=sk-ant-REPLACE_WITH_YOUR_KEY
+model=claude-haiku-4-5-20251001
+temperature=0.0
+max_tokens=300
+timeout_seconds=60

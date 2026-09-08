@@ -1,0 +1,17 @@
+# E2E validation — Groq (PR #73 / issue #51)
+#
+# Get a free key in ~2 minutes at https://console.groq.com/keys
+# Free tier, no credit card. Replace the placeholder below.
+#
+# What this config is for: the code review found that a plain llm:chat never
+# sends reasoning_format, so Groq falls back to its documented default "raw"
+# and emits thinking inside <think> tags in the visible content. Nothing
+# strips them. This config is what proves or disproves that against the real
+# API — it cannot be settled without a live call.
+
+provider=groq
+groq_api_key=gsk_REPLACE_WITH_YOUR_KEY
+model=openai/gpt-oss-20b
+temperature=0.0
+max_tokens=300
+timeout_seconds=60
