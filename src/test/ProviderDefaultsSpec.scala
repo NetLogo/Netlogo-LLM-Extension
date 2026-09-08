@@ -16,7 +16,12 @@ class ProviderDefaultsSpec extends AnyFunSuite {
 
   // Registrations are normally installed by LLMExtension.load(); do it here so
   // the suite is self-contained and order-independent.
-  ProviderRegistry.reset()
+  //
+  // Deliberately no ProviderRegistry.reset() first. The registry is global mutable
+  // state shared with every other suite, and clearing it from a constructor emptied
+  // it out from under suites that had already been built against it — ClaudeRequestSpec
+  // aborts with "Unknown provider: anthropic" when it loses that race. registerAll()
+  // is idempotent (it inserts by name), so re-registering is all this suite needs.
   ProviderRegistrations.registerAll()
 
   private val descriptors = ProviderRegistry.allNames.toSeq.sorted.flatMap(ProviderRegistry.get)

@@ -202,6 +202,18 @@ class LLMExtension extends DefaultClassManager {
    * trip a 30s request timeout. The await bound is therefore the request timeout plus
    * the retry budget, so `timeout_seconds` keeps its meaning and modelers who lower it
    * do not thereby lose the ability to recover from a rate limit.
+   *
+   * Queue time behind a concurrency cap is NOT added to this bound, and deliberately
+   * so. Queue depth is set by how many agents call in a tick, not by the cap: with 200
+   * turtles and a cap of 4, the last request waits out ~50 waves. No fixed formula
+   * covers that, and one that pretended to would fail precisely where fan-out is
+   * widest — the case throttling exists for.
+   *
+   * So a heavily throttled model can still exceed this bound while queued, and that is
+   * a documented, intentional limitation rather than a solved problem: a modeler who
+   * sets a cap far below their fan-out should raise `timeout_seconds` accordingly. The
+   * bound is unchanged from before throttling existed, so an unthrottled model — the
+   * default — behaves exactly as it did.
    */
   private def getAwaitTimeout: FiniteDuration = {
     val retryBudget = configStore.get(RetryPolicy.MAX_ELAPSED_SECONDS)

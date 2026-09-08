@@ -15,6 +15,14 @@ class InspectableClaudeProvider extends ClaudeProvider()(using scala.concurrent.
 
 class ClaudeRequestSpec extends AnyFunSuite {
 
+  // ClaudeProvider.defaultModel reads the provider registry, which is normally
+  // populated by LLMExtension.load(). Nothing here installs it, and the registry
+  // is global mutable state that another suite resets in its own constructor, so
+  // whether this suite could construct its provider depended on the order suites
+  // happened to be built in. Registering here makes the suite self-contained, the
+  // same way ProviderDefaultsSpec already does.
+  ProviderRegistrations.registerAll()
+
   private val provider = new InspectableClaudeProvider
 
   private def request(

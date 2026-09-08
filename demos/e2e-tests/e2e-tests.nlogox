@@ -220,6 +220,62 @@ to test-choose
   report-totals
 end
 
+;; ---------------------------------------------------------------------------
+;; T8 — request throttling (#48)
+;;
+;; max_concurrent_requests and min_request_interval_ms are read from the
+;; loaded config on every request. llm:load-config replaces the config
+;; wholesale, so the test writes a throttled copy of the active config next
+;; to the model, loads it, fires several async calls at once, and checks
+;; they were spaced out. With a cap of 1 and a 1500ms interval, three calls
+;; cannot finish in under 3 seconds.
+;; ---------------------------------------------------------------------------
+
+to test-throttling
+  log-line "T8 request throttling"
+  let interval-ms 1500
+  let calls 3
+  let throttled (word "config-" provider-under-test "-throttled.txt")
+  write-throttled-config active-config throttled 1 interval-ms
+  llm:load-config throttled
+
+  reset-timer
+  let pending []
+  repeat calls [
+    set pending lput (llm:chat-async "Reply with exactly the word: OK") pending
+  ]
+  let replies []
+  carefully
+    [ set replies map [ a -> runresult a ] pending ]
+    [ log-line (word "  throttled calls failed: " error-message) ]
+  let elapsed timer
+
+  llm:load-config active-config
+  carefully [ file-delete throttled ] [ ]
+
+  log-line (word "  " calls " calls, cap 1, interval " interval-ms "ms -> " precision elapsed 2 "s")
+  assert "every throttled call returned" (length replies = calls)
+  assert "calls were spaced by the interval"
+         (elapsed >= ((calls - 1) * interval-ms / 1000) - 0.1)
+  assert "config restored after the test" (item 0 llm:active = provider-under-test)
+  report-totals
+end
+
+;; Copy a config file and append throttling keys. NetLogo keeps one file open
+;; at a time, so the source is read fully before the copy is written.
+to write-throttled-config [src dst cap interval-ms]
+  let lines []
+  file-open src
+  while [ not file-at-end? ] [ set lines lput file-read-line lines ]
+  file-close
+  carefully [ file-delete dst ] [ ]
+  file-open dst
+  foreach lines [ l -> file-print l ]
+  file-print (word "max_concurrent_requests=" cap)
+  file-print (word "min_request_interval_ms=" interval-ms)
+  file-close
+end
+
 ;; Run everything in sequence.
 to run-headless
   carefully [ file-delete "e2e-results.txt" ] [ ]
@@ -241,6 +297,7 @@ to test-all
   test-agent-history
   test-structured-output
   test-choose
+  test-throttling
   output-print ""
   log-line (word "TOTAL  passed " pass-count "   failed " fail-count)
 end
