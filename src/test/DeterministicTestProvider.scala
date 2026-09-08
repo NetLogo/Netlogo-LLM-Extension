@@ -82,6 +82,12 @@ class DeterministicTestProvider(implicit ec: ExecutionContext) extends LLMProvid
     // primitive that stopped constraining its request fails a test instead of
     // silently degrading. The enum echo answers with the LAST choice because
     // the unconstrained prompt-only path answers with the first.
+    // __TEST_ECHO_PROMPT_TAIL answers with the prompt's final line so a test can
+    // pin the instruction the model actually sees next to the schema it is sent.
+    if (lastUserMessage.contains("__TEST_ECHO_PROMPT_TAIL")) {
+      return Future.successful(structured(lastUserMessage.linesIterator.toSeq.last))
+    }
+
     if (lastUserMessage.contains("__TEST_ECHO_FORMAT_ENUM")) {
       return Future.successful(structured(format match {
         case EnumFormat(choices) => choices.last
@@ -162,7 +168,7 @@ class DeterministicTestProvider(implicit ec: ExecutionContext) extends LLMProvid
     } else if (lastUserMessage.contains("__TEST_EMPTY_CONTENT")) {
       // Return empty content (simulates thinking model with no content)
       ""
-    } else if (lastUserMessage.contains("Your choice (one option, no other text):")) {
+    } else if (lastUserMessage.contains("Options:\n") && lastUserMessage.contains("Your choice as {")) {
       // Choose prompt — extract and return the first option from the Options block
       val optionsIdx = lastUserMessage.indexOf("Options:\n")
       if (optionsIdx >= 0) {

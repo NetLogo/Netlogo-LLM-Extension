@@ -594,6 +594,10 @@ class LLMExtension extends DefaultClassManager {
   }
   
   object ChooseReporter extends Reporter {
+    /** Final line of the choose prompt; names the shape the enum schema enforces. */
+    val ChoiceInstruction: String =
+      s"""Your choice as {"${EnumFormat.ChoiceKey}": "<option>"}:"""
+
     override def getSyntax: Syntax = Syntax.reporterSyntax(
       right = List(Syntax.StringType, Syntax.ListType),
       ret = Syntax.StringType
@@ -613,14 +617,18 @@ class LLMExtension extends DefaultClassManager {
           throw new ExtensionException("Choice list cannot be empty")
         }
 
+        // The wording must describe the same shape as the EnumFormat schema
+        // sent with the request. A provider that validates the reply against
+        // the schema server-side (Groq does) rejects the whole response with
+        // HTTP 400 when the model follows a prompt asking for bare text.
         val systemPrompt = "You are a decision-making assistant. " +
-          "When given options, respond with EXACTLY one option from the list. " +
-          "Rules: Reply with ONLY the option text. " +
-          "No explanation, no numbering, no punctuation, no quotes, no extra words. " +
-          "Copy the option exactly as written."
+          "When given options, choose EXACTLY one option from the list. " +
+          s"""Reply with a JSON object of the form {"${EnumFormat.ChoiceKey}": "<option>"} """ +
+          "where <option> is copied exactly as written. " +
+          "No explanation, no extra keys, no extra text."
 
         val userPrompt = s"$prompt\n\nOptions:\n${choices.mkString("\n")}\n\n" +
-          "Your choice (one option, no other text):"
+          ChooseReporter.ChoiceInstruction
 
         // Build temp history with system prompt — don't mutate permanent history
         val tempHistory = ArrayBuffer.from(snapshotHistory(agent))
