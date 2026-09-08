@@ -1,0 +1,27 @@
+# Structured outputs demo — provider settings
+#
+# Copy this file to config.txt and fill in a key. config.txt is gitignored,
+# so your key stays out of version control.
+#
+# Structured output needs a provider that supports constrained decoding.
+# Verified working: Groq, OpenAI, Anthropic, Gemini. Ollama support depends
+# on the local model.
+
+# --- Groq (free tier, fast; key from https://console.groq.com/keys) ---
+provider=groq
+groq_api_key=gsk_REPLACE_WITH_YOUR_KEY
+model=openai/gpt-oss-20b
+
+# --- OpenAI ---
+#provider=openai
+#openai_api_key=sk-REPLACE_WITH_YOUR_KEY
+#model=gpt-4o-mini
+
+# --- Local Ollama, no key needed ---
+#provider=ollama
+#model=llama3.2:3b
+#base_url=http://localhost:11434
+
+temperature=0.0
+max_tokens=300
+timeout_seconds=60

@@ -502,3 +502,226 @@ LLMCompileErrorBannedListValidation
   extensions [llm]
   (llm:compile-error "die" [1 2]) => ERROR Extension exception: llm:compile-error expects a list of primitive names as strings, but got: 1, 2
   (llm:compile-error "fd 1" ["die" 5]) => ERROR Extension exception: llm:compile-error expects a list of primitive names as strings, but got: 5
+
+LLMGetLookup
+  extensions [llm]
+  llm:get [["name" "Alice"] ["age" 30]] "name" => "Alice"
+  llm:get [["name" "Alice"] ["age" 30]] "age" => 30
+  llm:get [["flag" true]] "flag" => true
+  llm:get [["skills" ["coding" "design"]]] "skills" => ["coding" "design"]
+  llm:get (llm:get [["addr" [["city" "Chicago"]]]] "addr") "city" => "Chicago"
+  llm:get [["name" "Alice"]] "missing" => ERROR Extension exception: llm:get: key "missing" not found. Available keys: name
+  llm:get [] "any" => ERROR Extension exception: llm:get: key "any" not found. The list is empty.
+  llm:get ["a" "b"] "a" => ERROR Extension exception: llm:get: key "a" not found. Available keys: (none - the list is not a list of [key value] pairs)
+
+LLMChatWithSchemaParsesJson
+  extensions [llm]
+  globals [result]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  O> set result llm:chat-with-schema "__TEST_RESPOND:{\"action\":\"explore\",\"confidence\":0.8}" "{\"type\":\"object\",\"properties\":{\"action\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}}}"
+  llm:get result "action" => "explore"
+  llm:get result "confidence" => 0.8
+  is-list? result => true
+  O> llm:clear-history
+
+LLMChatWithSchemaNested
+  extensions [llm]
+  globals [result]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  O> set result llm:chat-with-schema "__TEST_RESPOND:{\"plan\":[\"a\",\"b\"],\"meta\":{\"n\":2}}" "{\"type\":\"object\",\"properties\":{\"plan\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"meta\":{\"type\":\"object\",\"properties\":{\"n\":{\"type\":\"number\"}}}}}"
+  llm:get result "plan" => ["a" "b"]
+  llm:get (llm:get result "meta") "n" => 2
+  O> llm:clear-history
+
+LLMChatWithSchemaRejectsBadSchema
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  llm:chat-with-schema "hello" "not json at all" => ERROR Extension exception: llm:chat-with-schema: Schema is not valid JSON: expected null got "n" at index 0
+  llm:chat-with-schema "hello" "" => ERROR Extension exception: llm:chat-with-schema: Schema cannot be empty. Provide a JSON Schema object, e.g. {"type":"object","properties":{"action":{"type":"string"}}}
+
+LLMChatWithSchemaRejectsNonObjectTopLevel
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  llm:chat-with-schema "hi" "{\"type\":\"string\"}" => ERROR Extension exception: llm:chat-with-schema: schema must have type 'object' at the top level, but got 'string'. llm:chat-with-schema reports a list of [key value] pairs, so the reply has to be a JSON object. Wrap it, e.g. {"type":"object","properties":{"value":{"type":"string"}}}
+  llm:chat-with-schema "hi" "{\"type\":\"array\",\"items\":{\"type\":\"string\"}}" => ERROR Extension exception: llm:chat-with-schema: schema must have type 'object' at the top level, but got 'array'. llm:chat-with-schema reports a list of [key value] pairs, so the reply has to be a JSON object. Wrap it, e.g. {"type":"object","properties":{"value":{"type":"string"}}}
+
+LLMChatWithSchemaRejectsNonObjectReply
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  llm:chat-with-schema "__TEST_RESPOND:\"just a string\"" "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}}}" => ERROR Extension exception: llm:chat-with-schema: expected a JSON object in the reply, but got a string. Response text: "just a string"
+  llm:history => []
+  O> llm:clear-history
+
+LLMChatWithSchemaHistory
+  extensions [llm]
+  globals [result]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  O> set result llm:chat-with-schema "__TEST_RESPOND:{\"a\":1}" "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"number\"}}}"
+  length llm:history => 2
+  item 0 (item 0 llm:history) => "user"
+  item 0 (item 1 llm:history) => "assistant"
+  O> llm:clear-history
+
+LLMChatWithSchemaHistoryUnchangedOnFailure
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  O> carefully [ let r llm:chat-with-schema "__TEST_FAIL" "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"number\"}}}" ] [ ]
+  llm:history => []
+  O> llm:clear-history
+
+LLMChatWithSchemaRejectsNonJsonReply
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  llm:chat-with-schema "__TEST_RESPOND:sorry I cannot" "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"number\"}}}" => ERROR Extension exception: llm:chat-with-schema: Response was not valid JSON: expected json value got "s" at index 0. Response text: sorry I cannot
+  llm:history => []
+  O> llm:clear-history
+
+LLMChatJsonReturnsRawString
+  extensions [llm]
+  globals [result]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  O> set result llm:chat-json "__TEST_RESPOND:{\"a\":1}"
+  is-string? result => true
+  result => "{\"a\":1}"
+  length llm:history => 2
+  O> llm:clear-history
+
+LLMChatJsonRejectsNonJsonReply
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  llm:chat-json "__TEST_RESPOND:Sure! Here is the JSON you asked for." => ERROR Extension exception: llm:chat-json: Response was not valid JSON: expected json value got "S" at index 0. Response text: Sure! Here is the JSON you asked for.
+  llm:history => []
+  O> llm:clear-history
+
+LLMChatJsonAcceptsNonObjectJson
+  extensions [llm]
+  globals [result]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  O> set result llm:chat-json "__TEST_RESPOND:[1,2,3]"
+  result => "[1,2,3]"
+  length llm:history => 2
+  O> llm:clear-history
+
+LLMChatJsonHistoryUnchangedOnFailure
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  O> carefully [ let r llm:chat-json "__TEST_FAIL" ] [ ]
+  llm:history => []
+  O> llm:clear-history
+
+LLMChooseStructured
+  extensions [llm]
+  globals [choice]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  O> set choice llm:choose "Pick a direction" ["north" "south" "east" "west"]
+  member? choice ["north" "south" "east" "west"] => true
+  length llm:history => 2
+  O> llm:clear-history
+
+LLMChooseStructuredEmptyList
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  llm:choose "Pick" [] => ERROR Extension exception: Choice list cannot be empty
+
+LLMChooseSendsEnumConstraint
+  extensions [llm]
+  globals [choice]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  O> set choice llm:choose "__TEST_ECHO_FORMAT_ENUM" ["north" "south"]
+  choice => "south"
+  length llm:history => 2
+  item 1 (item 1 llm:history) => "south"
+  O> llm:clear-history
+  O> set choice llm:choose "__TEST_ECHO_FORMAT_ENUM" ["alpha" "beta" "gamma"]
+  choice => "gamma"
+  O> llm:clear-history
+
+LLMChatJsonSendsJsonObjectFormat
+  extensions [llm]
+  globals [result]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  O> set result llm:chat-json "__TEST_ECHO_FORMAT"
+  result => "{\"format\":\"json_object\"}"
+  O> llm:clear-history
+
+LLMChatWithSchemaSendsSchemaFormat
+  extensions [llm]
+  globals [result]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  O> set result llm:chat-with-schema "__TEST_ECHO_FORMAT" "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}}}"
+  llm:get result "format" => "json_schema"
+  llm:get result "topLevelType" => "object"
+  llm:get result "name" => "netlogo_schema"
+  O> llm:clear-history
+
+LLMChooseDegradesWhenFormatIgnored
+  extensions [llm]
+  globals [choice]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  O> set choice llm:choose "__TEST_IGNORE_FORMAT Pick a direction" ["north" "south" "east" "west"]
+  choice => "north"
+  length llm:history => 2
+  item 1 (item 1 llm:history) => "north"
+  O> llm:clear-history
+
+LLMChooseDegradesCaseInsensitively
+  extensions [llm]
+  globals [choice]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  O> set choice llm:choose "pick __TEST_IGNORE_FORMAT __TEST_RAW_CHOICE:NORTH" ["north" "south"]
+  choice => "north"
+  length llm:history => 2
+  O> llm:clear-history
+
+LLMChooseDegradesOnMalformedConstrainedJson
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  llm:choose "__TEST_IGNORE_FORMAT __TEST_RAW_CHOICE:{\"choice\": pick" ["north" "south"] => ERROR Extension exception: llm:choose: response '{"choice": pick' did not match any choice. Choices: north, south
+  llm:history => []
+  O> llm:clear-history
+
+LLMChooseUnmatchedAfterDegradationLeavesHistoryClean
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:clear-history
+  llm:choose "__TEST_IGNORE_FORMAT __TEST_RAW_CHOICE:up" ["north" "south"] => ERROR Extension exception: llm:choose: response 'up' did not match any choice. Choices: north, south
+  llm:history => []
+  O> llm:clear-history

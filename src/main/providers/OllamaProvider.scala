@@ -3,7 +3,7 @@
 
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat}
 import org.nlogo.extensions.llm.config.ConfigStore
 import sttp.client4._
 import sttp.model.Uri
@@ -53,6 +53,15 @@ class OllamaProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
     // Enable thinking for reasoning models
     if (request.thinkingConfig.exists(_.enabled)) {
       baseRequest("think") = true
+    }
+
+    // Ollama takes the raw schema in `format`, or the bare string "json" for
+    // schemaless JSON mode. Enforcement is grammar-level at the sampling layer,
+    // so it is independent of `think`.
+    request.responseFormat.foreach {
+      case JsonSchemaFormat(schema, _)  => baseRequest("format") = ResponseFormat.strictSchema(schema)
+      case enumFormat: EnumFormat       => baseRequest("format") = enumFormat.schema
+      case JsonObjectFormat             => baseRequest("format") = "json"
     }
 
     // Add options if parameters are specified
