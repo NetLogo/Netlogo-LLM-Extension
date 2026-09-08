@@ -3,7 +3,7 @@
 
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat, Usage}
 import org.nlogo.extensions.llm.config.ConfigStore
 import sttp.client4._
 import sttp.model.Uri
@@ -170,6 +170,32 @@ class ClaudeProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
       case JsonObjectFormat => ()
     }
 
+  /**
+   * Anthropic reports input_tokens EXCLUDING cached tokens, with cache reads
+   * and writes as separate counts. The cross-provider inputTokens is every
+   * prompt token processed, so all three are summed; the cache counts are
+   * kept as well. Thinking tokens are already inside output_tokens, and no
+   * total is reported, so it is computed.
+   */
+  private def parseUsage(parsed: ujson.Value): Option[Usage] =
+    parsed.obj.get("usage").collect { case u: ujson.Obj => u }.flatMap { u =>
+      for {
+        uncached <- Usage.longField(u, "input_tokens")
+        output   <- Usage.longField(u, "output_tokens")
+      } yield {
+        val cacheWrite = Usage.longField(u, "cache_creation_input_tokens")
+        val cacheRead = Usage.longField(u, "cache_read_input_tokens")
+        val input = uncached + cacheWrite.getOrElse(0L) + cacheRead.getOrElse(0L)
+        Usage(
+          inputTokens = input,
+          outputTokens = output,
+          totalTokens = input + output,
+          cacheReadTokens = cacheRead,
+          cacheWriteTokens = cacheWrite
+        )
+      }
+    }
+
   override protected def parseProviderResponse(responseBody: String, model: String): ChatResponse = {
     try {
       val parsed = ujson.read(responseBody)
@@ -221,7 +247,7 @@ class ClaudeProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
         )
       )
 
-      ChatResponse(id, created, model, choices, thinking = thinking)
+      ChatResponse(id, created, model, choices, thinking = thinking, usage = parseUsage(parsed))
     } catch {
       case e: Exception =>
         throw new RuntimeException(s"Failed to parse Claude response: ${e.getMessage}\nResponse: $responseBody", e)

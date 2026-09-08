@@ -3,7 +3,7 @@
 
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat, Usage}
 import org.nlogo.extensions.llm.config.ConfigStore
 import sttp.client4._
 import sttp.model.Uri
@@ -85,6 +85,13 @@ class OllamaProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
     baseRequest
   }
 
+  /** Ollama reports prompt_eval_count / eval_count at the top level and no total. */
+  private def parseUsage(parsed: ujson.Value): Option[Usage] =
+    for {
+      input  <- Usage.longField(parsed, "prompt_eval_count")
+      output <- Usage.longField(parsed, "eval_count")
+    } yield Usage(inputTokens = input, outputTokens = output, totalTokens = input + output)
+
   override protected def parseProviderResponse(responseBody: String, model: String): ChatResponse = {
     try {
       val parsed = ujson.read(responseBody)
@@ -113,7 +120,7 @@ class OllamaProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
         )
       )
 
-      ChatResponse(id, created, model, choices, thinking = thinking)
+      ChatResponse(id, created, model, choices, thinking = thinking, usage = parseUsage(parsed))
     } catch {
       case e: Exception =>
         throw new RuntimeException(s"Failed to parse Ollama response: ${e.getMessage}\nResponse: $responseBody", e)

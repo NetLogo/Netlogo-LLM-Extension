@@ -3,7 +3,7 @@
 
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat, Usage}
 import org.nlogo.extensions.llm.config.ConfigStore
 import sttp.client4._
 import sttp.model.Uri
@@ -157,6 +157,29 @@ class GeminiProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
   /**
    * Parse Gemini's response format into ChatResponse
    */
+  /**
+   * Gemini reports thinking tokens SEPARATELY from candidate tokens, and its
+   * promptTokenCount already includes cached content. The cross-provider
+   * outputTokens is every generated token, so thoughts are added to
+   * candidates; totalTokenCount is used when present because Gemini defines
+   * it the same way.
+   */
+  private def parseUsage(parsed: ujson.Value): Option[Usage] =
+    parsed.obj.get("usageMetadata").collect { case u: ujson.Obj => u }.flatMap { u =>
+      Usage.longField(u, "promptTokenCount").map { input =>
+        val candidates = Usage.longField(u, "candidatesTokenCount").getOrElse(0L)
+        val thoughts = Usage.longField(u, "thoughtsTokenCount")
+        val output = candidates + thoughts.getOrElse(0L)
+        Usage(
+          inputTokens = input,
+          outputTokens = output,
+          totalTokens = Usage.longField(u, "totalTokenCount").getOrElse(input + output),
+          reasoningTokens = thoughts,
+          cacheReadTokens = Usage.longField(u, "cachedContentTokenCount")
+        )
+      }
+    }
+
   override protected def parseProviderResponse(responseBody: String, model: String): ChatResponse = {
     try {
       val parsed = ujson.read(responseBody)
@@ -220,7 +243,7 @@ class GeminiProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
         )
       )
 
-      ChatResponse(s"gemini-${System.currentTimeMillis()}", System.currentTimeMillis() / 1000, model, choices, thinking = thinking)
+      ChatResponse(s"gemini-${System.currentTimeMillis()}", System.currentTimeMillis() / 1000, model, choices, thinking = thinking, usage = parseUsage(parsed))
     } catch {
       case e: RuntimeException => throw new RuntimeException(e.getMessage, e)
       case e: Exception =>

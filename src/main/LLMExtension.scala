@@ -4,7 +4,7 @@ import org.nlogo.api._
 import org.nlogo.core.{LogoList, Syntax}
 import org.nlogo.extensions.llm.config.{ConfigLoader, ConfigStore}
 import org.nlogo.extensions.llm.providers.{LLMProvider, ProviderDescriptor, ProviderFactory, ProviderRegistry, ProviderRegistrations, ModelRegistry, OllamaProvider, ReadinessCheck, RetryPolicy}
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatResponse, EnumFormat, JsonObjectFormat, ResponseFormat}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatResponse, EnumFormat, JsonObjectFormat, ResponseFormat, Usage}
 import org.nlogo.extensions.llm.utils.JsonToNetLogo
 import scala.collection.mutable.{ArrayBuffer, WeakHashMap}
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -60,6 +60,13 @@ class LLMExtension extends DefaultClassManager {
   // Guards messageHistory and every contained buffer. Never held across Await
   // or provider calls; critical sections are small snapshots/appends only.
   private val historyLock = new Object
+
+  // Token accounting. Per-agent totals live in a WeakHashMap like history so a
+  // dead turtle's counters are collected with it; the run total is kept
+  // separately so it survives agent death. Both reset on clear-all.
+  private val agentUsage: WeakHashMap[Agent, UsageTotals] = WeakHashMap()
+  private var runUsage: UsageTotals = UsageTotals.empty
+  private val usageLock = new Object
 
   // Execution context for async operations
   implicit private val ec: ExecutionContext = ExecutionContext.global
@@ -129,6 +136,10 @@ class LLMExtension extends DefaultClassManager {
     manager.addPrimitive("list-models", ListModelsReporter)
     manager.addPrimitive("active", ActiveReporter)
     manager.addPrimitive("config", ConfigReporter)
+
+    // Token accounting primitives
+    manager.addPrimitive("usage", UsageReporter)
+    manager.addPrimitive("usage-total", UsageTotalReporter)
   }
   
   /**
@@ -136,6 +147,10 @@ class LLMExtension extends DefaultClassManager {
    */
   override def clearAll(): Unit = {
     historyLock.synchronized { messageHistory.clear() }
+    usageLock.synchronized {
+      agentUsage.clear()
+      runUsage = UsageTotals.empty
+    }
   }
   
   /**
@@ -181,6 +196,34 @@ class LLMExtension extends DefaultClassManager {
       h += user
       h += assistant
     }
+
+  /**
+   * Credit a provider reply to the calling agent and to the run.
+   *
+   * Called as soon as a response arrives, before the caller decides whether
+   * the reply is acceptable: tokens were billed either way, so a reply the
+   * extension then rejects (schema parse failure, unmatched choice) still
+   * counts. A call that never produced a response records nothing.
+   */
+  private def recordUsage(agent: Agent, response: ChatResponse): Unit = {
+    val delta = UsageTotals(response.usage.getOrElse(Usage.empty), 1L)
+    usageLock.synchronized {
+      agentUsage.update(agent, agentUsage.getOrElse(agent, UsageTotals.empty).plus(delta))
+      runUsage = runUsage.plus(delta)
+    }
+  }
+
+  private def usageFor(agent: Agent): UsageTotals =
+    usageLock.synchronized { agentUsage.getOrElse(agent, UsageTotals.empty) }
+
+  private def usageForRun: UsageTotals =
+    usageLock.synchronized { runUsage }
+
+  /** The assistant message to store in history, mirroring what chat(messages) returned before. */
+  private def replyMessage(response: ChatResponse): ChatMessage =
+    response.firstMessage.getOrElse(
+      throw new RuntimeException("No response message received from provider")
+    )
 
   /**
    * Get timeout from config, falling back to 30 seconds
@@ -501,8 +544,10 @@ class LLMExtension extends DefaultClassManager {
         val userMessage = ChatMessage.user(inputText)
 
         // Send chat request with user message included, but don't mutate history yet
-        val responseFuture = provider.chat(snapshotHistory(agent) :+ userMessage)
-        val responseMessage = Await.result(responseFuture, getAwaitTimeout)
+        val responseFuture = provider.chatWithFullResponse(snapshotHistory(agent) :+ userMessage)
+        val response = Await.result(responseFuture, getAwaitTimeout)
+        recordUsage(agent, response)
+        val responseMessage = replyMessage(response)
 
         // Only commit both messages after success
         commitExchange(agent, userMessage, responseMessage)
@@ -533,7 +578,9 @@ class LLMExtension extends DefaultClassManager {
 
         // Snapshot on the NetLogo thread; commit the pair atomically on success
         // from the completion thread so overlapping async calls can't interleave.
-        val responseFuture = provider.chat(snapshotHistory(agent) :+ userMessage).map { responseMessage =>
+        val responseFuture = provider.chatWithFullResponse(snapshotHistory(agent) :+ userMessage).map { response =>
+          recordUsage(agent, response)
+          val responseMessage = replyMessage(response)
           commitExchange(agent, userMessage, responseMessage)
           responseMessage.content
         }
@@ -590,8 +637,10 @@ class LLMExtension extends DefaultClassManager {
         tempHistory += userMessage
 
         // Send chat request
-        val responseFuture = provider.chat(tempHistory.toSeq)
-        val responseMessage = Await.result(responseFuture, getAwaitTimeout)
+        val responseFuture = provider.chatWithFullResponse(tempHistory.toSeq)
+        val response = Await.result(responseFuture, getAwaitTimeout)
+        recordUsage(agent, response)
+        val responseMessage = replyMessage(response)
 
         // Commit both template message and response to permanent history on success
         commitExchange(agent, userMessage, responseMessage)
@@ -652,6 +701,7 @@ class LLMExtension extends DefaultClassManager {
         // the constraint behaves exactly as it did before.
         val responseFuture = provider.chatWithFormat(tempHistory.toSeq, EnumFormat(choices))
         val response = Await.result(responseFuture, getAwaitTimeout)
+        recordUsage(agent, response)
 
         // Extract text: prefer content, fall back to thinking field
         val text = response.firstContent.filter(_.nonEmpty)
@@ -751,6 +801,7 @@ class LLMExtension extends DefaultClassManager {
 
         val responseFuture = provider.chatWithFormat(snapshotHistory(agent) :+ userMessage, format)
         val response = Await.result(responseFuture, getAwaitTimeout)
+        recordUsage(agent, response)
 
         val content = response.firstContent.getOrElse("")
 
@@ -811,6 +862,7 @@ class LLMExtension extends DefaultClassManager {
 
         val responseFuture = provider.chatWithFormat(tempHistory.toSeq, JsonObjectFormat)
         val response = Await.result(responseFuture, getAwaitTimeout)
+        recordUsage(agent, response)
 
         val content = response.firstContent.getOrElse("")
 
@@ -893,6 +945,7 @@ class LLMExtension extends DefaultClassManager {
         // Send with user message included, but don't mutate history yet
         val responseFuture = provider.chatWithFullResponse(snapshotHistory(agent) :+ userMessage)
         val response = Await.result(responseFuture, getAwaitTimeout)
+        recordUsage(agent, response)
 
         val answerText = response.firstContent.getOrElse("")
         val thinkingText = response.thinking.getOrElse("")
@@ -1198,6 +1251,44 @@ class LLMExtension extends DefaultClassManager {
     }
   }
   
+  /**
+   * Token accounting as a `[[key value] ...]` list, the same shape structured
+   * output uses so `llm:get` reads it. Counters are numbers; `cost` is a
+   * number only when a provider reported one and `""` otherwise, matching how
+   * JSON null is reported, so an unknown cost is never mistaken for free.
+   */
+  private def usageToLogo(totals: UsageTotals): LogoList = {
+    val u = totals.usage
+    def num(n: Long): AnyRef = Double.box(n.toDouble)
+    LogoList(
+      LogoList("input-tokens", num(u.inputTokens)),
+      LogoList("output-tokens", num(u.outputTokens)),
+      LogoList("total-tokens", num(u.totalTokens)),
+      LogoList("reasoning-tokens", num(u.reasoningTokens.getOrElse(0L))),
+      LogoList("cache-read-tokens", num(u.cacheReadTokens.getOrElse(0L))),
+      LogoList("cache-write-tokens", num(u.cacheWriteTokens.getOrElse(0L))),
+      LogoList("cost", u.cost.map(c => Double.box(c): AnyRef).getOrElse("")),
+      LogoList("latency-ms", num(u.latencyMs.getOrElse(0L))),
+      LogoList("calls", num(totals.calls))
+    )
+  }
+
+  /** llm:usage — token accounting for the calling agent since clear-all. */
+  object UsageReporter extends Reporter {
+    override def getSyntax: Syntax = Syntax.reporterSyntax(ret = Syntax.ListType)
+
+    override def report(args: Array[Argument], context: Context): AnyRef =
+      usageToLogo(usageFor(context.getAgent))
+  }
+
+  /** llm:usage-total — token accounting for every agent in the run since clear-all. */
+  object UsageTotalReporter extends Reporter {
+    override def getSyntax: Syntax = Syntax.reporterSyntax(ret = Syntax.ListType)
+
+    override def report(args: Array[Argument], context: Context): AnyRef =
+      usageToLogo(usageForRun)
+  }
+
   object ActiveReporter extends Reporter {
     override def getSyntax: Syntax = Syntax.reporterSyntax(ret = Syntax.ListType)
     
@@ -1248,4 +1339,14 @@ class LLMExtension extends DefaultClassManager {
       }
     }
   }
+}
+
+/** Running totals: the summed Usage plus how many calls contributed to it. */
+private[llm] case class UsageTotals(usage: Usage, calls: Long) {
+  def plus(other: UsageTotals): UsageTotals =
+    UsageTotals(usage.plus(other.usage), calls + other.calls)
+}
+
+private[llm] object UsageTotals {
+  val empty: UsageTotals = UsageTotals(Usage.empty, 0L)
 }
