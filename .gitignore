@@ -54,6 +54,9 @@ config-*.txt
 !demos/provider-sensitivity/config-multi-provider.txt
 !demos/provider-sensitivity/config.txt
 !demos/social-deduction-game/config.txt
+
+# Live e2e harness run artifact
+demos/e2e-tests/e2e-results.txt
 *.env
 *.env.*
 *.secrets*
