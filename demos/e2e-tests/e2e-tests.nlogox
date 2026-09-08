@@ -198,6 +198,28 @@ to-report missing-key-raises? [parsed]
   report raised?
 end
 
+;; ---------------------------------------------------------------------------
+;; T7 — llm:choose under the enum constraint (#22)
+;;
+;; llm:choose now sends its options to the provider as an enum schema and
+;; falls back to matching raw text when a provider ignores the constraint.
+;; Either way the reply must be exactly one of the offered options.
+;; ---------------------------------------------------------------------------
+
+to test-choose
+  log-line "T7 llm:choose enum constraint"
+  let options ["north" "south" "east" "west"]
+  let picked ""
+  carefully
+    [ set picked llm:choose "There is a wall to the north and food to the south. Which way do you walk?" options ]
+    [ set picked (word "ERROR: " error-message) ]
+  log-line (word "  -> " picked)
+  assert "choose returns a string" (is-string? picked)
+  assert "choice is one of the offered options" (member? picked options)
+  assert "choice is not the blocked direction" (picked != "north")
+  report-totals
+end
+
 ;; Run everything in sequence.
 to run-headless
   carefully [ file-delete "e2e-results.txt" ] [ ]
@@ -218,6 +240,7 @@ to test-all
   test-compile-error
   test-agent-history
   test-structured-output
+  test-choose
   output-print ""
   log-line (word "TOTAL  passed " pass-count "   failed " fail-count)
 end
