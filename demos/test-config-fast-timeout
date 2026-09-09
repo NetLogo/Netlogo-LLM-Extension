@@ -1,0 +1,6 @@
+# Test fixture: global config with a one-second wait budget and no retry allowance
+provider=openai
+openai_api_key=test-key
+model=model-fast-timeout
+timeout_seconds=1
+retry_max_elapsed_seconds=0

@@ -2,7 +2,7 @@ package org.nlogo.extensions.llm
 
 import org.nlogo.api._
 import org.nlogo.core.{LogoList, Syntax}
-import org.nlogo.extensions.llm.config.{ConfigLoader, ConfigStore}
+import org.nlogo.extensions.llm.config.{ConfigLoader, ConfigStore, ProfileStore}
 import org.nlogo.extensions.llm.providers.{LLMProvider, ProviderDescriptor, ProviderFactory, ProviderRegistry, ProviderRegistrations, ModelRegistry, OllamaProvider, ReadinessCheck, RetryPolicy}
 import org.nlogo.extensions.llm.models.{ChatMessage, ChatResponse, EnumFormat, JsonObjectFormat, ResponseFormat, Usage}
 import org.nlogo.extensions.llm.utils.JsonToNetLogo
@@ -53,6 +53,13 @@ class LLMExtension extends DefaultClassManager {
   
   // Current provider instance
   private var currentProvider: Option[LLMProvider] = None
+
+  // Named configurations loaded with llm:load-profile, each with its own
+  // provider, and which agent is bound to which. An agent with no binding
+  // uses the global configStore/currentProvider pair above, unchanged.
+  private val profiles: ProfileStore = new ProfileStore(cs => LLMExtension.createProvider(cs))
+  private val agentProfile: WeakHashMap[Agent, String] = WeakHashMap()
+  private val profileLock = new Object
   
   // Per-agent conversation history
   private val messageHistory: WeakHashMap[Agent, ArrayBuffer[ChatMessage]] = WeakHashMap()
@@ -75,13 +82,16 @@ class LLMExtension extends DefaultClassManager {
    * Create an AwaitableReporter that wraps a Future to provide truly async behavior
    * The Future starts immediately but execution defers until runresult is called
    */
-  private def createAwaitableReporter(future: Future[String]): AnonymousReporter = {
+  private def createAwaitableReporter(future: Future[String], timeout: FiniteDuration): AnonymousReporter = {
     new AnonymousReporter {
       override def syntax: Syntax = Syntax.reporterSyntax(right = List(), ret = Syntax.StringType)
       
       override def report(context: Context, args: Array[AnyRef]): AnyRef = {
         try {
-          Await.result(future, getAwaitTimeout)
+          // The budget in force for the calling agent when the request was
+          // launched: a later config change or profile rebinding cannot alter
+          // how long an already-pending call may take.
+          Await.result(future, timeout)
         } catch {
           case e: Exception =>
             throw new ExtensionException(s"Async LLM operation failed: ${e.getMessage}")
@@ -140,6 +150,12 @@ class LLMExtension extends DefaultClassManager {
     // Token accounting primitives
     manager.addPrimitive("usage", UsageReporter)
     manager.addPrimitive("usage-total", UsageTotalReporter)
+
+    // Per-agent profile primitives
+    manager.addPrimitive("load-profile", LoadProfileCommand)
+    manager.addPrimitive("use-profile", UseProfileCommand)
+    manager.addPrimitive("profile", ProfileReporter)
+    manager.addPrimitive("profiles", ProfilesReporter)
   }
   
   /**
@@ -151,6 +167,8 @@ class LLMExtension extends DefaultClassManager {
       agentUsage.clear()
       runUsage = UsageTotals.empty
     }
+    // Bindings die with the agents; loaded profiles persist like the global config does.
+    profileLock.synchronized { agentProfile.clear() }
   }
   
   /**
@@ -170,6 +188,34 @@ class LLMExtension extends DefaultClassManager {
     }
   }
   
+  /** The profile name an agent is bound to, or the reserved default name. */
+  private def profileNameFor(agent: Agent): String =
+    profileLock.synchronized { agentProfile.getOrElse(agent, ProfileStore.DefaultName) }
+
+  /**
+   * The provider a call from this agent goes through: the bound profile's
+   * provider, or the global one. The instance is resolved once per call and
+   * captured by the caller, so an async request keeps its provider even if
+   * the agent is rebound before the reply arrives.
+   */
+  private def ensureProvider(agent: Agent): LLMProvider =
+    profileNameFor(agent) match {
+      case ProfileStore.DefaultName => ensureProvider()
+      case name =>
+        profiles.provider(name) match {
+          case Success(provider) => provider
+          case Failure(e) =>
+            throw new ExtensionException(s"Failed to initialize LLM provider for profile '$name': ${e.getMessage}")
+        }
+    }
+
+  /** The configuration an agent's calls are shaped by. */
+  private def effectiveConfig(agent: Agent): ConfigStore =
+    profileNameFor(agent) match {
+      case ProfileStore.DefaultName => configStore
+      case name => profiles.get(name).map(_.config).getOrElse(configStore)
+    }
+
   /**
    * Get or create conversation history for an agent.
    * Callers must hold historyLock — the buffer must not escape a locked section.
@@ -228,8 +274,8 @@ class LLMExtension extends DefaultClassManager {
   /**
    * Get timeout from config, falling back to 30 seconds
    */
-  private def getTimeoutSeconds: Int =
-    configStore.get(ConfigStore.TIMEOUT_SECONDS).map { s =>
+  private def getTimeoutSeconds(config: ConfigStore): Int =
+    config.get(ConfigStore.TIMEOUT_SECONDS).map { s =>
       scala.util.Try(s.toInt).getOrElse {
         System.err.println(s"WARNING: Invalid timeout_seconds value '$s' (not a valid integer), using default 30")
         30
@@ -258,34 +304,61 @@ class LLMExtension extends DefaultClassManager {
    * bound is unchanged from before throttling existed, so an unthrottled model — the
    * default — behaves exactly as it did.
    */
-  private def getAwaitTimeout: FiniteDuration = {
-    val retryBudget = configStore.get(RetryPolicy.MAX_ELAPSED_SECONDS)
+  private def awaitTimeoutFor(config: ConfigStore): FiniteDuration = {
+    val retryBudget = config.get(RetryPolicy.MAX_ELAPSED_SECONDS)
       .flatMap(s => scala.util.Try(s.trim.toDouble).toOption)
       .filter(d => d >= 0.0 && d.isFinite)
       .map(d => (d * 1000.0).toLong.millis)
       .getOrElse(RetryPolicy.DefaultMaxElapsed)
-    getTimeoutSeconds.seconds + retryBudget
+    getTimeoutSeconds(config).seconds + retryBudget
   }
   
   /**
    * Check if a provider has an API key configured
    */
-  private def hasApiKey(providerName: String): Boolean = {
+  private def hasApiKey(providerName: String): Boolean = hasApiKey(providerName, configStore)
+
+  private def hasApiKey(providerName: String, config: ConfigStore): Boolean = {
     val providerKeyName = ConfigStore.getProviderApiKeyName(providerName)
-    configStore.get(providerKeyName).orElse(configStore.get(ConfigStore.API_KEY)) match {
+    config.get(providerKeyName).orElse(config.get(ConfigStore.API_KEY)) match {
       case Some(key) => key.trim.nonEmpty
       case None => false
     }
   }
+
+  /**
+   * The readiness check llm:load-config and llm:load-profile share: a cloud
+   * provider needs a key in this config, a local one needs a reachable server.
+   */
+  private def checkReadiness(desc: ProviderDescriptor, providerName: String, config: ConfigStore): Unit =
+    desc.readinessCheck match {
+      case ReadinessCheck.ServerReachable =>
+        if (!isOllamaReachable(config)) {
+          val baseUrl = config.get(desc.baseUrlConfigKey)
+            .orElse(config.get(ConfigStore.BASE_URL))
+            .getOrElse(desc.defaultBaseUrl)
+          throw new ExtensionException(
+            s"Config loaded but ${desc.displayName} not reachable at $baseUrl. Please start the server or change ${desc.baseUrlConfigKey} in config. For help: print llm:provider-help \"${desc.name}\""
+          )
+        }
+      case ReadinessCheck.ApiKey =>
+        if (!hasApiKey(providerName, config)) {
+          throw new ExtensionException(
+            s"Config loaded but ${desc.displayName} provider requires an API key. Set '${desc.apiKeyConfigKey}' in config. For help: print llm:provider-help \"${desc.name}\""
+          )
+        }
+    }
   
   /**
    * Check if Ollama is reachable (synchronous with short timeout)
    */
-  private def isOllamaReachable: Boolean = {
+  private def isOllamaReachable: Boolean = isOllamaReachable(configStore)
+
+  private def isOllamaReachable(config: ConfigStore): Boolean = {
     try {
       val provider = new OllamaProvider()
-      val baseUrl = configStore.get(ConfigStore.OLLAMA_BASE_URL)
-        .orElse(configStore.get(ConfigStore.BASE_URL))
+      val baseUrl = config.get(ConfigStore.OLLAMA_BASE_URL)
+        .orElse(config.get(ConfigStore.BASE_URL))
         .getOrElse(ConfigStore.DEFAULT_OLLAMA_BASE_URL)
       provider.setConfig(ConfigStore.BASE_URL, baseUrl)
 
@@ -496,23 +569,7 @@ class LLMExtension extends DefaultClassManager {
           // Readiness check uses the now-loaded config (needs apiKeyConfigKey lookup).
           // Roll back on failure so llm:active and friends keep the prior state.
           try {
-            desc.readinessCheck match {
-              case ReadinessCheck.ServerReachable =>
-                if (!isOllamaReachable) {
-                  val baseUrl = configStore.get(desc.baseUrlConfigKey)
-                    .orElse(configStore.get(ConfigStore.BASE_URL))
-                    .getOrElse(desc.defaultBaseUrl)
-                  throw new ExtensionException(
-                    s"Config loaded but ${desc.displayName} not reachable at $baseUrl. Please start the server or change ${desc.baseUrlConfigKey} in config. For help: print llm:provider-help \"${desc.name}\""
-                  )
-                }
-              case ReadinessCheck.ApiKey =>
-                if (!hasApiKey(providerName)) {
-                  throw new ExtensionException(
-                    s"Config loaded but ${desc.displayName} provider requires an API key. Set '${desc.apiKeyConfigKey}' in config. For help: print llm:provider-help \"${desc.name}\""
-                  )
-                }
-            }
+            checkReadiness(desc, providerName, configStore)
           } catch {
             case e: ExtensionException =>
               configStore.loadFromMap(previousConfig)
@@ -539,13 +596,13 @@ class LLMExtension extends DefaultClassManager {
       val agent = context.getAgent
 
       try {
-        val provider = ensureProvider()
+        val provider = ensureProvider(agent)
 
         val userMessage = ChatMessage.user(inputText)
 
         // Send chat request with user message included, but don't mutate history yet
         val responseFuture = provider.chatWithFullResponse(snapshotHistory(agent) :+ userMessage)
-        val response = Await.result(responseFuture, getAwaitTimeout)
+        val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
         val responseMessage = replyMessage(response)
 
@@ -572,7 +629,7 @@ class LLMExtension extends DefaultClassManager {
       val agent = context.getAgent
 
       try {
-        val provider = ensureProvider()
+        val provider = ensureProvider(agent)
 
         val userMessage = ChatMessage.user(inputText)
 
@@ -586,7 +643,7 @@ class LLMExtension extends DefaultClassManager {
         }
 
         // Return AnonymousReporter that wraps the Future
-        createAwaitableReporter(responseFuture)
+        createAwaitableReporter(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
 
       } catch {
         case e: Exception =>
@@ -607,7 +664,7 @@ class LLMExtension extends DefaultClassManager {
       val agent = context.getAgent
 
       try {
-        val provider = ensureProvider()
+        val provider = ensureProvider(agent)
 
         // Extract model directory from workspace
         val modelDir = Option(context.workspace.getModelPath).flatMap { path =>
@@ -638,7 +695,7 @@ class LLMExtension extends DefaultClassManager {
 
         // Send chat request
         val responseFuture = provider.chatWithFullResponse(tempHistory.toSeq)
-        val response = Await.result(responseFuture, getAwaitTimeout)
+        val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
         val responseMessage = replyMessage(response)
 
@@ -670,7 +727,7 @@ class LLMExtension extends DefaultClassManager {
       val agent = context.getAgent
 
       try {
-        val provider = ensureProvider()
+        val provider = ensureProvider(agent)
 
         val choices = choicesList.map(_.toString).toList
 
@@ -700,7 +757,7 @@ class LLMExtension extends DefaultClassManager {
         // The prompt still spells out the options, so a provider that ignores
         // the constraint behaves exactly as it did before.
         val responseFuture = provider.chatWithFormat(tempHistory.toSeq, EnumFormat(choices))
-        val response = Await.result(responseFuture, getAwaitTimeout)
+        val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
 
         // Extract text: prefer content, fall back to thinking field
@@ -795,12 +852,12 @@ class LLMExtension extends DefaultClassManager {
       }
 
       try {
-        val provider = ensureProvider()
+        val provider = ensureProvider(agent)
 
         val userMessage = ChatMessage.user(inputText)
 
         val responseFuture = provider.chatWithFormat(snapshotHistory(agent) :+ userMessage, format)
-        val response = Await.result(responseFuture, getAwaitTimeout)
+        val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
 
         val content = response.firstContent.getOrElse("")
@@ -846,7 +903,7 @@ class LLMExtension extends DefaultClassManager {
       val agent = context.getAgent
 
       try {
-        val provider = ensureProvider()
+        val provider = ensureProvider(agent)
 
         // Anthropic has no schemaless JSON mode and Gemini's mime type alone is
         // only a hint, so the instruction is also stated in the prompt. Providers
@@ -861,7 +918,7 @@ class LLMExtension extends DefaultClassManager {
         tempHistory += userMessage
 
         val responseFuture = provider.chatWithFormat(tempHistory.toSeq, JsonObjectFormat)
-        val response = Await.result(responseFuture, getAwaitTimeout)
+        val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
 
         val content = response.firstContent.getOrElse("")
@@ -938,13 +995,13 @@ class LLMExtension extends DefaultClassManager {
       val agent = context.getAgent
 
       try {
-        val provider = ensureProvider()
+        val provider = ensureProvider(agent)
 
         val userMessage = ChatMessage.user(inputText)
 
         // Send with user message included, but don't mutate history yet
         val responseFuture = provider.chatWithFullResponse(snapshotHistory(agent) :+ userMessage)
-        val response = Await.result(responseFuture, getAwaitTimeout)
+        val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
 
         val answerText = response.firstContent.getOrElse("")
@@ -1252,6 +1309,86 @@ class LLMExtension extends DefaultClassManager {
   }
   
   /**
+   * llm:load-profile name file — load a config file under a name so agents
+   * can be bound to it with llm:use-profile. Validated exactly like
+   * llm:load-config; a rejected load leaves any existing profile of that
+   * name untouched, because the store is only updated after every check.
+   */
+  object LoadProfileCommand extends Command {
+    override def getSyntax: Syntax = Syntax.commandSyntax(right = List(Syntax.StringType, Syntax.StringType))
+
+    override def perform(args: Array[Argument], context: Context): Unit = {
+      val name = args(0).getString
+      val filename = args(1).getString
+
+      val modelDir = Option(context.workspace.getModelPath).flatMap { path =>
+        Option(new java.io.File(path).getParent)
+      }
+
+      val config = ConfigLoader.loadFromFile(filename, modelDir) match {
+        case Success(c) => c
+        case Failure(e) =>
+          throw new ExtensionException(s"llm:load-profile: Failed to load configuration from '$filename': ${e.getMessage}")
+      }
+
+      val providerName = config.getOrElse(ConfigStore.PROVIDER, ConfigStore.DEFAULT_PROVIDER)
+      val desc = ProviderRegistry.get(providerName.toLowerCase.trim).getOrElse {
+        throw new ExtensionException(
+          s"llm:load-profile: Unknown provider '$providerName' in config. Supported: ${ProviderRegistry.allNames.toList.sorted.mkString(", ")}"
+        )
+      }
+
+      // Mirror llm:load-config: the file is the whole configuration, with no
+      // OpenAI-flavoured defaults layered underneath. A profile that names no
+      // model gets its own provider's default, not gpt-4o-mini.
+      val candidate = new ConfigStore()
+      candidate.loadFromMap(config)
+      checkReadiness(desc, providerName, candidate)
+
+      try profiles.load(name, config)
+      catch {
+        case e: IllegalArgumentException =>
+          throw new ExtensionException(s"llm:load-profile: ${e.getMessage}")
+      }
+    }
+  }
+
+  /**
+   * llm:use-profile name — route the calling agent's calls through a loaded
+   * profile. The reserved default name unbinds it.
+   */
+  object UseProfileCommand extends Command {
+    override def getSyntax: Syntax = Syntax.commandSyntax(right = List(Syntax.StringType))
+
+    override def perform(args: Array[Argument], context: Context): Unit = {
+      val name = args(0).getString.trim.toLowerCase
+      val agent = context.getAgent
+      if (name == ProfileStore.DefaultName) {
+        profileLock.synchronized { agentProfile.remove(agent) }
+      } else if (profiles.contains(name)) {
+        profileLock.synchronized { agentProfile.update(agent, name) }
+      } else {
+        throw new ExtensionException(
+          s"llm:use-profile: no profile named '${args(0).getString.trim}'. Loaded profiles: ${profiles.describeLoaded}"
+        )
+      }
+    }
+  }
+
+  /** llm:profile — the calling agent's profile name, or the default name. */
+  object ProfileReporter extends Reporter {
+    override def getSyntax: Syntax = Syntax.reporterSyntax(ret = Syntax.StringType)
+    override def report(args: Array[Argument], context: Context): AnyRef = profileNameFor(context.getAgent)
+  }
+
+  /** llm:profiles — the loaded profile names, sorted. */
+  object ProfilesReporter extends Reporter {
+    override def getSyntax: Syntax = Syntax.reporterSyntax(ret = Syntax.ListType)
+    override def report(args: Array[Argument], context: Context): AnyRef =
+      LogoList.fromIterator(profiles.names.iterator.map(n => n: AnyRef))
+  }
+
+  /**
    * Token accounting as a `[[key value] ...]` list, the same shape structured
    * output uses so `llm:get` reads it. Counters are numbers; `cost` is a
    * number only when a provider reported one and `""` otherwise, matching how
@@ -1294,8 +1431,9 @@ class LLMExtension extends DefaultClassManager {
     
     override def report(args: Array[Argument], context: Context): AnyRef = {
       try {
-        val provider = configStore.getOrElse(ConfigStore.PROVIDER, ConfigStore.DEFAULT_PROVIDER)
-        val model = configStore.getOrElse(ConfigStore.MODEL, ModelRegistry.defaultModel(provider))
+        val config = effectiveConfig(context.getAgent)
+        val provider = config.getOrElse(ConfigStore.PROVIDER, ConfigStore.DEFAULT_PROVIDER)
+        val model = config.getOrElse(ConfigStore.MODEL, ModelRegistry.defaultModel(provider))
         LogoList(provider, model)
       } catch {
         case e: Exception =>
@@ -1309,7 +1447,7 @@ class LLMExtension extends DefaultClassManager {
     
     override def report(args: Array[Argument], context: Context): AnyRef = {
       try {
-        configStore.summary
+        effectiveConfig(context.getAgent).summary
       } catch {
         case e: Exception =>
           throw new ExtensionException(s"Failed to get config summary: ${e.getMessage}")

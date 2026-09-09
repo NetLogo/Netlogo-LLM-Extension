@@ -125,6 +125,26 @@ model=gpt-4o-mini
 # llm:set-model "claude-3-5-sonnet-20241022"
 ```
 
+### Profiles: one config file per model, different agents on different models
+
+`llm:load-config` sets the one configuration every agent shares. To run several
+models in one simulation, load extra config files as named profiles and bind
+agents to them. Each profile is an ordinary config file with its own provider,
+key and model:
+
+```
+llm:load-config "config.txt"                    ;; default for everyone
+llm:load-profile "llama"  "config-groq.txt"
+llm:load-profile "sonnet" "config-anthropic.txt"
+ask turtles with [role = "scout"]  [ llm:use-profile "llama" ]
+ask turtles with [role = "leader"] [ llm:use-profile "sonnet" ]
+```
+
+A profile file is validated on load the same way as `config.txt`. Thinking,
+retry and throttling keys in the file apply to that profile. See the API
+reference for `llm:load-profile`, `llm:use-profile`, `llm:profile` and
+`llm:profiles`.
+
 ### Request Throttling (staying inside a rate limit)
 A model that calls the LLM once per agent per tick sends one request per agent
 simultaneously. On a free tier that exceeds the quota on the first tick.

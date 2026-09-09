@@ -1,0 +1,4 @@
+# Test fixture: profile B for per-agent model selection tests
+provider=openai
+openai_api_key=test-key
+model=model-b
