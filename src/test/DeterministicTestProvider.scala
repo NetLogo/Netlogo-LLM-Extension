@@ -195,6 +195,10 @@ class DeterministicTestProvider(implicit ec: ExecutionContext) extends LLMProvid
     } else if (lastUserMessage.contains("__TEST_EMPTY_CONTENT")) {
       // Return empty content (simulates thinking model with no content)
       ""
+    } else if (lastUserMessage.contains("__TEST_ECHO_MODEL")) {
+      // Reveal which configuration served this call, so profile routing can
+      // be asserted: the model is the one field every profile fixture sets.
+      configStore.get(ConfigStore.MODEL).getOrElse("__NO_MODEL_CONFIGURED__")
     } else if (lastUserMessage.contains("Options:\n") && lastUserMessage.contains("Your choice as {")) {
       // Choose prompt — extract and return the first option from the Options block
       val optionsIdx = lastUserMessage.indexOf("Options:\n")

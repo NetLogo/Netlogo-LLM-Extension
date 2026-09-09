@@ -836,3 +836,172 @@ LLMUsageUnchangedWhenCallFails
   llm:get llm:usage "calls" => 0
   llm:get llm:usage "input-tokens" => 0
   O> clear-all
+
+LLMProfileDefaultsToGlobal
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  llm:profile => "default"
+  llm:profiles => []
+
+LLMLoadProfileRejectsBadProvider
+  extensions [llm]
+  globals [err]
+  O> carefully [llm:load-profile "bad" "demos/test-config-bad-provider"] [set err error-message]
+  member? "Unknown provider" err => true
+  llm:profiles => []
+
+LLMLoadProfileRejectsMissingFile
+  extensions [llm]
+  globals [err]
+  O> carefully [llm:load-profile "nope" "demos/no-such-file"] [set err error-message]
+  member? "Failed to load" err => true
+  llm:profiles => []
+
+LLMLoadProfileRejectsReservedName
+  extensions [llm]
+  O> llm:load-profile "default" "demos/test-profile-a" => ERROR Extension exception: llm:load-profile: 'default' is reserved for the global configuration. Choose another name.
+
+LLMUseProfileUnknownThrows
+  extensions [llm]
+  O> llm:load-profile "a" "demos/test-profile-a"
+  O> llm:use-profile "zzz" => ERROR Extension exception: llm:use-profile: no profile named 'zzz'. Loaded profiles: a
+
+LLMUseProfileRoutesToItsModel
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:set-model "model-default"
+  O> clear-all
+  O> llm:load-profile "a" "demos/test-profile-a"
+  O> llm:load-profile "b" "demos/test-profile-b"
+  O> crt 2
+  O> ask turtle 0 [ llm:use-profile "a" ]
+  O> ask turtle 1 [ llm:use-profile "b" ]
+  [llm:chat "__TEST_ECHO_MODEL"] of turtle 0 => "model-a"
+  [llm:chat "__TEST_ECHO_MODEL"] of turtle 1 => "model-b"
+  llm:chat "__TEST_ECHO_MODEL" => "model-default"
+  [llm:profile] of turtle 0 => "a"
+  [llm:profile] of turtle 1 => "b"
+  llm:profile => "default"
+  llm:profiles => ["a" "b"]
+  O> clear-all
+
+LLMActiveAndConfigReportCallingAgentProfile
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:set-model "model-default"
+  O> clear-all
+  O> llm:load-profile "a" "demos/test-profile-a"
+  O> crt 1
+  O> ask turtle 0 [ llm:use-profile "a" ]
+  [llm:active] of turtle 0 => ["openai" "model-a"]
+  llm:active => ["openai" "model-default"]
+  member? "model-a" [llm:config] of turtle 0 => true
+  member? "model-a" llm:config => false
+  O> clear-all
+
+LLMUseProfileDefaultReturnsToGlobal
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:set-model "model-default"
+  O> clear-all
+  O> llm:load-profile "a" "demos/test-profile-a"
+  O> crt 1
+  O> ask turtle 0 [ llm:use-profile "a" ]
+  [llm:chat "__TEST_ECHO_MODEL"] of turtle 0 => "model-a"
+  O> ask turtle 0 [ llm:use-profile "default" ]
+  [llm:chat "__TEST_ECHO_MODEL"] of turtle 0 => "model-default"
+  [llm:profile] of turtle 0 => "default"
+  O> clear-all
+
+LLMProfileAsyncKeepsProviderAfterReassignment
+  extensions [llm]
+  globals [p r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:set-model "model-default"
+  O> clear-all
+  O> llm:load-profile "a" "demos/test-profile-a"
+  O> llm:load-profile "b" "demos/test-profile-b"
+  O> crt 1
+  O> ask turtle 0 [ llm:use-profile "a" ]
+  O> ask turtle 0 [ set p llm:chat-async "__TEST_DELAY:300:__TEST_ECHO_MODEL" ]
+  O> ask turtle 0 [ llm:use-profile "b" ]
+  O> set r (runresult p)
+  r => "model-a"
+  [llm:chat "__TEST_ECHO_MODEL"] of turtle 0 => "model-b"
+  O> clear-all
+
+LLMSetModelLeavesProfilesAlone
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:set-model "model-default"
+  O> clear-all
+  O> llm:load-profile "a" "demos/test-profile-a"
+  O> crt 1
+  O> ask turtle 0 [ llm:use-profile "a" ]
+  O> llm:set-model "model-changed"
+  [llm:chat "__TEST_ECHO_MODEL"] of turtle 0 => "model-a"
+  llm:chat "__TEST_ECHO_MODEL" => "model-changed"
+  O> clear-all
+
+LLMReloadProfileReplacesIt
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> llm:load-profile "a" "demos/test-profile-a"
+  O> crt 1
+  O> ask turtle 0 [ llm:use-profile "a" ]
+  [llm:chat "__TEST_ECHO_MODEL"] of turtle 0 => "model-a"
+  O> llm:load-profile "a" "demos/test-profile-b"
+  [llm:chat "__TEST_ECHO_MODEL"] of turtle 0 => "model-b"
+  llm:profiles => ["a"]
+  O> clear-all
+
+LLMFailedReloadKeepsOldProfile
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> llm:load-profile "a" "demos/test-profile-a"
+  O> crt 1
+  O> ask turtle 0 [ llm:use-profile "a" ]
+  O> carefully [llm:load-profile "a" "demos/test-config-bad-provider"] [ ]
+  [llm:chat "__TEST_ECHO_MODEL"] of turtle 0 => "model-a"
+  O> clear-all
+
+LLMClearAllResetsAssignmentsKeepsProfiles
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> llm:load-profile "a" "demos/test-profile-a"
+  O> llm:use-profile "a"
+  llm:profile => "a"
+  O> clear-all
+  llm:profile => "default"
+  llm:profiles => ["a"]
+  O> clear-all
+
+LLMProfileHistoryAndUsageStayPerAgent
+  extensions [llm]
+  globals [r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> llm:load-profile "a" "demos/test-profile-a"
+  O> crt 2
+  O> ask turtle 0 [ llm:use-profile "a" ]
+  O> ask turtles [ set r llm:chat "__TEST_USAGE:5,1 hi" ]
+  [length llm:history] of turtle 0 => 2
+  [length llm:history] of turtle 1 => 2
+  [llm:get llm:usage "input-tokens"] of turtle 0 => 5
+  [llm:get llm:usage "input-tokens"] of turtle 1 => 5
+  llm:get llm:usage-total "calls" => 2
+  O> clear-all

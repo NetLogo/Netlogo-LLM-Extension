@@ -303,6 +303,70 @@ to test-usage
   report-totals
 end
 
+;; ---------------------------------------------------------------------------
+;; T10 — per-agent profiles (#68)
+;;
+;; A second configuration is derived from the active one with a different
+;; model, loaded as a profile, and bound to one turtle. That turtle must
+;; report and call the alternate model while the observer stays on the
+;; default, and the real reply must come back.
+;; ---------------------------------------------------------------------------
+
+to test-profiles
+  log-line "T10 per-agent profiles"
+  let default-model item 1 llm:active
+  let alt alt-model
+  let alt-config (word "config-" provider-under-test "-alt.txt")
+  write-config-with-model active-config alt-config alt
+  carefully
+    [ llm:load-profile "alt" alt-config ]
+    [ log-line (word "  load-profile failed: " error-message) ]
+
+  crt 1 [ set label "profile-turtle" ]
+  let t one-of turtles with [label = "profile-turtle"]
+  ask t [ llm:use-profile "alt" ]
+
+  let reply ""
+  carefully
+    [ set reply [llm:chat "Reply with exactly the word: OK"] of t ]
+    [ set reply (word "ERROR: " error-message) ]
+  log-line (word "  turtle on " [llm:active] of t " -> " reply)
+
+  assert "profile is listed" (member? "alt" llm:profiles)
+  assert "turtle reports its profile" ([llm:profile] of t = "alt")
+  assert "turtle's active model is the profile's model" ([item 1 llm:active] of t = alt)
+  assert "observer stays on the default model" (item 1 llm:active = default-model)
+  assert "observer reports the default profile" (llm:profile = "default")
+  assert "call through the profile returned" (is-string? reply and not member? "ERROR:" reply)
+  assert "usage was credited to the turtle" ([llm:get llm:usage "calls"] of t = 1)
+
+  ask t [ die ]
+  carefully [ file-delete alt-config ] [ ]
+  report-totals
+end
+
+;; A second model on the provider under test, so a profile can be told apart
+;; from the default. Ollama has no guaranteed second model pulled, so it
+;; reuses the active one and the test still proves routing and bookkeeping.
+to-report alt-model
+  if provider-under-test = "groq"      [ report "openai/gpt-oss-120b" ]
+  if provider-under-test = "anthropic" [ report "claude-3-5-haiku-latest" ]
+  report item 1 llm:active
+end
+
+;; Copy a config file with its model line replaced.
+to write-config-with-model [src dst model-name]
+  let lines []
+  file-open src
+  while [ not file-at-end? ] [ set lines lput file-read-line lines ]
+  file-close
+  carefully [ file-delete dst ] [ ]
+  file-open dst
+  foreach filter [ l -> not (length l >= 6 and substring l 0 6 = "model=") ] lines [ l -> file-print l ]
+  file-print (word "model=" model-name)
+  file-close
+end
+
 ;; Run everything in sequence.
 to run-headless
   carefully [ file-delete "e2e-results.txt" ] [ ]
@@ -326,6 +390,7 @@ to test-all
   test-choose
   test-throttling
   test-usage
+  test-profiles
   output-print ""
   log-line (word "TOTAL  passed " pass-count "   failed " fail-count)
 end

@@ -26,6 +26,10 @@ The NetLogo Multi-LLM Extension provides a unified interface for multiple Large 
 | `llm:set-history list`             | History       | Set conversation history for current agent                 |
 | `llm:clear-history`                | History       | Clear conversation history for current agent               |
 | `llm:load-config filename`         | Configuration | Load settings from file                                    |
+| `llm:load-profile name filename`   | Profiles      | Load a second configuration under a name                   |
+| `llm:use-profile name`             | Profiles      | Route the calling agent's calls through that profile       |
+| `llm:profile`                      | Profiles      | The calling agent's profile name (`"default"` if none)     |
+| `llm:profiles`                     | Profiles      | Names of the loaded profiles                               |
 | `llm:set-provider name`            | Configuration | Set active provider (openai, anthropic, gemini, ollama, openrouter, together) |
 | `llm:set-api-key key`              | Configuration | Set API key for current provider                           |
 | `llm:set-model name`               | Configuration | Set model to use for current provider                      |
@@ -859,6 +863,92 @@ print llm:list-models  ; Shows all providers, with Anthropic marked as ACTIVE
 - Use this to discover available models across all providers
 - Custom models added via `models-override.yaml` are marked with `[custom]`
 - The currently active provider and model are marked with `[ACTIVE]`
+
+## Profiles: different models for different agents
+
+By default every agent shares one configuration: one provider, one key, one
+model. A profile is a second configuration loaded under a name. Any agent can
+be bound to a profile, and from then on its calls go through that profile's
+provider and model. Agents that are not bound keep using the default
+configuration exactly as before.
+
+```netlogo
+to setup
+  clear-all
+  llm:load-config "config.txt"                       ;; the default, as before
+  llm:load-profile "llama"  "config-groq.txt"        ;; a second provider and key
+  llm:load-profile "sonnet" "config-anthropic.txt"
+  llm:load-profile "local"  "config-ollama.txt"
+
+  create-turtles 30
+  ask turtles with [who mod 3 = 0] [ llm:use-profile "llama" ]
+  ask turtles with [who mod 3 = 1] [ llm:use-profile "sonnet" ]
+  ask turtles with [who mod 3 = 2] [ llm:use-profile "local" ]
+end
+
+to go
+  ask turtles [
+    let reply llm:chat "One word: forage or rest?"   ;; each goes to its own model
+  ]
+end
+```
+
+Each turtle keeps its own history and its own `llm:usage`, so three models can
+be compared inside one run under identical conditions.
+
+### llm:load-profile
+
+**Syntax**: `llm:load-profile name filename`
+
+**Description**: Loads a configuration file under a name. The file has the same
+format and keys as `llm:load-config`, including thinking, retry and throttling
+settings, and is validated the same way: an unknown provider, a missing key, or
+an unreachable local server rejects the load. Loading a name that already
+exists replaces it. A rejected reload leaves the existing profile untouched.
+
+**Parameters**:
+
+- `name` (string): Any name except `"default"`, which is reserved for the
+  global configuration. Names are case-insensitive.
+- `filename` (string): Config file, resolved like `llm:load-config`
+
+**Notes**:
+
+- Profiles survive `clear-all`, like the global configuration does. Agent
+  bindings do not, since the agents themselves are gone.
+- `llm:set-model`, `llm:set-provider`, `llm:set-api-key` and the thinking
+  setters act on the default configuration only. A profile is what its file
+  says. To change a profile, edit the file and load it again.
+- Two profiles on the same provider and endpoint share one request throttle.
+
+### llm:use-profile
+
+**Syntax**: `llm:use-profile name`
+
+**Description**: Routes the calling agent's calls through the named profile.
+`llm:use-profile "default"` returns the agent to the global configuration.
+An unknown name is an error that lists the loaded profiles.
+
+**Notes**:
+
+- An async call already in flight keeps the provider it started with. Rebinding
+  an agent affects its next call, never a pending one.
+- Any agent can be bound: turtles, patches, links, or the observer.
+
+### llm:profile
+
+**Syntax**: `llm:profile`
+
+**Returns**: String - the calling agent's profile name, or `"default"`
+
+### llm:profiles
+
+**Syntax**: `llm:profiles`
+
+**Returns**: List - the loaded profile names, sorted
+
+With a profile bound, `llm:active` and `llm:config` report the calling agent's
+effective provider, model and configuration rather than the global ones.
 
 ## Token Usage
 
