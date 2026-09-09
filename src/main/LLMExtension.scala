@@ -82,13 +82,16 @@ class LLMExtension extends DefaultClassManager {
    * Create an AwaitableReporter that wraps a Future to provide truly async behavior
    * The Future starts immediately but execution defers until runresult is called
    */
-  private def createAwaitableReporter(future: Future[String]): AnonymousReporter = {
+  private def createAwaitableReporter(future: Future[String], timeout: FiniteDuration): AnonymousReporter = {
     new AnonymousReporter {
       override def syntax: Syntax = Syntax.reporterSyntax(right = List(), ret = Syntax.StringType)
       
       override def report(context: Context, args: Array[AnyRef]): AnyRef = {
         try {
-          Await.result(future, getAwaitTimeout)
+          // The budget in force for the calling agent when the request was
+          // launched: a later config change or profile rebinding cannot alter
+          // how long an already-pending call may take.
+          Await.result(future, timeout)
         } catch {
           case e: Exception =>
             throw new ExtensionException(s"Async LLM operation failed: ${e.getMessage}")
@@ -271,8 +274,8 @@ class LLMExtension extends DefaultClassManager {
   /**
    * Get timeout from config, falling back to 30 seconds
    */
-  private def getTimeoutSeconds: Int =
-    configStore.get(ConfigStore.TIMEOUT_SECONDS).map { s =>
+  private def getTimeoutSeconds(config: ConfigStore): Int =
+    config.get(ConfigStore.TIMEOUT_SECONDS).map { s =>
       scala.util.Try(s.toInt).getOrElse {
         System.err.println(s"WARNING: Invalid timeout_seconds value '$s' (not a valid integer), using default 30")
         30
@@ -301,13 +304,13 @@ class LLMExtension extends DefaultClassManager {
    * bound is unchanged from before throttling existed, so an unthrottled model — the
    * default — behaves exactly as it did.
    */
-  private def getAwaitTimeout: FiniteDuration = {
-    val retryBudget = configStore.get(RetryPolicy.MAX_ELAPSED_SECONDS)
+  private def awaitTimeoutFor(config: ConfigStore): FiniteDuration = {
+    val retryBudget = config.get(RetryPolicy.MAX_ELAPSED_SECONDS)
       .flatMap(s => scala.util.Try(s.trim.toDouble).toOption)
       .filter(d => d >= 0.0 && d.isFinite)
       .map(d => (d * 1000.0).toLong.millis)
       .getOrElse(RetryPolicy.DefaultMaxElapsed)
-    getTimeoutSeconds.seconds + retryBudget
+    getTimeoutSeconds(config).seconds + retryBudget
   }
   
   /**
@@ -599,7 +602,7 @@ class LLMExtension extends DefaultClassManager {
 
         // Send chat request with user message included, but don't mutate history yet
         val responseFuture = provider.chatWithFullResponse(snapshotHistory(agent) :+ userMessage)
-        val response = Await.result(responseFuture, getAwaitTimeout)
+        val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
         val responseMessage = replyMessage(response)
 
@@ -640,7 +643,7 @@ class LLMExtension extends DefaultClassManager {
         }
 
         // Return AnonymousReporter that wraps the Future
-        createAwaitableReporter(responseFuture)
+        createAwaitableReporter(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
 
       } catch {
         case e: Exception =>
@@ -692,7 +695,7 @@ class LLMExtension extends DefaultClassManager {
 
         // Send chat request
         val responseFuture = provider.chatWithFullResponse(tempHistory.toSeq)
-        val response = Await.result(responseFuture, getAwaitTimeout)
+        val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
         val responseMessage = replyMessage(response)
 
@@ -754,7 +757,7 @@ class LLMExtension extends DefaultClassManager {
         // The prompt still spells out the options, so a provider that ignores
         // the constraint behaves exactly as it did before.
         val responseFuture = provider.chatWithFormat(tempHistory.toSeq, EnumFormat(choices))
-        val response = Await.result(responseFuture, getAwaitTimeout)
+        val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
 
         // Extract text: prefer content, fall back to thinking field
@@ -854,7 +857,7 @@ class LLMExtension extends DefaultClassManager {
         val userMessage = ChatMessage.user(inputText)
 
         val responseFuture = provider.chatWithFormat(snapshotHistory(agent) :+ userMessage, format)
-        val response = Await.result(responseFuture, getAwaitTimeout)
+        val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
 
         val content = response.firstContent.getOrElse("")
@@ -915,7 +918,7 @@ class LLMExtension extends DefaultClassManager {
         tempHistory += userMessage
 
         val responseFuture = provider.chatWithFormat(tempHistory.toSeq, JsonObjectFormat)
-        val response = Await.result(responseFuture, getAwaitTimeout)
+        val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
 
         val content = response.firstContent.getOrElse("")
@@ -998,7 +1001,7 @@ class LLMExtension extends DefaultClassManager {
 
         // Send with user message included, but don't mutate history yet
         val responseFuture = provider.chatWithFullResponse(snapshotHistory(agent) :+ userMessage)
-        val response = Await.result(responseFuture, getAwaitTimeout)
+        val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
 
         val answerText = response.firstContent.getOrElse("")
@@ -1335,11 +1338,14 @@ class LLMExtension extends DefaultClassManager {
         )
       }
 
-      val candidate = ConfigStore.withDefaults()
-      candidate.updateFromMap(config)
+      // Mirror llm:load-config: the file is the whole configuration, with no
+      // OpenAI-flavoured defaults layered underneath. A profile that names no
+      // model gets its own provider's default, not gpt-4o-mini.
+      val candidate = new ConfigStore()
+      candidate.loadFromMap(config)
       checkReadiness(desc, providerName, candidate)
 
-      try profiles.load(name, candidate.toMap)
+      try profiles.load(name, config)
       catch {
         case e: IllegalArgumentException =>
           throw new ExtensionException(s"llm:load-profile: ${e.getMessage}")

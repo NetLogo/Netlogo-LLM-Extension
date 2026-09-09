@@ -1,0 +1,6 @@
+# Test fixture: profile with a one-second wait budget and no retry allowance
+provider=openai
+openai_api_key=test-key
+model=model-slow
+timeout_seconds=1
+retry_max_elapsed_seconds=0

@@ -67,16 +67,53 @@ object SystemThrottleClock extends ThrottleClock {
  * @param clock          time source and delay scheduler
  */
 class RequestThrottle(
-  val maxConcurrent: Int,
-  val minIntervalMs: Long,
+  initialMaxConcurrent: Int,
+  initialMinIntervalMs: Long,
   clock: ThrottleClock = SystemThrottleClock
 ) {
-  require(maxConcurrent > 0, "maxConcurrent must be positive")
+  require(initialMaxConcurrent > 0, "maxConcurrent must be positive")
 
-  // Guards `available`, `waiters` and `lastStartMs` together. Held only for
-  // queue arithmetic — never across a user callback or an HTTP send.
+  // Guards `available`, `waiters`, `lastStartMs` and the limits together. Held
+  // only for queue arithmetic — never across a user callback or an HTTP send.
   private val lock = new Object
-  private var available: Int = maxConcurrent
+  @volatile private var currentMax: Int = initialMaxConcurrent
+  @volatile private var currentInterval: Long = initialMinIntervalMs
+  private var available: Int = initialMaxConcurrent
+
+  def maxConcurrent: Int = currentMax
+  def minIntervalMs: Long = currentInterval
+
+  /** Requests holding a permit right now. Can exceed the cap briefly after it shrinks. */
+  def inFlight: Int = lock.synchronized { currentMax - available }
+
+  /** Requests queued for a permit. */
+  def waiting: Int = lock.synchronized { waiters.size }
+
+  /**
+   * Change the limits without replacing the gate.
+   *
+   * Two profiles on one endpoint can carry different settings, and calls
+   * alternate between them every tick. Swapping in a fresh gate per change
+   * would hand every call a full set of permits and the cap would mean
+   * nothing. Adjusting in place keeps the in-flight count and the queue: a
+   * smaller cap admits nothing until requests drain below it, a larger one
+   * hands the new permits to the oldest waiters at once.
+   */
+  def reconfigure(newMaxConcurrent: Int, newMinIntervalMs: Long): Unit = {
+    require(newMaxConcurrent > 0, "maxConcurrent must be positive")
+    val admitted = lock.synchronized {
+      available += newMaxConcurrent - currentMax
+      currentMax = newMaxConcurrent
+      currentInterval = newMinIntervalMs
+      val handoffs = mutable.ListBuffer.empty[Promise[Unit]]
+      while (available > 0 && waiters.nonEmpty) {
+        available -= 1
+        handoffs += waiters.dequeue()
+      }
+      handoffs.toList
+    }
+    admitted.foreach(_.success(()))
+  }
 
   // FIFO, so a waiter cannot be overtaken indefinitely — with agents calling
   // every tick, barging would pass one over for the whole run. Only ever
@@ -155,7 +192,7 @@ class RequestThrottle(
    * exceed an RPM limit.
    */
   private def paceThenProceed()(implicit ec: ExecutionContext): Future[Unit] = {
-    if (minIntervalMs <= 0L) return Future.unit
+    if (currentInterval <= 0L) return Future.unit
 
     val waitMs = lock.synchronized {
       val now = clock.nowMs
@@ -164,7 +201,7 @@ class RequestThrottle(
       // timestamp and starting together.
       val earliest =
         if (lastStartMs == Long.MinValue) now
-        else math.max(now, lastStartMs + minIntervalMs)
+        else math.max(now, lastStartMs + currentInterval)
       lastStartMs = earliest
       earliest - now
     }
@@ -193,7 +230,11 @@ class RequestThrottle(
    */
   private def release(): Unit = {
     val handoff = lock.synchronized {
-      if (waiters.nonEmpty) Some(waiters.dequeue())
+      // A negative `available` means the cap shrank while more than the new
+      // limit were in flight. Those releases repay the deficit; nobody is
+      // admitted until the count is back under the cap.
+      if (available < 0) { available += 1; None }
+      else if (waiters.nonEmpty) Some(waiters.dequeue())
       else { available += 1; None }
     }
     handoff.foreach(_.success(()))
@@ -304,23 +345,27 @@ object RequestThrottle {
       // or race two replacements past each other. The remapping function does
       // no I/O — it runs while the map holds a bin lock, so the notice below is
       // emitted afterwards rather than inside it.
+      // One gate per endpoint for the life of the process. A changed setting
+      // reconfigures it in place rather than replacing it, so requests already
+      // in flight stay counted — two profiles with different caps alternating
+      // on one endpoint would otherwise each get a fresh, empty gate.
       val throttle = throttles.compute(key, (_, existing) => {
-        if (existing != null && existing.maxConcurrent == limit && existing.minIntervalMs == interval) {
-          existing
-        } else {
-          if (existing != null) replaced.set(true)
+        if (existing == null) {
           new RequestThrottle(limit, interval)
+        } else {
+          if (existing.maxConcurrent != limit || existing.minIntervalMs != interval) {
+            existing.reconfigure(limit, interval)
+            replaced.set(true)
+          }
+          existing
         }
       })
 
       if (replaced.get()) {
-        // Requests already running under the previous gate keep its permits, so
-        // in-flight work can briefly exceed the new cap. Reporting beats a stall
-        // or a silently changed limit.
         warnOnce(
           s"NOTE: request throttle for $providerName updated to " +
           s"$MAX_CONCURRENT_REQUESTS=$limit, $MIN_REQUEST_INTERVAL_MS=$interval. " +
-          "Requests already in flight finish under the previous limit."
+          "Requests already in flight count against the new limit."
         )
       }
       throttle

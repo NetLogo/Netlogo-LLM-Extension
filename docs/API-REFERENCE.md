@@ -920,6 +920,12 @@ exists replaces it. A rejected reload leaves the existing profile untouched.
   setters act on the default configuration only. A profile is what its file
   says. To change a profile, edit the file and load it again.
 - Two profiles on the same provider and endpoint share one request throttle.
+  If their `max_concurrent_requests` or `min_request_interval_ms` differ, the
+  shared throttle takes whichever setting the most recent call carried, without
+  losing count of requests already in flight. Give profiles on one endpoint the
+  same throttling settings.
+- A profile's `timeout_seconds` and retry settings govern calls made through
+  it. An async call keeps the budget in force when it was launched.
 
 ### llm:use-profile
 

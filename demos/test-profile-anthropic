@@ -1,0 +1,3 @@
+# Test fixture: Anthropic profile with no model, so the provider default must apply
+provider=anthropic
+anthropic_api_key=test-key

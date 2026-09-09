@@ -1005,3 +1005,44 @@ LLMProfileHistoryAndUsageStayPerAgent
   [llm:get llm:usage "input-tokens"] of turtle 1 => 5
   llm:get llm:usage-total "calls" => 2
   O> clear-all
+
+LLMProfileWithoutModelUsesProviderDefault
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> llm:load-profile "claude" "demos/test-profile-anthropic"
+  O> crt 1
+  O> ask turtle 0 [ llm:use-profile "claude" ]
+  [llm:active] of turtle 0 => ["anthropic" "claude-haiku-4-5-20251001"]
+  O> clear-all
+
+LLMProfileUsesItsOwnWaitBudget
+  extensions [llm]
+  globals [err r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> llm:load-profile "slow" "demos/test-profile-slow"
+  O> crt 1
+  O> ask turtle 0 [ llm:use-profile "slow" ]
+  O> ask turtle 0 [ carefully [ set r llm:chat "__TEST_DELAY:1500:hi" ] [ set err error-message ] ]
+  member? "timed out" err => true
+  O> set r llm:chat "__TEST_DELAY:1500:hi"
+  r => "stub:hi"
+  O> clear-all
+
+LLMAsyncKeepsTheBudgetItStartedWith
+  extensions [llm]
+  globals [p r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> llm:load-profile "a" "demos/test-profile-a"
+  O> crt 1
+  O> ask turtle 0 [ llm:use-profile "a" ]
+  O> ask turtle 0 [ set p llm:chat-async "__TEST_DELAY:1500:hi" ]
+  O> llm:load-config "demos/test-config-fast-timeout"
+  O> set r (runresult p)
+  r => "stub:hi"
+  O> clear-all
