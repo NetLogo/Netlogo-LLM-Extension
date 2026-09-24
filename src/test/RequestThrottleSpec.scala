@@ -91,8 +91,10 @@ class RequestThrottleSpec extends AnyFunSuite {
       }
     }
 
-    eventually("the cap to be filled")(running.get() == 2)
-    assert(peak.get() == 2, s"only 2 may run at once, saw ${peak.get()}")
+    // Wait on peak, not running: a request raises running before it records
+    // peak, so seeing running == 2 does not mean peak has caught up yet.
+    eventually("the cap to be filled")(peak.get() == 2)
+    assert(running.get() == 2, s"only 2 may run at once, saw ${running.get()}")
 
     gates.foreach(_.trySuccess(()))
     Await.result(Future.sequence(calls), 10.seconds)
