@@ -1046,3 +1046,191 @@ LLMAsyncKeepsTheBudgetItStartedWith
   O> set r (runresult p)
   r => "stub:hi"
   O> clear-all
+
+LLMChatAllReturnsTriples
+  extensions [llm]
+  globals [r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> crt 3
+  O> set r llm:chat-all turtles [ -> "hi" ]
+  length r => 3
+  map [ x -> length x ] r => [3 3 3]
+  sort map [ x -> [who] of item 0 x ] r => [0 1 2]
+  map [ x -> item 1 x ] r => ["stub:hi" "stub:hi" "stub:hi"]
+  map [ x -> item 2 x ] r => [true true true]
+  O> clear-all
+
+LLMChatAllPromptRunsAsEachAgent
+  extensions [llm]
+  globals [r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> crt 3
+  O> set r llm:chat-all turtles [ -> (word "id " who) ]
+  reduce and map [ x -> item 1 x = (word "stub:id " [who] of item 0 x) ] r => true
+  O> clear-all
+
+LLMChatAllCommitsHistoryPerAgent
+  extensions [llm]
+  globals [r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> crt 2
+  O> set r llm:chat-all turtles [ -> (word "id " who) ]
+  [length llm:history] of turtle 0 => 2
+  [item 1 (item 0 llm:history)] of turtle 0 => "id 0"
+  [item 1 (item 1 llm:history)] of turtle 1 => "stub:id 1"
+  llm:history => []
+  O> clear-all
+
+LLMChatAllFailureIsolated
+  extensions [llm]
+  globals [r bad good]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> crt 3
+  O> set r llm:chat-all turtles [ -> ifelse-value who = 1 [ "__TEST_FAIL" ] [ "ok" ] ]
+  O> set bad first filter [ x -> [who] of item 0 x = 1 ] r
+  O> set good filter [ x -> [who] of item 0 x != 1 ] r
+  item 2 bad => false
+  is-string? item 1 bad => true
+  member? "simulated provider failure" item 1 bad => true
+  map [ x -> item 2 x ] good => [true true]
+  [llm:history] of turtle 1 => []
+  [length llm:history] of turtle 0 => 2
+  O> clear-all
+
+LLMChatAllRecordsUsage
+  extensions [llm]
+  globals [r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> crt 2
+  O> set r llm:chat-all turtles [ -> "__TEST_USAGE:4,3 hi" ]
+  [llm:get llm:usage "total-tokens"] of turtle 0 => 7
+  [llm:get llm:usage "calls"] of turtle 1 => 1
+  llm:get llm:usage-total "calls" => 2
+  llm:get llm:usage-total "total-tokens" => 14
+  O> clear-all
+
+LLMChatAllUsesAgentProfile
+  extensions [llm]
+  globals [r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> llm:set-model "model-default"
+  O> clear-all
+  O> llm:load-profile "a" "demos/test-profile-a"
+  O> crt 2
+  O> ask turtle 0 [ llm:use-profile "a" ]
+  O> set r llm:chat-all turtles [ -> "__TEST_ECHO_MODEL" ]
+  item 1 first filter [ x -> [who] of item 0 x = 0 ] r => "model-a"
+  item 1 first filter [ x -> [who] of item 0 x = 1 ] r => "model-default"
+  O> clear-all
+
+LLMChatAllWithSchema
+  extensions [llm]
+  globals [r schema]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> set schema "{\"type\":\"object\",\"properties\":{\"n\":{\"type\":\"number\"}}}"
+  O> crt 2
+  O> set r (llm:chat-all turtles [ -> ifelse-value who = 0 [ "__TEST_RESPOND:{\"n\": 5}" ] [ "__TEST_RESPOND:not json" ] ] schema)
+  llm:get item 1 first filter [ x -> [who] of item 0 x = 0 ] r "n" => 5
+  item 2 first filter [ x -> [who] of item 0 x = 0 ] r => true
+  item 2 first filter [ x -> [who] of item 0 x = 1 ] r => false
+  [llm:history] of turtle 1 => []
+  O> clear-all
+
+LLMChatAllBadSchemaFailsFast
+  extensions [llm]
+  globals [r err]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> crt 2
+  O> carefully [ set r (llm:chat-all turtles [ -> "hi" ] "{\"type\":\"string\"}") ] [ set err error-message ]
+  member? "type 'object'" err => true
+  llm:get llm:usage-total "calls" => 0
+  O> clear-all
+
+LLMChatAllNonStringPromptErrors
+  extensions [llm]
+  globals [r err]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> crt 2
+  O> carefully [ set r llm:chat-all turtles [ -> who ] ] [ set err error-message ]
+  member? "must report a string" err => true
+  llm:get llm:usage-total "calls" => 0
+  O> clear-all
+
+LLMChatAllEmptyAgentset
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  llm:chat-all turtles [ -> "hi" ] => []
+
+LLMChatAllRunsConcurrently
+  extensions [llm]
+  globals [r elapsed]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> crt 10
+  O> reset-timer
+  O> set r llm:chat-all turtles [ -> "__TEST_DELAY:400:hi" ]
+  O> set elapsed timer
+  map [ x -> item 2 x ] r => [true true true true true true true true true true]
+  elapsed < 2 => true
+  O> clear-all
+
+LLMChatAllHungBatchWaitsOneBudget
+  extensions [llm]
+  globals [r elapsed]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> llm:load-config "demos/test-config-fast-timeout"
+  O> crt 3
+  O> reset-timer
+  O> set r llm:chat-all turtles [ -> "__TEST_DELAY:3000:hi" ]
+  O> set elapsed timer
+  map [ x -> item 2 x ] r => [false false false]
+  elapsed < 1.8 => true
+  O> wait 2.5
+  [llm:history] of turtle 0 => []
+  [llm:history] of turtle 2 => []
+  O> clear-all
+
+LLMChatAllProgressExtendsTheWait
+  extensions [llm]
+  globals [r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> llm:load-config "demos/test-config-fast-timeout"
+  O> crt 2
+  O> set r llm:chat-all turtles [ -> ifelse-value who = 0 [ "__TEST_DELAY:600:a" ] [ "__TEST_DELAY:1400:b" ] ]
+  map [ x -> item 2 x ] r => [true true]
+  O> clear-all
+
+LLMChatAllRejectsExtraSchemas
+  extensions [llm]
+  globals [r err]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> crt 1
+  O> carefully [ set r (llm:chat-all turtles [ -> "hi" ] "{\"type\":\"object\"}" "{\"type\":\"object\"}") ] [ set err error-message ]
+  member? "at most one schema" err => true
+  O> clear-all

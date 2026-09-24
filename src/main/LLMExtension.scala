@@ -4,7 +4,7 @@ import org.nlogo.api._
 import org.nlogo.core.{LogoList, Syntax}
 import org.nlogo.extensions.llm.config.{ConfigLoader, ConfigStore, ProfileStore}
 import org.nlogo.extensions.llm.providers.{LLMProvider, ProviderDescriptor, ProviderFactory, ProviderRegistry, ProviderRegistrations, ModelRegistry, OllamaProvider, ReadinessCheck, RetryPolicy}
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatResponse, EnumFormat, JsonObjectFormat, ResponseFormat, Usage}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatResponse, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat, Usage}
 import org.nlogo.extensions.llm.utils.JsonToNetLogo
 import scala.collection.mutable.{ArrayBuffer, WeakHashMap}
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -116,6 +116,7 @@ class LLMExtension extends DefaultClassManager {
     // Core chat primitives
     manager.addPrimitive("chat", ChatReporter)
     manager.addPrimitive("chat-async", ChatAsyncReporter)
+    manager.addPrimitive("chat-all", ChatAllReporter)
     manager.addPrimitive("chat-with-template", ChatWithTemplateReporter)
     manager.addPrimitive("chat-with-thinking", ChatWithThinkingReporter)
     manager.addPrimitive("choose", ChooseReporter)
@@ -652,6 +653,155 @@ class LLMExtension extends DefaultClassManager {
     }
   }
   
+  /**
+   * Batched chat: one request per agent, sent together, one wait.
+   *
+   *   llm:chat-all agentset [ -> prompt ]
+   *   (llm:chat-all agentset [ -> prompt ] schema)
+   *
+   * Reports a list of [agent reply ok?] triples. The prompt reporter runs as
+   * each agent, like `ask`, so it can read that agent's variables. Requests go
+   * through the same provider path as llm:chat, so throttling, retry, profiles,
+   * history and usage all apply per agent. One agent's failure is reported in
+   * its own triple and never aborts the rest of the batch.
+   */
+  object ChatAllReporter extends Reporter {
+    override def getSyntax: Syntax = Syntax.reporterSyntax(
+      right = List(Syntax.AgentsetType, Syntax.ReporterType, Syntax.StringType | Syntax.RepeatableType),
+      ret = Syntax.ListType,
+      defaultOption = Some(2)
+    )
+
+    /** One agent's request; `result` and `abandoned` are only touched under historyLock. */
+    private final class Slot(val agent: org.nlogo.agent.Agent, val prompt: String) {
+      var future: Future[AnyRef] = Future.failed(new IllegalStateException("request not sent"))
+      var result: Option[AnyRef] = None
+      var abandoned = false
+    }
+
+    override def report(args: Array[Argument], context: Context): AnyRef = {
+      val agents = args(0).getAgentSet
+      val promptReporter = args(1).getReporter
+      if (args.length > 3) {
+        throw new ExtensionException("llm:chat-all takes at most one schema")
+      }
+      // Validate before building any prompt so a bad schema costs nothing.
+      val format = if (args.length > 2) Some(parseObjectSchema(args(2).getString, "llm:chat-all")) else None
+
+      val ext = context match {
+        case ec: org.nlogo.nvm.ExtensionContext => ec
+        case _ =>
+          throw new ExtensionException("llm:chat-all requires a NetLogo workspace and is unavailable in this context")
+      }
+      val caller = ext.nvmContext
+
+      // Build every prompt before sending anything: an error in the prompt
+      // reporter is a bug in the model code, and should cost no requests.
+      // The agentset is copied first, as `ask` does, so a prompt reporter that
+      // kills agents cannot change the set while it is being walked.
+      val slots = agents.agents.asScala.toList.collect {
+        case a: org.nlogo.agent.Agent if a.id != -1 =>
+          val agentContext = new org.nlogo.nvm.Context(
+            caller.job, a, caller.agent, caller.ip, caller.activation, ext.workspace)
+          promptReporter.report(agentContext, Array.empty[AnyRef]) match {
+            case prompt: String => new Slot(a, prompt)
+            case other =>
+              throw new ExtensionException(
+                s"llm:chat-all: the prompt reporter must report a string, but for " +
+                  s"${Dump.logoObject(a)} it reported ${Dump.logoObject(other, true, false)}")
+          }
+      }
+
+      // Time of the most recent reply from any provider in this batch.
+      val lastReply = new java.util.concurrent.atomic.AtomicLong(System.nanoTime)
+
+      // Send every request without waiting. The provider's throttle turns
+      // "send all" into "queue all, at most N in flight". Agents killed by a
+      // later agent's prompt reporter are dropped here rather than sent.
+      val live = slots.filter(_.agent.id != -1)
+      live.foreach { slot =>
+        val userMessage = ChatMessage.user(slot.prompt)
+        slot.future =
+          try {
+            val provider = ensureProvider(slot.agent)
+            val messages = snapshotHistory(slot.agent) :+ userMessage
+            val sent = format match {
+              case Some(f) => provider.chatWithFormat(messages, f)
+              case None    => provider.chatWithFullResponse(messages)
+            }
+            sent.onComplete(_ => lastReply.set(System.nanoTime))
+            sent.map { response =>
+              recordUsage(slot.agent, response)
+              val (value, assistant): (AnyRef, ChatMessage) = format match {
+                case Some(_) =>
+                  // Parse before committing, as llm:chat-with-schema does.
+                  val content = response.firstContent.getOrElse("")
+                  (JsonToNetLogo.parseObject(content), ChatMessage.assistant(content))
+                case None =>
+                  val m = replyMessage(response)
+                  (m.content, m)
+              }
+              // A reply that lands after the wait gave up must not write
+              // history for an agent the batch already reported as failed.
+              historyLock.synchronized {
+                if (slot.abandoned) {
+                  throw new java.util.concurrent.TimeoutException("reply arrived after the wait gave up")
+                }
+                commitExchange(slot.agent, userMessage, assistant)
+                slot.result = Some(value)
+              }
+              value
+            }
+          } catch {
+            case e: Exception => Future.failed(e)
+          }
+      }
+
+      // Wait until no provider has replied for an agent's whole budget. A
+      // batch that keeps making progress — the normal case behind a throttle,
+      // where later agents queue for waves — keeps waiting, while a hung
+      // provider costs one budget in total rather than one per agent.
+      def settle(slot: Slot, budget: FiniteDuration): Try[AnyRef] = {
+        while (!slot.future.isCompleted) {
+          val remaining = lastReply.get + budget.toNanos - System.nanoTime
+          if (remaining <= 0) {
+            return historyLock.synchronized {
+              slot.result match {
+                case Some(v) => Success(v)
+                case None =>
+                  slot.abandoned = true
+                  Failure(new java.util.concurrent.TimeoutException(
+                    s"no reply within ${budget.toSeconds}s"))
+              }
+            }
+          }
+          try Await.ready(slot.future, remaining.nanos)
+          catch { case _: java.util.concurrent.TimeoutException => () }
+        }
+        slot.future.value.get
+      }
+
+      val entries =
+        try {
+          live.map { slot =>
+            settle(slot, awaitTimeoutFor(effectiveConfig(slot.agent))) match {
+              case Success(v) => LogoList(slot.agent, v, java.lang.Boolean.TRUE)
+              case Failure(e) => LogoList(slot.agent, s"LLM chat failed: ${e.getMessage}", java.lang.Boolean.FALSE)
+            }
+          }
+        } finally {
+          // If the wait is cut short (halt interrupts the job thread), replies
+          // still in flight must not write history for calls that never
+          // returned to the model.
+          historyLock.synchronized {
+            live.foreach(slot => if (slot.result.isEmpty) slot.abandoned = true)
+          }
+        }
+
+      LogoList.fromVector(entries.toVector)
+    }
+  }
+
   object ChatWithTemplateReporter extends Reporter {
     override def getSyntax: Syntax = Syntax.reporterSyntax(
       right = List(Syntax.StringType, Syntax.ListType),
@@ -804,6 +954,34 @@ class LLMExtension extends DefaultClassManager {
       ujson.read(text)(EnumFormat.ChoiceKey).str
     }.toOption
 
+  /**
+   * Parse and check a schema whose replies must convert to [key value] pairs.
+   *
+   * The reporters using it promise a list, and only a JSON object converts to
+   * the [key value] pairs llm:get reads. A top-level scalar or array schema
+   * would report a bare string or a flat list instead, breaking that promise,
+   * so it is rejected here rather than at the provider.
+   */
+  private def parseObjectSchema(schemaText: String, primName: String): JsonSchemaFormat = {
+    val format =
+      try ResponseFormat.parseSchema(schemaText)
+      catch {
+        case e: IllegalArgumentException =>
+          throw new ExtensionException(s"$primName: ${e.getMessage}")
+      }
+
+    val topLevelType = format.schema.value.get("type").collect { case ujson.Str(s) => s }
+    if (!topLevelType.contains("object")) {
+      throw new ExtensionException(
+        s"$primName: schema must have type 'object' at the top level, but got " +
+          s"'${topLevelType.getOrElse("none")}'. $primName reports a list of " +
+          "[key value] pairs, so the reply has to be a JSON object. Wrap it, e.g. " +
+          """{"type":"object","properties":{"value":{"type":"string"}}}"""
+      )
+    }
+    format
+  }
+
   // Structured Output Primitives
 
   /**
@@ -830,26 +1008,7 @@ class LLMExtension extends DefaultClassManager {
       val agent = context.getAgent
 
       // Validate before touching the provider so a bad schema costs nothing.
-      val format =
-        try ResponseFormat.parseSchema(schemaText)
-        catch {
-          case e: IllegalArgumentException =>
-            throw new ExtensionException(s"llm:chat-with-schema: ${e.getMessage}")
-        }
-
-      // This reporter's syntax promises a list, and only a JSON object converts
-      // to the [key value] pairs llm:get reads. A top-level scalar or array
-      // schema would report a bare string or a flat list instead, breaking that
-      // promise, so it is rejected here rather than at the provider.
-      val topLevelType = format.schema.value.get("type").collect { case ujson.Str(s) => s }
-      if (!topLevelType.contains("object")) {
-        throw new ExtensionException(
-          s"llm:chat-with-schema: schema must have type 'object' at the top level, but got " +
-            s"'${topLevelType.getOrElse("none")}'. llm:chat-with-schema reports a list of " +
-            "[key value] pairs, so the reply has to be a JSON object. Wrap it, e.g. " +
-            """{"type":"object","properties":{"value":{"type":"string"}}}"""
-        )
-      }
+      val format = parseObjectSchema(schemaText, "llm:chat-with-schema")
 
       try {
         val provider = ensureProvider(agent)
