@@ -10,6 +10,7 @@ The NetLogo Multi-LLM Extension provides a unified interface for multiple Large 
 | ------------------------------------ | ------------- | ---------------------------------------------------------- |
 | `llm:chat text`                    | Chat          | Send synchronous chat message, returns response            |
 | `llm:chat-async text`              | Chat          | Send asynchronous chat message, returns awaitable reporter |
+| `llm:chat-all agents [ -> prompt ]` | Chat         | One request per agent, sent together; returns `[agent reply ok?]` triples |
 | `llm:chat-with-template file vars` | Chat          | Send templated prompt with variable substitution           |
 | `llm:chat-with-thinking text`      | Chat          | Returns `[answer thinking]` for reasoning-capable models   |
 | `llm:choose prompt choices`        | Chat          | Force selection from provided options                      |
@@ -214,6 +215,73 @@ print response
 - Non-blocking - allows other code to run while waiting
 - Use `runresult` to retrieve the actual response
 - Still maintains conversation history per agent
+
+### llm:chat-all
+
+**Syntax**: `llm:chat-all agentset prompt-reporter` or `(llm:chat-all agentset prompt-reporter schema)`
+
+**Description**: Sends one chat request per agent, all at once, and waits once for every
+reply. A model that does `ask turtles [ llm:chat ... ]` waits for each call in turn — 100
+turtles at 2 seconds each is over 3 minutes per tick. `llm:chat-all` takes about as long as
+the slowest single call.
+
+**Parameters**:
+
+- `agentset` (agentset): The agents that each send one request
+- `prompt-reporter` (anonymous reporter): Run as each agent, like `ask`, to build that
+  agent's prompt. It can read the agent's own variables, and `myself` is the caller.
+- `schema` (string, optional): A JSON Schema, as in `llm:chat-with-schema`. Each reply is then
+  a parsed `[key value]` list instead of a string.
+
+**Returns**: A list of `[agent reply ok?]` triples, one per agent.
+
+- `ok?` is `true` when the call succeeded; `reply` is the response (or the parsed list).
+- `ok?` is `false` when that agent's call failed; `reply` is the error message. The other
+  agents are unaffected — one failure never aborts the batch.
+
+**Example**:
+
+```netlogo
+turtles-own [ energy decision ]
+
+to go
+  let results llm:chat-all turtles [ -> (word "You have " energy " energy. Move or rest?") ]
+  foreach results [ r ->
+    let who-asked item 0 r
+    ifelse item 2 r
+      [ ask who-asked [ set decision item 1 r ] ]
+      [ ask who-asked [ set decision "rest" ] ]   ; fallback when the call failed
+  ]
+  tick
+end
+```
+
+With a schema, each reply arrives as NetLogo values:
+
+```netlogo
+let schema "{\"type\":\"object\",\"properties\":{\"action\":{\"type\":\"string\",\"enum\":[\"move\",\"rest\"]}},\"required\":[\"action\"]}"
+let results (llm:chat-all turtles [ -> (word "Energy: " energy) ] schema)
+foreach results [ r ->
+  if item 2 r [ ask item 0 r [ set decision llm:get item 1 r "action" ] ]
+]
+```
+
+**Notes**:
+
+- Every prompt is built before any request is sent. A prompt reporter that errors or does not
+  report a string stops the primitive with an error and costs no requests.
+- Requests go through each agent's own provider, so everything that applies to `llm:chat`
+  applies per agent: its profile (`llm:use-profile`), the provider's throttle
+  (`max_concurrent_requests`, `min_request_interval_ms`), 429 retry, history and usage.
+- With throttling on, "send all at once" means "queue all, at most N in flight". Set
+  `max_concurrent_requests` when running large agentsets on a rate-limited plan.
+- Each agent's history gets its own exchange only when its call succeeds.
+- The batch keeps waiting as long as replies keep arriving, so a throttled batch whose later
+  agents queue behind the cap still completes. An agent is reported as failed only when no reply
+  from any agent has arrived for its whole timeout budget (see Timeout Tuning), so a hung provider
+  costs one budget, not one per agent. A reply that arrives after that is not added to history.
+- The order of the list follows the agentset; read the agent from `item 0` rather than relying
+  on position.
 
 ### llm:choose
 
@@ -1193,6 +1261,19 @@ to check-responses
   set pending-requests still-pending
   print (word "Completed: " length completed " Still pending: " length still-pending)
 end
+```
+
+### Batched Calls
+
+For one call per agent per tick, prefer `llm:chat-all` over `llm:chat-async` + `runresult`: it
+sends every request at once, waits once, and hands back each agent's reply with a success flag.
+Use `llm:chat-async` when the model should keep ticking while a reply is pending.
+
+```netlogo
+let results llm:chat-all turtles [ -> (word "Neighbors: " count turtles-on neighbors) ]
+foreach filter [ r -> item 2 r ] results [ r ->
+  ask item 0 r [ set label item 1 r ]
+]
 ```
 
 ### Decision Making

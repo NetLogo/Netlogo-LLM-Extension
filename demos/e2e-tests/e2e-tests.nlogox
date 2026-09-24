@@ -345,6 +345,73 @@ to test-profiles
   report-totals
 end
 
+;; ---------------------------------------------------------------------------
+;; T11 — batched calls (#53)
+;;
+;; llm:chat-all sends one request per turtle at once and waits once. Run
+;; through a throttled copy of the config (cap 3) so the batch also proves it
+;; composes with the throttle. Every turtle must get its own reply, its own
+;; history and its own usage; a schema batch must come back as parsed lists.
+;; ---------------------------------------------------------------------------
+
+to test-chat-all
+  log-line "T11 batched calls"
+  let throttled (word "config-" provider-under-test "-batch.txt")
+  write-throttled-config active-config throttled 3 0
+  llm:load-config throttled
+
+  crt 6 [ set label "batch-turtle" ]
+  let batch turtles with [label = "batch-turtle"]
+  let results []
+  reset-timer
+  carefully
+    [ set results llm:chat-all batch [ ->
+        (word "Reply with exactly the number " who) ] ]
+    [ log-line (word "  chat-all failed: " error-message) ]
+  let elapsed timer
+  log-triples results
+  log-line (word "  6 calls, cap 3 -> " precision elapsed 2 "s")
+
+  assert "one triple per turtle" (length results = 6)
+  assert "every call succeeded" (all-ok? results)
+  assert "each reply names its own turtle"
+         (all-ok? results and reduce and map [ r ->
+           member? (word [who] of item 0 r) item 1 r ] results)
+  assert "each turtle has its own history" (all? batch [ length llm:history = 2 ])
+  assert "each turtle was credited one call"
+         (all? batch [ llm:get llm:usage "calls" = 1 ])
+
+  let schema (word "{\"type\":\"object\",\"properties\":"
+                   "{\"n\":{\"type\":\"integer\"}},"
+                   "\"required\":[\"n\"],\"additionalProperties\":false}")
+  let pair (turtle-set min-one-of batch [who] max-one-of batch [who])
+  let parsed []
+  carefully
+    [ set parsed (llm:chat-all pair [ -> (word "Return n = " who) ] schema) ]
+    [ log-line (word "  schema chat-all failed: " error-message) ]
+  log-triples parsed
+  assert "schema batch succeeded" (length parsed = 2 and all-ok? parsed)
+  assert "schema replies are parsed per turtle"
+         (all-ok? parsed and reduce and map [ r ->
+           llm:get item 1 r "n" = [who] of item 0 r ] parsed)
+
+  ask batch [ die ]
+  llm:load-config active-config
+  carefully [ file-delete throttled ] [ ]
+  report-totals
+end
+
+;; True when a llm:chat-all result is non-empty and every call succeeded.
+to-report all-ok? [results]
+  report not empty? results and reduce and map [ r -> item 2 r ] results
+end
+
+;; Log each [agent reply ok?] triple on its own line.
+to log-triples [results]
+  foreach results [ r ->
+    log-line (word "  " item 0 r " ok? " item 2 r " -> " item 1 r) ]
+end
+
 ;; A second model on the provider under test, so a profile can be told apart
 ;; from the default. Ollama has no guaranteed second model pulled, so it
 ;; reuses the active one and the test still proves routing and bookkeeping.
@@ -391,6 +458,7 @@ to test-all
   test-throttling
   test-usage
   test-profiles
+  test-chat-all
   output-print ""
   log-line (word "TOTAL  passed " pass-count "   failed " fail-count)
 end
