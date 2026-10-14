@@ -1,0 +1,34 @@
+# Crisis Triage Demo LLM configuration
+# Path is loaded by crisis-triage.nlogox via llm:load-config
+
+# Recommended local/default option (no cloud key required)
+provider=ollama
+model=qwen2.5:7b
+base_url=http://localhost:11434
+
+# Runtime behavior
+temperature=0.2
+max_tokens=200
+timeout_seconds=45
+
+# Optional cloud fallback examples (commented)
+# provider=openai
+# api_key=YOUR_OPENAI_API_KEY_HERE
+# model=gpt-4o-mini
+# temperature=0.2
+# max_tokens=200
+# timeout_seconds=45
+
+# provider=claude
+# api_key=YOUR_ANTHROPIC_API_KEY_HERE
+# model=claude-3-5-haiku-latest
+# temperature=0.2
+# max_tokens=200
+# timeout_seconds=45
+
+# provider=gemini
+# api_key=YOUR_GEMINI_API_KEY_HERE
+# model=gemini-2.0-flash
+# temperature=0.2
+# max_tokens=200
+# timeout_seconds=45

@@ -1,0 +1,1117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<model version="NetLogo 7.0.3" snapToGrid="true">
+  <code><![CDATA[;; ABOUTME: Crisis triage simulation where LLM dispatchers assess ambiguous incidents,
+;; ABOUTME: demonstrating personas, memory, bounded choice, and reflection vs naive heuristics.
+
+extensions [ llm ]
+
+;; ---------------------------------------------------------------------------
+;; Globals
+;; ---------------------------------------------------------------------------
+
+globals [
+  llm-ready?
+  config-path
+  triage-template-path
+
+  ;; Incident bank: list of [summary impact ground-truth-severity ground-truth-tier category]
+  incident-bank
+
+  ;; Metrics
+  total-triaged
+  correct-triage
+  total-routed
+  correct-route
+  total-late
+  total-escalated
+  total-resolved
+  total-response-ticks
+  misleading-triaged
+  misleading-correct
+
+  ;; Episode tracking
+  current-episode
+  episode-tick-counter
+]
+
+;; Interface globals (from widgets):
+;;   use-llm?          — switch: A/B toggle between LLM and heuristic
+;;   memory-mode       — chooser: "persistent" / "per-episode" / "none"
+;;   reflection-interval — slider: ticks between reflection calls
+;;   incident-rate     — slider: probability of new incident per tick (0-100)
+;;   episode-length    — slider: ticks per episode (0 = no episodes)
+
+;; ---------------------------------------------------------------------------
+;; Breeds
+;; ---------------------------------------------------------------------------
+
+breed [ dispatchers dispatcher ]
+breed [ incidents incident ]
+breed [ responders responder ]
+
+;; ---------------------------------------------------------------------------
+;; Agent variables
+;; ---------------------------------------------------------------------------
+
+dispatchers-own [
+  persona-name
+  persona-prompt
+  my-triaged
+  my-correct-triage
+  my-routed
+  my-correct-route
+]
+
+incidents-own [
+  summary
+  impact
+  ground-truth-severity   ;; "LOW" "MODERATE" "HIGH" "CRITICAL"
+  ground-truth-tier       ;; "BASIC" "EXPERT" "COORDINATOR"
+  incident-category       ;; "misleading" "clear" "borderline"
+  assessed-severity       ;; what the dispatcher said
+  assessed-tier           ;; what the dispatcher routed to
+  queue-state             ;; "new" "triaged" "routed" "active" "resolved" "late"
+  deadline                ;; tick by which it should be resolved
+  triage-correct?
+  route-correct?
+  created-at
+  assigned-responder
+]
+
+responders-own [
+  tier                    ;; "BASIC" "EXPERT" "COORDINATOR"
+  capacity
+  current-load
+  resolved-count
+]
+
+;; ===========================================================================
+;; SETUP
+;; ===========================================================================
+
+to setup
+  clear-all
+
+  set config-path "demos/crisis-triage/config.txt"
+  set triage-template-path "demos/crisis-triage/triage-template.yaml"
+  set config-path resolve-path config-path "config.txt"
+  set triage-template-path resolve-path triage-template-path "triage-template.yaml"
+
+  set total-triaged 0
+  set correct-triage 0
+  set total-routed 0
+  set correct-route 0
+  set total-late 0
+  set total-escalated 0
+  set total-resolved 0
+  set total-response-ticks 0
+  set misleading-triaged 0
+  set misleading-correct 0
+  set current-episode 1
+  set episode-tick-counter 0
+
+  build-incident-bank
+  setup-llm
+  setup-dispatchers
+  setup-responders
+
+  reset-ticks
+end
+
+to-report resolve-path [ primary fallback ]
+  if file-exists? primary [ report primary ]
+  if file-exists? fallback [ report fallback ]
+  report primary
+end
+
+;; ---------------------------------------------------------------------------
+;; Setup LLM
+;; ---------------------------------------------------------------------------
+
+to setup-llm
+  set llm-ready? false
+  carefully [
+    if file-exists? config-path [
+      llm:load-config config-path
+      set llm-ready? true
+      output-print (word "[SETUP] LLM config loaded from: " config-path)
+    ]
+    if not llm-ready? [
+      output-print "[SETUP] Config not found — heuristic mode only"
+    ]
+  ] [
+    set llm-ready? false
+    output-print (word "[SETUP] LLM load failed: " error-message)
+  ]
+end
+
+;; ---------------------------------------------------------------------------
+;; Setup Dispatchers (3 personas)
+;; ---------------------------------------------------------------------------
+
+to setup-dispatchers
+  let personas (list
+    (list "Veteran"  "You are a 20-year veteran dispatcher. You've seen every kind of crisis and tend to be calm and measured. You look past alarming keywords to assess actual impact. You rarely escalate unless the described consequences are truly life-threatening.")
+    (list "Rookie"   "You are a new dispatcher in your first year. You are cautious and tend to escalate when uncertain. You sometimes over-react to scary-sounding language but are learning to focus on described impact rather than keywords.")
+    (list "Analyst"  "You are a data-driven analyst dispatcher. You focus on quantifiable impact: how many people affected, what infrastructure is at risk, what cascading failures could occur. You ignore emotional language and assess purely on described consequences.")
+  )
+
+  let px -14
+  foreach personas [ p ->
+    create-dispatchers 1 [
+      set persona-name item 0 p
+      set persona-prompt item 1 p
+      set my-triaged 0
+      set my-correct-triage 0
+      set my-routed 0
+      set my-correct-route 0
+      set shape "person"
+      set size 2.5
+      set color blue + 2
+      setxy px 14
+      set label persona-name
+      set px px + 7
+
+      ;; Inject persona via llm:set-history if LLM is active
+      if llm-ready? and use-llm? [
+        carefully [
+          llm:set-history (list
+            (list "system" persona-prompt)
+          )
+        ] [
+          output-print (word "[SETUP] Failed to set history for " persona-name ": " error-message)
+        ]
+      ]
+    ]
+  ]
+end
+
+;; ---------------------------------------------------------------------------
+;; Setup Responders (3 BASIC cap=3, 3 EXPERT cap=2, 3 COORDINATOR cap=1)
+;; ---------------------------------------------------------------------------
+
+to setup-responders
+  let base-x -12
+  ;; BASIC responders
+  create-responders 3 [
+    set tier "BASIC"
+    set capacity 3
+    set current-load 0
+    set resolved-count 0
+    set shape "circle"
+    set size 1.5
+    set color green + 1
+    set label "B"
+  ]
+  let idx 0
+  ask responders with [ tier = "BASIC" ] [
+    setxy (base-x + idx * 3) -12
+    set idx idx + 1
+  ]
+
+  ;; EXPERT responders
+  create-responders 3 [
+    set tier "EXPERT"
+    set capacity 2
+    set current-load 0
+    set resolved-count 0
+    set shape "circle"
+    set size 1.8
+    set color orange + 1
+    set label "E"
+  ]
+  set idx 0
+  ask responders with [ tier = "EXPERT" ] [
+    setxy (base-x + 10 + idx * 3) -12
+    set idx idx + 1
+  ]
+
+  ;; COORDINATOR responders
+  create-responders 3 [
+    set tier "COORDINATOR"
+    set capacity 1
+    set current-load 0
+    set resolved-count 0
+    set shape "circle"
+    set size 2.1
+    set color violet + 1
+    set label "C"
+  ]
+  set idx 0
+  ask responders with [ tier = "COORDINATOR" ] [
+    setxy (base-x + 20 + idx * 3) -12
+    set idx idx + 1
+  ]
+end
+
+;; ---------------------------------------------------------------------------
+;; Incident Bank (30 incidents: 10 misleading + 10 clear + 10 borderline)
+;; ---------------------------------------------------------------------------
+
+to build-incident-bank
+  ;; Each entry: [summary impact ground-truth-severity ground-truth-tier category]
+  ;; MISLEADING: keywords suggest one severity but actual impact warrants another
+  set incident-bank (list
+    ;; --- MISLEADING (10): keywords mislead naive classifiers ---
+    (list "Server room fire alarm triggered"
+          "Sensor malfunction confirmed; no smoke, no heat, systems normal"
+          "LOW" "BASIC" "misleading")
+    (list "Toxic chemical spill reported at school"
+          "Custodian knocked over a bottle of vinegar in the cafeteria; no injuries"
+          "LOW" "BASIC" "misleading")
+    (list "Building collapse alert downtown"
+          "Scaffolding panel fell on empty sidewalk at 3 AM; no structural damage to building"
+          "LOW" "BASIC" "misleading")
+    (list "Mass casualty incident at concert venue"
+          "Three people fainted from heat; all conscious, first aid on scene"
+          "MODERATE" "BASIC" "misleading")
+    (list "Explosion heard near hospital"
+          "Transformer blew on adjacent street; hospital on backup power, no injuries"
+          "MODERATE" "EXPERT" "misleading")
+    (list "Data center cooling failure"
+          "Regional hospital patient records, 911 dispatch system, and pharmacy networks all depend on this center; 30 minutes to critical thermal threshold"
+          "CRITICAL" "COORDINATOR" "misleading")
+    (list "Minor water leak in basement"
+          "Leak is in the electrical vault supplying the neonatal ICU; backup generators have 45 minutes of fuel"
+          "CRITICAL" "COORDINATOR" "misleading")
+    (list "Small kitchen fire at restaurant"
+          "Fire spreading to adjacent apartment building; 40 residents trapped above; fire department 20 minutes away"
+          "CRITICAL" "COORDINATOR" "misleading")
+    (list "Routine power fluctuation reported"
+          "Affecting traffic signals across 12 intersections during school dismissal; two near-miss accidents already"
+          "HIGH" "EXPERT" "misleading")
+    (list "Dog loose on highway"
+          "Causing multi-vehicle chain reaction on I-95; 6 cars involved, injuries reported, highway blocked both directions"
+          "HIGH" "EXPERT" "misleading")
+
+    ;; --- CLEAR (10): keywords and impact align ---
+    (list "Multi-vehicle pileup on interstate"
+          "12 vehicles, multiple injuries confirmed, highway fully blocked, EMS requesting additional units"
+          "CRITICAL" "COORDINATOR" "clear")
+    (list "Warehouse fire with toxic plume"
+          "Residential area downwind being evacuated; 500+ people displaced; air quality hazardous"
+          "CRITICAL" "COORDINATOR" "clear")
+    (list "Earthquake damage to bridge"
+          "Visible structural cracks; bridge closed; 50,000 daily commuters affected; engineers en route"
+          "CRITICAL" "COORDINATOR" "clear")
+    (list "School bus accident with injuries"
+          "Bus overturned; 8 children with minor-moderate injuries; parents arriving at scene"
+          "HIGH" "EXPERT" "clear")
+    (list "Chemical plant pressure valve failure"
+          "Controlled venting in progress; shelter-in-place advisory for 2-mile radius; monitoring air quality"
+          "HIGH" "EXPERT" "clear")
+    (list "Hospital generator test failure"
+          "Backup generator failed routine test; primary power stable; repair crew dispatched for same-day fix"
+          "MODERATE" "BASIC" "clear")
+    (list "Broken water main on residential street"
+          "Low-pressure water to 30 homes; repair crew en route; estimated 4-hour fix"
+          "MODERATE" "BASIC" "clear")
+    (list "Traffic signal malfunction at intersection"
+          "Single intersection flashing red; police directing traffic; no accidents"
+          "LOW" "BASIC" "clear")
+    (list "Park trail flooding after rain"
+          "Trails closed; no hikers in area; water receding naturally"
+          "LOW" "BASIC" "clear")
+    (list "Streetlight outage on residential block"
+          "Six streetlights out; residents notified; maintenance scheduled for morning"
+          "LOW" "BASIC" "clear")
+
+    ;; --- BORDERLINE (10): genuinely ambiguous, reasonable people could disagree ---
+    (list "Subway train stalled between stations"
+          "200 passengers stuck for 25 minutes; ventilation working; rescue train dispatched; some passengers anxious"
+          "MODERATE" "EXPERT" "borderline")
+    (list "Power outage at nursing home"
+          "Backup generator active; 60 residents comfortable; generator fuel for 8 hours; utility ETA unknown"
+          "HIGH" "EXPERT" "borderline")
+    (list "Gas smell reported near elementary school"
+          "School in session; gas company en route; no readings yet; precautionary evacuation being considered"
+          "HIGH" "EXPERT" "borderline")
+    (list "Protest blocking major intersection"
+          "500 people; peaceful but not dispersing; ambulance rerouting adds 8 minutes to hospital route"
+          "MODERATE" "EXPERT" "borderline")
+    (list "Crane malfunction at construction site"
+          "Crane arm stuck over occupied building; no immediate danger but wind advisory in effect for afternoon"
+          "HIGH" "EXPERT" "borderline")
+    (list "River level rising near flood stage"
+          "2 feet below flood level; rain expected to continue 6 hours; 200 homes in potential flood zone"
+          "HIGH" "COORDINATOR" "borderline")
+    (list "Suspicious package at government building"
+          "Building evacuated; bomb squad 15 minutes away; 300 workers displaced; likely false alarm based on description"
+          "MODERATE" "EXPERT" "borderline")
+    (list "Internet outage affecting emergency services"
+          "911 calls routing to backup center; 12-second additional delay per call; estimated 2-hour repair"
+          "HIGH" "EXPERT" "borderline")
+    (list "Heat wave shelter capacity reached"
+          "Main cooling center full at 150 people; overflow into library planned; 3 elderly residents showing heat stress"
+          "MODERATE" "EXPERT" "borderline")
+    (list "Airport runway incursion reported"
+          "Ground vehicle crossed active runway; no aircraft in immediate path; runway closed for inspection"
+          "MODERATE" "EXPERT" "borderline")
+  )
+end
+
+;; ===========================================================================
+;; GO LOOP
+;; ===========================================================================
+
+to go
+  ;; Episode boundary check
+  handle-episode-boundary
+
+  ;; Spawn new incidents
+  if random 100 < incident-rate [
+    spawn-incident
+  ]
+
+  ;; Dispatchers triage and route
+  ask dispatchers [
+    triage-my-incidents
+    route-my-incidents
+  ]
+
+  ;; Responders process active cases
+  process-active-cases
+
+  ;; Check deadlines
+  check-deadlines
+
+  ;; Reflection at intervals
+  if reflection-interval > 0 and ticks > 0 and ticks mod reflection-interval = 0 [
+    ask dispatchers [
+      dispatcher-reflect
+    ]
+  ]
+
+  set episode-tick-counter episode-tick-counter + 1
+  tick
+end
+
+;; ===========================================================================
+;; INCIDENT SPAWNING
+;; ===========================================================================
+
+to spawn-incident
+  let picked one-of incident-bank
+  create-incidents 1 [
+    set summary       item 0 picked
+    set impact        item 1 picked
+    set ground-truth-severity item 2 picked
+    set ground-truth-tier     item 3 picked
+    set incident-category     item 4 picked
+    set assessed-severity ""
+    set assessed-tier     ""
+    set queue-state       "new"
+    set triage-correct?   false
+    set route-correct?    false
+    set created-at        ticks
+    set assigned-responder nobody
+
+    ;; Deadline: severity-dependent time window
+    let window severity-deadline ground-truth-severity
+    set deadline ticks + window
+
+    set shape "circle"
+    set size 1.0
+    set color yellow
+    setxy (random-xcor * 0.5) (9 + random 3)
+    set label ""
+  ]
+end
+
+;; Manual incident injection button
+to add-incident
+  spawn-incident
+  output-print "[MANUAL] Incident added"
+end
+
+to-report severity-deadline [ sev ]
+  if sev = "LOW"      [ report 30 ]
+  if sev = "MODERATE"  [ report 20 ]
+  if sev = "HIGH"      [ report 12 ]
+  report 8  ;; CRITICAL
+end
+
+;; ===========================================================================
+;; TRIAGE (dispatchers assess severity via llm:chat-with-template)
+;; ===========================================================================
+
+to triage-my-incidents
+  ;; Each dispatcher picks one untriaged incident per tick
+  let target one-of incidents with [ queue-state = "new" ]
+  if target = nobody [ stop ]
+
+  let sev ""
+
+  ifelse llm-ready? and use-llm? [
+    ;; LLM triage via template
+    carefully [
+      let response llm:chat-with-template triage-template-path (list
+        (list "persona" persona-prompt)
+        (list "episode" (word current-episode))
+        (list "tick"    (word ticks))
+        (list "incident" [summary] of target)
+        (list "impact"   [impact] of target)
+      )
+      set sev extract-severity response
+      output-print (word "[TRIAGE:" persona-name "] " [summary] of target " -> " sev)
+    ] [
+      output-print (word "[TRIAGE:" persona-name "] LLM failed: " error-message)
+      set sev ""
+    ]
+  ] [
+    ;; Heuristic triage (naive keyword matching — deliberately bad on misleading cases)
+    set sev heuristic-triage [summary] of target [impact] of target
+    output-print (word "[TRIAGE:heuristic] " [summary] of target " -> " sev)
+  ]
+
+  ;; Fallback if empty
+  if sev = "" [ set sev "MODERATE" ]
+
+  ;; Score
+  let truth [ground-truth-severity] of target
+  let is-correct? (sev = truth)
+
+  set total-triaged total-triaged + 1
+  set my-triaged my-triaged + 1
+  if is-correct? [
+    set correct-triage correct-triage + 1
+    set my-correct-triage my-correct-triage + 1
+  ]
+  if [incident-category] of target = "misleading" [
+    set misleading-triaged misleading-triaged + 1
+    if is-correct? [ set misleading-correct misleading-correct + 1 ]
+  ]
+
+  ask target [
+    set assessed-severity sev
+    set triage-correct? is-correct?
+    set queue-state "triaged"
+    set color severity-color sev
+    setxy xcor (3 + random 3)
+  ]
+end
+
+;; Heuristic triage: deliberately naive keyword matching
+to-report heuristic-triage [ s i ]
+  let text (word s " " i)
+  ;; Keywords that trigger high severity regardless of actual impact
+  if has-word? text "fire"       [ report "CRITICAL" ]
+  if has-word? text "explosion"  [ report "CRITICAL" ]
+  if has-word? text "collapse"   [ report "CRITICAL" ]
+  if has-word? text "toxic"      [ report "CRITICAL" ]
+  if has-word? text "casualty"   [ report "CRITICAL" ]
+  if has-word? text "chemical"   [ report "HIGH" ]
+  if has-word? text "trapped"    [ report "CRITICAL" ]
+  if has-word? text "spill"      [ report "HIGH" ]
+  if has-word? text "suspicious" [ report "HIGH" ]
+  if has-word? text "earthquake" [ report "CRITICAL" ]
+  if has-word? text "flood"      [ report "HIGH" ]
+  if has-word? text "outage"     [ report "HIGH" ]
+  if has-word? text "injuries"   [ report "HIGH" ]
+  if has-word? text "accident"   [ report "HIGH" ]
+  if has-word? text "alarm"      [ report "HIGH" ]
+  if has-word? text "evacuat"    [ report "CRITICAL" ]
+  ;; Default for anything without scary keywords
+  report "MODERATE"
+end
+
+to-report has-word? [ text word-fragment ]
+  report position word-fragment text != false or position (lower-case-first word-fragment) text != false
+end
+
+to-report lower-case-first [ s ]
+  ;; Simple helper: just return the string as-is since NetLogo string matching is case-sensitive
+  ;; and our keywords are already lowercase
+  report s
+end
+
+to-report extract-severity [ response ]
+  if position "CRITICAL" response != false [ report "CRITICAL" ]
+  if position "HIGH" response != false     [ report "HIGH" ]
+  if position "MODERATE" response != false [ report "MODERATE" ]
+  if position "LOW" response != false      [ report "LOW" ]
+  report ""
+end
+
+to-report severity-color [ sev ]
+  if sev = "LOW"      [ report 55 ]  ;; green
+  if sev = "MODERATE"  [ report 45 ]  ;; yellow-green
+  if sev = "HIGH"      [ report 25 ]  ;; orange
+  if sev = "CRITICAL"  [ report 15 ]  ;; red
+  report 5  ;; grey
+end
+
+;; ===========================================================================
+;; ROUTING (dispatchers route via llm:choose)
+;; ===========================================================================
+
+to route-my-incidents
+  let target one-of incidents with [ queue-state = "triaged" ]
+  if target = nobody [ stop ]
+
+  let chosen-tier ""
+  let choices (list "BASIC" "EXPERT" "COORDINATOR" "HOLD")
+
+  ifelse llm-ready? and use-llm? [
+    ;; LLM routing via llm:choose
+    carefully [
+      let prompt (word
+        "Incident: " [summary] of target "\n"
+        "Severity: " [assessed-severity] of target "\n"
+        "Impact: " [impact] of target "\n"
+        "Current load — BASIC: " count-active-tier "BASIC" "/9"
+        ", EXPERT: " count-active-tier "EXPERT" "/6"
+        ", COORDINATOR: " count-active-tier "COORDINATOR" "/3" "\n"
+        "Routing rules based on severity:\n"
+        " - LOW severity -> BASIC\n"
+        " - MODERATE severity -> BASIC (or EXPERT if BASIC is full)\n"
+        " - HIGH severity -> EXPERT\n"
+        " - CRITICAL severity -> COORDINATOR\n"
+        " - HOLD only if the appropriate tier AND all higher tiers are at capacity.\n"
+        "The assessed severity for this incident is " [assessed-severity] of target ". Apply the rules above."
+      )
+      set chosen-tier llm:choose prompt choices
+      output-print (word "[ROUTE:" persona-name "] " [summary] of target " -> " chosen-tier)
+    ] [
+      output-print (word "[ROUTE:" persona-name "] LLM choose failed: " error-message)
+      set chosen-tier ""
+    ]
+  ] [
+    ;; Heuristic routing
+    set chosen-tier heuristic-route [assessed-severity] of target
+    output-print (word "[ROUTE:heuristic] " [summary] of target " -> " chosen-tier)
+  ]
+
+  if chosen-tier = "" [ set chosen-tier heuristic-route [assessed-severity] of target ]
+  if chosen-tier = "HOLD" [
+    output-print (word "[HOLD] " [summary] of target " — waiting for capacity")
+    stop
+  ]
+
+  ;; Find available responder in chosen tier
+  let worker find-responder chosen-tier
+  if worker = nobody [
+    ;; Try escalation
+    set worker find-responder escalation-tier chosen-tier
+    if worker != nobody [
+      set total-escalated total-escalated + 1
+      set chosen-tier [tier] of worker
+    ]
+  ]
+  if worker = nobody [ stop ]  ;; No capacity anywhere
+
+  ;; Score routing
+  let truth [ground-truth-tier] of target
+  let is-correct? (chosen-tier = truth)
+  set total-routed total-routed + 1
+  set my-routed my-routed + 1
+  if is-correct? [
+    set correct-route correct-route + 1
+    set my-correct-route my-correct-route + 1
+  ]
+
+  ask worker [
+    set current-load current-load + 1
+  ]
+
+  ask target [
+    set assessed-tier chosen-tier
+    set route-correct? is-correct?
+    set queue-state "active"
+    set assigned-responder worker
+    ;; Move toward responder zone
+    setxy ([xcor] of worker + random-float 2 - 1) ([ycor] of worker + 3)
+    set label ""
+  ]
+end
+
+to-report heuristic-route [ sev ]
+  if sev = "LOW"      [ report "BASIC" ]
+  if sev = "MODERATE"  [ report "BASIC" ]
+  if sev = "HIGH"      [ report "EXPERT" ]
+  report "COORDINATOR"
+end
+
+to-report escalation-tier [ current-tier ]
+  if current-tier = "BASIC"       [ report "EXPERT" ]
+  if current-tier = "EXPERT"      [ report "COORDINATOR" ]
+  report "COORDINATOR"
+end
+
+to-report find-responder [ tier-name ]
+  let candidates responders with [ tier = tier-name and current-load < capacity ]
+  ifelse any? candidates [
+    report min-one-of candidates [ current-load ]
+  ] [
+    report nobody
+  ]
+end
+
+to-report count-active-tier [ tier-name ]
+  report count incidents with [ queue-state = "active" and assessed-tier = tier-name ]
+end
+
+;; ===========================================================================
+;; PROCESSING + DEADLINES
+;; ===========================================================================
+
+to process-active-cases
+  ask incidents with [ queue-state = "active" ] [
+    let chance completion-probability assessed-tier
+    if random-float 1 < chance [
+      resolve-incident self
+    ]
+  ]
+end
+
+to-report completion-probability [ tier-name ]
+  if tier-name = "BASIC"       [ report 0.15 ]
+  if tier-name = "EXPERT"      [ report 0.20 ]
+  if tier-name = "COORDINATOR" [ report 0.25 ]
+  report 0.10
+end
+
+to resolve-incident [ inc ]
+  let worker [assigned-responder] of inc
+  if worker != nobody [
+    ask worker [
+      set current-load max (list 0 (current-load - 1))
+      set resolved-count resolved-count + 1
+    ]
+  ]
+
+  set total-resolved total-resolved + 1
+  set total-response-ticks total-response-ticks + (ticks - [created-at] of inc)
+
+  ask inc [
+    set queue-state "resolved"
+    set color grey + 2
+    set size 0.6
+    setxy xcor (-15 + random-float 1)
+    set label ""
+  ]
+end
+
+to check-deadlines
+  ask incidents with [ queue-state = "active" and ticks > deadline ] [
+    set queue-state "late"
+    set total-late total-late + 1
+    set color magenta
+    output-print (word "[LATE] " summary " — exceeded deadline at tick " ticks)
+
+    ;; Try to escalate late cases
+    let current-tier assessed-tier
+    let higher-tier escalation-tier current-tier
+    if higher-tier != current-tier [
+      let new-worker find-responder higher-tier
+      if new-worker != nobody [
+        ;; Release old responder
+        if assigned-responder != nobody [
+          ask assigned-responder [
+            set current-load max (list 0 (current-load - 1))
+          ]
+        ]
+        ask new-worker [ set current-load current-load + 1 ]
+        set assigned-responder new-worker
+        set assessed-tier higher-tier
+        set queue-state "active"
+        set total-escalated total-escalated + 1
+        output-print (word "[ESCALATE] " summary " -> " higher-tier)
+      ]
+    ]
+  ]
+
+  ;; Also let late-but-still-processing cases resolve
+  ask incidents with [ queue-state = "late" ] [
+    let chance completion-probability assessed-tier
+    if random-float 1 < chance [
+      resolve-incident self
+    ]
+  ]
+end
+
+;; ===========================================================================
+;; REFLECTION (dispatchers reflect on performance via llm:chat)
+;; ===========================================================================
+
+to dispatcher-reflect
+  if not llm-ready? or not use-llm? [ stop ]
+  if my-triaged = 0 [ stop ]
+
+  ;; Only reflect if enough history accumulated
+  let hist-len 0
+  carefully [
+    set hist-len length llm:history
+  ] [
+    set hist-len 0
+  ]
+  if hist-len < 4 [ stop ]
+
+  let my-triage-acc ifelse-value (my-triaged > 0) [ precision (my-correct-triage / my-triaged * 100) 1 ] [ 0 ]
+  let my-route-acc  ifelse-value (my-routed > 0)  [ precision (my-correct-route / my-routed * 100) 1 ] [ 0 ]
+
+  carefully [
+    let reflection llm:chat (word
+      "REFLECTION — You are " persona-name " dispatcher. Review your performance:\n"
+      "Triage accuracy: " my-triage-acc "% (" my-correct-triage "/" my-triaged ")\n"
+      "Routing accuracy: " my-route-acc "% (" my-correct-route "/" my-routed ")\n"
+      "Episode: " current-episode ", Tick: " ticks "\n"
+      "What patterns are you noticing? What would you do differently? "
+      "Keep your reflection to 2-3 sentences."
+    )
+    output-print (word "[REFLECT:" persona-name "] " reflection)
+  ] [
+    output-print (word "[REFLECT:" persona-name "] Failed: " error-message)
+  ]
+end
+
+;; Manual reflection trigger
+to force-reflect
+  ask dispatchers [ dispatcher-reflect ]
+end
+
+;; ===========================================================================
+;; EPISODE BOUNDARY + MEMORY MANAGEMENT
+;; ===========================================================================
+
+to handle-episode-boundary
+  if episode-length = 0 [ stop ]  ;; No episode boundaries
+  if episode-tick-counter < episode-length [ stop ]
+
+  ;; Episode ended
+  set current-episode current-episode + 1
+  set episode-tick-counter 0
+  output-print (word "[EPISODE] Starting episode " current-episode " | Memory mode: " memory-mode)
+
+  ask dispatchers [
+    if memory-mode = "per-episode" [
+      ;; Clear and re-inject persona
+      carefully [
+        llm:clear-history
+        llm:set-history (list
+          (list "system" persona-prompt)
+        )
+        output-print (word "[MEMORY:" persona-name "] History cleared, persona re-injected")
+      ] [
+        output-print (word "[MEMORY:" persona-name "] Reset failed: " error-message)
+      ]
+    ]
+    if memory-mode = "none" [
+      ;; Clear everything every episode
+      carefully [
+        llm:clear-history
+        output-print (word "[MEMORY:" persona-name "] History fully cleared")
+      ] [
+        output-print (word "[MEMORY:" persona-name "] Clear failed: " error-message)
+      ]
+    ]
+    ;; "persistent" mode: do nothing, history accumulates
+  ]
+end
+
+;; ===========================================================================
+;; METRIC REPORTERS
+;; ===========================================================================
+
+to-report triage-accuracy
+  ifelse total-triaged > 0
+    [ report precision (correct-triage / total-triaged * 100) 1 ]
+    [ report 0 ]
+end
+
+to-report route-accuracy
+  ifelse total-routed > 0
+    [ report precision (correct-route / total-routed * 100) 1 ]
+    [ report 0 ]
+end
+
+to-report late-rate
+  let total-dispatched total-routed
+  ifelse total-dispatched > 0
+    [ report precision (total-late / total-dispatched * 100) 1 ]
+    [ report 0 ]
+end
+
+to-report escalation-rate
+  ifelse total-routed > 0
+    [ report precision (total-escalated / total-routed * 100) 1 ]
+    [ report 0 ]
+end
+
+to-report avg-response-time
+  ifelse total-resolved > 0
+    [ report precision (total-response-ticks / total-resolved) 1 ]
+    [ report 0 ]
+end
+
+to-report misleading-accuracy
+  ifelse misleading-triaged > 0
+    [ report precision (misleading-correct / misleading-triaged * 100) 1 ]
+    [ report 0 ]
+end
+
+to-report persona-accuracy-report
+  report (word
+    map [ d ->
+      (word [persona-name] of d ": "
+        ifelse-value ([my-triaged] of d > 0)
+          [ (word precision ([my-correct-triage] of d / [my-triaged] of d * 100) 0 "%") ]
+          [ "N/A" ]
+      )
+    ] sort dispatchers
+  )
+end
+
+to-report veteran-accuracy
+  let d one-of dispatchers with [persona-name = "Veteran"]
+  if d = nobody [ report "N/A" ]
+  ifelse [my-triaged] of d > 0
+    [ report (word precision ([my-correct-triage] of d / [my-triaged] of d * 100) 0 "%") ]
+    [ report "N/A" ]
+end
+
+to-report rookie-accuracy
+  let d one-of dispatchers with [persona-name = "Rookie"]
+  if d = nobody [ report "N/A" ]
+  ifelse [my-triaged] of d > 0
+    [ report (word precision ([my-correct-triage] of d / [my-triaged] of d * 100) 0 "%") ]
+    [ report "N/A" ]
+end
+
+to-report analyst-accuracy
+  let d one-of dispatchers with [persona-name = "Analyst"]
+  if d = nobody [ report "N/A" ]
+  ifelse [my-triaged] of d > 0
+    [ report (word precision ([my-correct-triage] of d / [my-triaged] of d * 100) 0 "%") ]
+    [ report "N/A" ]
+end
+
+to-report llm-status
+  let result "N/A"
+  carefully [
+    set result (word llm:active)
+  ] [
+    ;; keep default
+  ]
+  report result
+end
+
+to-report queue-new-count
+  report count incidents with [ queue-state = "new" ]
+end
+
+to-report queue-triaged-count
+  report count incidents with [ queue-state = "triaged" ]
+end
+
+to-report queue-active-count
+  report count incidents with [ queue-state = "active" or queue-state = "late" ]
+end
+
+to-report queue-resolved-count
+  report count incidents with [ queue-state = "resolved" ]
+end
+]]></code>
+  <widgets>
+    <view x="310" wrappingAllowedX="false" y="10" frameRate="30.0" minPycor="-16" height="498" showTickCounter="true" patchSize="15.0" fontSize="10" wrappingAllowedY="false" width="498" tickCounterLabel="ticks" maxPycor="16" updateMode="1" maxPxcor="16" minPxcor="-16"></view>
+    <button x="15" y="15" height="33" disableUntilTicks="false" forever="false" kind="Observer" display="setup" width="90" sizeVersion="0">setup</button>
+    <button x="115" y="15" height="33" disableUntilTicks="false" forever="true" kind="Observer" display="go" width="90" sizeVersion="0">go</button>
+    <button x="15" y="55" height="33" disableUntilTicks="false" forever="false" kind="Observer" display="add incident" width="90" sizeVersion="0">add-incident</button>
+    <button x="115" y="55" height="33" disableUntilTicks="false" forever="false" kind="Observer" display="force reflect" width="90" sizeVersion="0">force-reflect</button>
+    <switch x="15" y="100" height="33" on="true" variable="use-llm?" display="use-llm?" width="190" sizeVersion="0"></switch>
+    <chooser x="15" y="140" height="45" variable="memory-mode" current="0" display="memory-mode" width="190" sizeVersion="0">
+      <choice type="string" value="persistent"></choice>
+      <choice type="string" value="per-episode"></choice>
+      <choice type="string" value="none"></choice>
+    </chooser>
+    <slider x="15" step="5" y="195" max="50" display="reflection-interval" height="33" min="0" direction="Horizontal" default="10.0" variable="reflection-interval" width="190" sizeVersion="0"></slider>
+    <slider x="15" step="5" y="235" max="100" display="incident-rate" height="33" min="0" direction="Horizontal" default="30.0" variable="incident-rate" width="190" sizeVersion="0"></slider>
+    <slider x="15" step="5" y="275" max="100" display="episode-length" height="33" min="0" direction="Horizontal" default="25.0" variable="episode-length" width="190" sizeVersion="0"></slider>
+    <monitor x="15" precision="17" y="320" height="40" fontSize="9" display="LLM Provider" width="190" sizeVersion="0">llm-status</monitor>
+    <monitor x="15" precision="17" y="360" height="40" fontSize="9" display="Episode" width="90" sizeVersion="0">current-episode</monitor>
+    <monitor x="115" precision="17" y="360" height="40" fontSize="9" display="Mode" width="90" sizeVersion="0">memory-mode</monitor>
+    <monitor x="15" precision="17" y="405" height="40" fontSize="9" display="New" width="60" sizeVersion="0">queue-new-count</monitor>
+    <monitor x="80" precision="17" y="405" height="40" fontSize="9" display="Triaged" width="60" sizeVersion="0">queue-triaged-count</monitor>
+    <monitor x="145" precision="17" y="405" height="40" fontSize="9" display="Active" width="60" sizeVersion="0">queue-active-count</monitor>
+    <monitor x="15" precision="1" y="450" height="40" fontSize="9" display="Triage Acc%" width="95" sizeVersion="0">triage-accuracy</monitor>
+    <monitor x="115" precision="1" y="450" height="40" fontSize="9" display="Route Acc%" width="95" sizeVersion="0">route-accuracy</monitor>
+    <monitor x="15" precision="1" y="495" height="40" fontSize="9" display="Misleading%" width="95" sizeVersion="0">misleading-accuracy</monitor>
+    <monitor x="115" precision="1" y="495" height="40" fontSize="9" display="Avg Resp" width="95" sizeVersion="0">avg-response-time</monitor>
+    <monitor x="15" precision="17" y="540" height="40" fontSize="9" display="Veteran" width="65" sizeVersion="0">veteran-accuracy</monitor>
+    <monitor x="85" precision="17" y="540" height="40" fontSize="9" display="Rookie" width="65" sizeVersion="0">rookie-accuracy</monitor>
+    <monitor x="155" precision="17" y="540" height="40" fontSize="9" display="Analyst" width="55" sizeVersion="0">analyst-accuracy</monitor>
+    <monitor x="15" precision="1" y="585" height="40" fontSize="9" display="Late%" width="65" sizeVersion="0">late-rate</monitor>
+    <monitor x="85" precision="1" y="585" height="40" fontSize="9" display="Escalation%" width="65" sizeVersion="0">escalation-rate</monitor>
+    <monitor x="155" precision="17" y="585" height="40" fontSize="9" display="Resolved" width="55" sizeVersion="0">total-resolved</monitor>
+    <plot x="820" autoPlotX="true" yMax="100.0" autoPlotY="true" yAxis="%" y="10" xMin="0.0" height="230" legend="true" xMax="10.0" yMin="0.0" width="310" xAxis="ticks" display="Accuracy Over Time">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="Triage" color="-13345367" legend="true">
+        <setup></setup>
+        <update>plot triage-accuracy</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="Route" color="-2674135" legend="true">
+        <setup></setup>
+        <update>plot route-accuracy</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="Misleading" color="-5825686" legend="true">
+        <setup></setup>
+        <update>plot misleading-accuracy</update>
+      </pen>
+    </plot>
+    <plot x="820" autoPlotX="true" yMax="10.0" autoPlotY="true" yAxis="count" y="250" xMin="0.0" height="230" legend="true" xMax="10.0" yMin="0.0" width="310" xAxis="ticks" display="Case Flow">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="New" color="-1184463" legend="true">
+        <setup></setup>
+        <update>plot queue-new-count</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="Active" color="-13345367" legend="true">
+        <setup></setup>
+        <update>plot queue-active-count</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="Resolved" color="-7500403" legend="true">
+        <setup></setup>
+        <update>plot total-resolved</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="Late" color="-2064490" legend="true">
+        <setup></setup>
+        <update>plot total-late</update>
+      </pen>
+    </plot>
+    <output x="820" y="490" height="130" fontSize="9" width="310"></output>
+  </widgets>
+  <info>## Crisis Triage with Ambiguous Incidents
+
+### The Story
+
+A municipal emergency operations center receives a stream of crisis reports. Three dispatchers — a Veteran, a Rookie, and an Analyst — must assess each incident's severity and route it to the appropriate response tier (Basic, Expert, or Coordinator).
+
+The twist: many incidents are **deliberately misleading**. A "toxic chemical spill at a school" turns out to be spilled vinegar. A "minor water leak" threatens a neonatal ICU. Naive keyword matching fails on these cases — but an LLM reading the full impact description can get them right.
+
+### What This Demonstrates
+
+This demo exercises 8 LLM extension primitives, grounded in the Gao et al. (2312.11970) LLM-ABM survey:
+
+| Primitive | Where Used | Paper Concept |
+|-----------|-----------|---------------|
+| `llm:load-config` | Setup | Config management |
+| `llm:set-history` | Dispatcher personas | Personalization (Ch.2) |
+| `llm:chat-with-template` | Severity triage | Environment/Interface (Ch.1) |
+| `llm:choose` | Tier routing | Bounded Rationality |
+| `llm:history` | Reflection trigger | Memory (Ch.3) |
+| `llm:chat` | Dispatcher reflection | Reflection (Ch.3) |
+| `llm:clear-history` | Episode boundaries | Memory ablation |
+| `llm:active` | Status monitor | Provider awareness |
+
+### Quick Start
+
+1. Edit `config.txt` with your provider credentials (default: local Ollama).
+2. Click **setup**.
+3. Click **go**.
+4. Watch the output log for `[TRIAGE]`, `[ROUTE]`, and `[REFLECT]` messages.
+5. Compare the **Misleading%** monitor — this is where the LLM shines vs heuristics.
+
+### The A/B Experiment
+
+Toggle **use-llm?** OFF to switch to pure heuristic mode:
+
+- **Heuristic mode**: Keyword matching triggers on "fire", "toxic", "collapse" etc. Works fine on clear cases (~70%) but scores ~30% on misleading cases where keywords don't match reality.
+- **LLM mode**: Reads the full impact description. Expected ~70%+ on misleading cases.
+
+Run both modes for 50+ ticks and compare the Accuracy Over Time plot.
+
+### Controls
+
+- **use-llm?**: Toggle between LLM dispatchers and naive heuristic
+- **memory-mode**: How dispatcher memory works across episodes
+  - *persistent*: Full conversation history retained
+  - *per-episode*: History cleared each episode, persona re-injected
+  - *none*: History cleared each episode, no persona
+- **reflection-interval**: How often dispatchers reflect on their performance (0 = never)
+- **incident-rate**: Probability (%) of a new incident each tick
+- **episode-length**: Ticks per episode (0 = no episodes)
+
+### What to Observe
+
+- **Triage Acc%**: How often dispatchers match ground-truth severity
+- **Misleading%**: Accuracy specifically on misleading incidents (the key metric)
+- **Route Acc%**: How often incidents go to the correct response tier
+- **Per-persona differences**: Veteran vs Rookie vs Analyst performance
+- **Reflection output**: Watch dispatchers reason about their own performance in the log
+- **Memory effects**: Compare persistent vs per-episode vs none over multiple episodes
+
+### Design Rationale
+
+**Why dispatchers (not responders) use LLM**: Triage and routing are judgment calls where context matters. Processing is mechanical — it doesn't benefit from language understanding.
+
+**Why no thinking/reasoning models**: Speed (3 dispatchers x 2 calls/tick would take minutes with thinking), cost (300+ calls per session), and overkill for classification tasks.
+
+**Why `llm:choose` for routing**: Guarantees output is one of the valid tiers, avoiding parsing failures. The extension handles fuzzy matching and falls back to random choice if the LLM response can't be parsed.
+</info>
+  <turtleShapes>
+    <shape name="default" rotatable="true" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="5"></point>
+        <point x="40" y="250"></point>
+        <point x="150" y="205"></point>
+        <point x="260" y="250"></point>
+      </polygon>
+    </shape>
+    <shape name="circle" rotatable="false" editableColorIndex="0">
+      <circle x="0" y="0" marked="true" color="-1920102913" diameter="300" filled="true"></circle>
+    </shape>
+    <shape name="person" rotatable="false" editableColorIndex="0">
+      <circle x="110" y="5" marked="true" color="-1920102913" diameter="80" filled="true"></circle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="105" y="90"></point>
+        <point x="120" y="195"></point>
+        <point x="90" y="285"></point>
+        <point x="105" y="300"></point>
+        <point x="135" y="300"></point>
+        <point x="150" y="225"></point>
+        <point x="165" y="300"></point>
+        <point x="195" y="300"></point>
+        <point x="210" y="285"></point>
+        <point x="180" y="195"></point>
+        <point x="195" y="90"></point>
+      </polygon>
+      <rectangle endX="172" startY="79" marked="true" color="-1920102913" endY="94" startX="127" filled="true"></rectangle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="195" y="90"></point>
+        <point x="240" y="150"></point>
+        <point x="225" y="180"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="105" y="90"></point>
+        <point x="60" y="150"></point>
+        <point x="75" y="180"></point>
+      </polygon>
+    </shape>
+  </turtleShapes>
+  <linkShapes>
+    <shape name="default" curviness="0.0">
+      <lines>
+        <line x="-0.2" visible="false">
+          <dash value="0.0"></dash>
+          <dash value="1.0"></dash>
+        </line>
+        <line x="0.0" visible="true">
+          <dash value="1.0"></dash>
+          <dash value="0.0"></dash>
+        </line>
+        <line x="0.2" visible="false">
+          <dash value="0.0"></dash>
+          <dash value="1.0"></dash>
+        </line>
+      </lines>
+      <indicator>
+        <shape name="link direction" rotatable="true" editableColorIndex="0">
+          <line endX="90" startY="150" marked="true" color="-1920102913" endY="180" startX="150"></line>
+          <line endX="210" startY="150" marked="true" color="-1920102913" endY="180" startX="150"></line>
+        </shape>
+      </indicator>
+    </shape>
+  </linkShapes>
+  <previewCommands>setup repeat 30 [ go ]</previewCommands>
+</model>
