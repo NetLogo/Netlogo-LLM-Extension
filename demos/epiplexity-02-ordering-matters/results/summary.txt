@@ -1,0 +1,4 @@
+ordering,accuracy,coherence,prediction_entropy
+forward,0.7818,0.5288,0.3763
+reversed,0.3879,0.4518,0.8312
+shuffled,0.2909,0.4442,0.9442
