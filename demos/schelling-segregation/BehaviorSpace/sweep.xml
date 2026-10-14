@@ -1,0 +1,20 @@
+<experiments>
+  <experiment name="sweep-similar-wanted" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <exitCondition>happy-count = count turtles</exitCondition>
+    <timeLimit steps="100"/>
+    <metric>ticks</metric>
+    <metric>segregation-index</metric>
+    <metric>happy-count</metric>
+    <metric>empty-patches</metric>
+    <metric>mean-similar-share</metric>
+    <enumeratedValueSet variable="num-agents">
+      <value value="450"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="similar-wanted" first="10" step="5" last="50"/>
+    <enumeratedValueSet variable="empty-rate">
+      <value value="15"/>
+    </enumeratedValueSet>
+  </experiment>
+</experiments>
