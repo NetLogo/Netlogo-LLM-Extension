@@ -19,6 +19,7 @@ Thumbs.db
 
 # Logs
 *.log
+error-log.txt
 
 # Project planning and internal docs
 .claude/*

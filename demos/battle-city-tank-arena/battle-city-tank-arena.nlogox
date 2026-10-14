@@ -1,0 +1,1941 @@
+<?xml version="1.0" encoding="utf-8"?>
+<model version="NetLogo 7.0.3" snapToGrid="true">
+  <code><![CDATA[
+;; ABOUTME: Battle City Tank Arena — LLM-powered tank battle demonstrating the BattleAgentBench communication paradox
+;; ABOUTME: Tests whether inter-agent messaging helps or hurts LLM coordination across 3 progressive stages
+
+extensions [llm]
+
+;; --- Breeds ---
+breed [tanks tank]
+breed [bullets bullet]
+breed [explosions explosion]
+breed [flags flag]
+
+;; --- Patch variables ---
+patches-own [
+  terrain-type  ;; "open" "brick" "steel" "base-red" "base-blue" "water" "flag"
+  wall-hp       ;; brick walls start at 2, steel is indestructible
+  base-team     ;; 0 = none, 1 = red, 2 = blue
+  base-hp       ;; base health (starts at 3)
+]
+
+;; --- Tank variables ---
+tanks-own [
+  team-id          ;; 1 = red, 2 = blue
+  tank-health      ;; starts at 3
+  tank-direction   ;; 0=N, 90=E, 180=S, 270=W
+  is-llm?          ;; true if controlled by LLM
+  last-action      ;; last action taken
+  my-observation   ;; observation string for LLM
+  ally-message     ;; message received from ally (Stage 3)
+  my-message       ;; message sent to ally (Stage 3)
+  message-timer    ;; ticks remaining to show speech bubble
+  fire-cooldown    ;; ticks until can fire again
+  last-move-failed? ;; true if last move-forward was blocked
+  spawn-x          ;; respawn location
+  spawn-y
+]
+
+;; --- Bullet variables ---
+bullets-own [
+  bullet-team      ;; team that fired this bullet
+  bullet-direction ;; direction of travel (heading)
+  bullet-distance  ;; distance traveled so far
+]
+
+;; --- Explosion variables ---
+explosions-own [
+  explosion-timer  ;; ticks remaining
+]
+
+;; --- Globals ---
+globals [
+  current-stage       ;; 1, 2, or 3
+  red-score
+  blue-score
+  red-base-hp
+  blue-base-hp
+  total-llm-calls
+  game-over?
+  winner
+  communication-enabled?
+
+  ;; Map data: list of strings defining the 31x31 arena
+  arena-map
+]
+
+;; ============================================================
+;; SETUP
+;; ============================================================
+to setup
+  clear-all
+
+  set game-over? false
+  set winner "none"
+  set red-score 0
+  set blue-score 0
+  set total-llm-calls 0
+
+  ;; Determine current stage from chooser
+  set current-stage stage-number
+
+  ;; Communication only in stage 3 (or overridden)
+  set communication-enabled? (current-stage = 3 and comms-override?)
+
+  ;; Load LLM config
+  llm:load-config "config.txt"
+
+  ;; Build the arena map
+  build-arena-map
+  setup-map
+
+  ;; Spawn tanks based on stage
+  if current-stage = 1 [ setup-stage-1 ]
+  if current-stage = 2 [ setup-stage-2 ]
+  if current-stage = 3 [ setup-stage-3 ]
+
+  reset-ticks
+end
+
+;; ============================================================
+;; STAGE-NUMBER REPORTER
+;; ============================================================
+to-report stage-number
+  if stage = "1: Solo Navigation" [ report 1 ]
+  if stage = "2: Team Battle"     [ report 2 ]
+  if stage = "3: Team + Comms"    [ report 3 ]
+  report 2
+end
+
+;; ============================================================
+;; ARENA MAP BUILDER
+;; ============================================================
+to build-arena-map
+  ;; 31x31 symmetric arena inspired by Battle City
+  ;; Legend: . = open, W = brick wall, S = steel, R = red base, B = blue base, ~ = water
+  ;; Row 0 maps to y=+15 (top), Row 30 maps to y=-15 (bottom)
+  ;; Each row is exactly 31 characters (columns 0-30, mapping to x: -15 to +15)
+  set arena-map (list
+    "...............R..............."
+    "...............R..............."
+    "..WWW....WWW.......WWW....WWW.."
+    "..W.W....W.W..WWW..W.W....W.W.."
+    "..WWW....WWW..W.W..WWW....WWW.."
+    "..............WWW.............."
+    "..WW...WWWW.........WWWW...WW.."
+    "..WW...W.............W.....WW.."
+    "......W....SS...SS....W........"
+    "..WWW......SS...SS........WWW.."
+    "..W........SS...SS..........W.."
+    "..W....WW.............WW....W.."
+    "..W....WW.............WW....W.."
+    ".......WW....WWWWW....WW......."
+    "..SS.........W...W.........SS.."
+    "..SS.........W...W.........SS.."
+    "..SS.........WWWWW.........SS.."
+    ".......WW.............WW......."
+    "..W....WW.............WW....W.."
+    "..W....WW.............WW....W.."
+    "..W........SS...SS..........W.."
+    "..WWW......SS...SS........WWW.."
+    "......W....SS...SS....W........"
+    "..WW...W.............W.....WW.."
+    "..WW...WWWW.........WWWW...WW.."
+    "..............WWW.............."
+    "..WWW....WWW..W.W..WWW....WWW.."
+    "..W.W....W.W..WWW..W.W....W.W.."
+    "..WWW....WWW.......WWW....WWW.."
+    "...............B..............."
+    "...............B..............."
+  )
+end
+
+;; ============================================================
+;; SETUP MAP — render arena from strings
+;; ============================================================
+to setup-map
+  ;; Set world to 31x31 centered
+  ;; World coords: -15 to 15 in both axes
+  ask patches [
+    set terrain-type "open"
+    set wall-hp 0
+    set base-team 0
+    set base-hp 0
+    set pcolor gray - 3
+  ]
+
+  let row-idx 0
+  foreach arena-map [ row-str ->
+    let col-idx 0
+    while [col-idx < 31 and col-idx < length row-str] [
+      let ch item col-idx row-str
+      let px col-idx - 15
+      let py 15 - row-idx
+
+      if px >= min-pxcor and px <= max-pxcor and py >= min-pycor and py <= max-pycor [
+        ask patch px py [
+          if ch = "." [
+            set terrain-type "open"
+            set pcolor gray - 3
+          ]
+          if ch = "W" [
+            set terrain-type "brick"
+            set wall-hp 2
+            set pcolor brown + 1
+          ]
+          if ch = "S" [
+            set terrain-type "steel"
+            set wall-hp -1  ;; indestructible
+            set pcolor gray - 1
+          ]
+          if ch = "R" [
+            set terrain-type "base-red"
+            set base-team 1
+            set base-hp 3
+            set pcolor red - 2
+          ]
+          if ch = "B" [
+            set terrain-type "base-blue"
+            set base-team 2
+            set base-hp 3
+            set pcolor blue - 2
+          ]
+          if ch = "~" [
+            set terrain-type "water"
+            set pcolor cyan - 1
+          ]
+        ]
+      ]
+      set col-idx col-idx + 1
+    ]
+    set row-idx row-idx + 1
+  ]
+
+  ;; Store base HP in globals
+  set red-base-hp 3
+  set blue-base-hp 3
+end
+
+;; ============================================================
+;; STAGE SETUP PROCEDURES
+;; ============================================================
+to setup-stage-1
+  ;; Solo navigation: 1 LLM tank (blue) must reach the flag
+  ;; Place flag near center-top
+  ask patch 0 10 [
+    set terrain-type "flag"
+    set pcolor green + 1
+  ]
+  create-flags 1 [
+    setxy 0 10
+    set shape "flag"
+    set color green
+    set size 2
+  ]
+
+  ;; Spawn 1 LLM tank at red base area (bottom)
+  create-tanks 1 [
+    set team-id 2
+    set color blue + 1
+    set shape "arrow"
+    set size 1.8
+    set heading 0
+    set tank-direction 0
+    set tank-health 3
+    set is-llm? true
+    set last-action "none"
+    set my-observation ""
+    set ally-message ""
+    set my-message ""
+    set message-timer 0
+    set fire-cooldown 0
+    set last-move-failed? false
+    setxy 0 -13
+    set spawn-x 0
+    set spawn-y -13
+  ]
+end
+
+to setup-stage-2
+  ;; Team battle: 2 LLM tanks (blue) vs 2 scripted bots (red), no comms
+  ;; Blue LLM tanks
+  create-tanks 1 [
+    setup-tank-defaults 2 true
+    setxy -3 -13
+    set spawn-x -3
+    set spawn-y -13
+  ]
+  create-tanks 1 [
+    setup-tank-defaults 2 true
+    setxy 3 -13
+    set spawn-x 3
+    set spawn-y -13
+  ]
+
+  ;; Red bot tanks
+  create-tanks 1 [
+    setup-tank-defaults 1 false
+    setxy -3 13
+    set spawn-x -3
+    set spawn-y 13
+    set heading 180
+    set tank-direction 180
+  ]
+  create-tanks 1 [
+    setup-tank-defaults 1 false
+    setxy 3 13
+    set spawn-x 3
+    set spawn-y 13
+    set heading 180
+    set tank-direction 180
+  ]
+end
+
+to setup-stage-3
+  ;; Same as stage 2 but communication enabled
+  setup-stage-2
+  set communication-enabled? comms-override?
+end
+
+to setup-tank-defaults [team llm?]
+  set team-id team
+  ifelse team = 1
+    [ set color red + 1 ]
+    [ set color blue + 1 ]
+  set shape "arrow"
+  set size 1.8
+  set heading 0
+  set tank-direction 0
+  set tank-health 3
+  set is-llm? llm?
+  set last-action "none"
+  set my-observation ""
+  set ally-message ""
+  set my-message ""
+  set message-timer 0
+  set fire-cooldown 0
+  set last-move-failed? false
+end
+
+;; ============================================================
+;; GO — Main tick loop
+;; ============================================================
+to go
+  if game-over? [ stop ]
+  if ticks >= max-ticks [ resolve-timeout stop ]
+
+  ;; Update communication toggle live
+  if current-stage = 3 [
+    set communication-enabled? comms-override?
+  ]
+
+  ;; 1. Decrease cooldowns
+  ask tanks with [tank-health > 0] [
+    if fire-cooldown > 0 [ set fire-cooldown fire-cooldown - 1 ]
+    if message-timer > 0 [
+      set message-timer message-timer - 1
+      if message-timer = 0 [ set label "" ]
+    ]
+  ]
+
+  ;; 2. Build observations for LLM tanks
+  ask tanks with [is-llm? and tank-health > 0] [
+    set my-observation build-observation
+  ]
+
+  ;; 3. Communicate (Stage 3 only)
+  if current-stage = 3 and communication-enabled? [
+    ask tanks with [is-llm? and tank-health > 0] [ generate-message ]
+    deliver-messages
+  ]
+
+  ;; 4. Decide actions
+  ask tanks with [is-llm? and tank-health > 0] [
+    choose-action
+  ]
+  ask tanks with [not is-llm? and tank-health > 0] [
+    bot-decide
+  ]
+
+  ;; 5. Execute actions
+  ask tanks with [tank-health > 0] [
+    execute-action last-action
+  ]
+
+  ;; 6. Move bullets and resolve collisions
+  move-bullets
+  check-collisions
+
+  ;; 7. Update explosions
+  update-explosions
+
+  ;; 8. Check win condition
+  check-win-condition
+
+  tick
+end
+
+;; ============================================================
+;; OBSERVATION BUILDER
+;; ============================================================
+to-report build-observation
+  let obs ""
+
+  ;; Ego info
+  set obs (word obs "You are at (" xcor "," ycor ") facing " direction-name tank-direction
+    " with " tank-health " HP.\n")
+
+  ;; Terrain ahead (5 patches)
+  set obs (word obs "Ahead: ")
+  let i 1
+  while [i <= 5] [
+    let p patch-ahead i
+    if p != nobody [
+      set obs (word obs "[" i ":" [terrain-type] of p "]")
+    ]
+    set i i + 1
+  ]
+  set obs (word obs "\n")
+
+  ;; 7x7 ASCII minimap centered on self
+  set obs (word obs "Map (7x7, you=X):\n")
+  let my-x pxcor
+  let my-y pycor
+  let map-y 3
+  while [map-y >= -3] [
+    let map-x -3
+    while [map-x <= 3] [
+      let p patch-at map-x map-y
+      ifelse p = nobody [
+        set obs (word obs "#")
+      ] [
+        ifelse map-x = 0 and map-y = 0 [
+          set obs (word obs "X")
+        ] [
+          let ch map-char p
+          set obs (word obs ch)
+        ]
+      ]
+      set map-x map-x + 1
+    ]
+    set obs (word obs "\n")
+    set map-y map-y - 1
+  ]
+
+  ;; Visible enemies (in-cone 8 90)
+  let visible-enemies other tanks with [tank-health > 0 and team-id != [team-id] of myself] in-cone 8 90
+  ifelse any? visible-enemies [
+    set obs (word obs "Enemies visible: ")
+    ask visible-enemies [
+      set obs (word obs "(" xcor "," ycor ") ")
+    ]
+    set obs (word obs "\n")
+  ] [
+    set obs (word obs "No enemies visible.\n")
+  ]
+
+  ;; Ally info (stages 2-3)
+  if current-stage >= 2 [
+    let allies other tanks with [tank-health > 0 and team-id = [team-id] of myself]
+    if any? allies [
+      set obs (word obs "Allies: ")
+      ask allies [
+        set obs (word obs "(" xcor "," ycor " dir=" direction-name tank-direction " hp=" tank-health ") ")
+      ]
+      set obs (word obs "\n")
+    ]
+  ]
+
+  ;; Ally message (stage 3)
+  if current-stage = 3 and communication-enabled? and ally-message != "" [
+    set obs (word obs "Ally says: \"" ally-message "\"\n")
+  ]
+
+  ;; Stage-specific objective
+  if current-stage = 1 [
+    ;; Distance to flag
+    let flag-target one-of flags
+    if flag-target != nobody [
+      set obs (word obs "Objective: Reach the flag at (" [xcor] of flag-target "," [ycor] of flag-target "). "
+        "Distance: " precision distance flag-target 1 "\n")
+    ]
+  ]
+  if current-stage >= 2 [
+    set obs (word obs "Objective: Destroy enemy base and tanks. Your base HP: "
+      (ifelse-value (team-id = 1) [red-base-hp] [blue-base-hp])
+      " Enemy base HP: "
+      (ifelse-value (team-id = 1) [blue-base-hp] [red-base-hp]) "\n")
+  ]
+
+  ;; Last action result with move-failure feedback
+  if last-action != "none" [
+    ifelse last-action = "move-forward" and last-move-failed? [
+      set obs (word obs "Last action: move-forward FAILED (blocked by wall/obstacle)\n")
+    ] [
+      set obs (word obs "Last action: " last-action "\n")
+    ]
+  ]
+
+  ;; Open directions — report which cardinal directions are passable
+  let open-dirs []
+  let north-patch patch my-x (my-y + 1)
+  let east-patch patch (my-x + 1) my-y
+  let south-patch patch my-x (my-y - 1)
+  let west-patch patch (my-x - 1) my-y
+  if north-patch != nobody and (member? [terrain-type] of north-patch (list "open" "base-red" "base-blue" "flag")) [
+    set open-dirs lput "North" open-dirs
+  ]
+  if east-patch != nobody and (member? [terrain-type] of east-patch (list "open" "base-red" "base-blue" "flag")) [
+    set open-dirs lput "East" open-dirs
+  ]
+  if south-patch != nobody and (member? [terrain-type] of south-patch (list "open" "base-red" "base-blue" "flag")) [
+    set open-dirs lput "South" open-dirs
+  ]
+  if west-patch != nobody and (member? [terrain-type] of west-patch (list "open" "base-red" "base-blue" "flag")) [
+    set open-dirs lput "West" open-dirs
+  ]
+  if not empty? open-dirs [
+    set obs (word obs "Open directions: " (reduce [[a b] -> (word a ", " b)] open-dirs) "\n")
+  ]
+
+  report obs
+end
+
+;; Map character for ASCII minimap
+to-report map-char [p]
+  let tt [terrain-type] of p
+  if tt = "brick"     [ report "W" ]
+  if tt = "steel"     [ report "S" ]
+  if tt = "water"     [ report "~" ]
+  if tt = "base-red"  [ report "R" ]
+  if tt = "base-blue" [ report "B" ]
+  if tt = "flag"      [ report "F" ]
+
+  ;; Check for tanks/bullets on patch
+  if any? (tanks-on p) with [tank-health > 0 and team-id != [team-id] of myself] [ report "E" ]
+  if any? (tanks-on p) with [tank-health > 0 and team-id = [team-id] of myself and self != myself] [ report "A" ]
+
+  report "."
+end
+
+;; Direction name helper
+to-report direction-name [dir]
+  if dir = 0   [ report "North" ]
+  if dir = 90  [ report "East" ]
+  if dir = 180 [ report "South" ]
+  if dir = 270 [ report "West" ]
+  report "North"
+end
+
+;; ============================================================
+;; ACTION SELECTION — LLM via llm:choose (or llm:chat-with-thinking)
+;; ============================================================
+to choose-action
+  set total-llm-calls total-llm-calls + 1
+  carefully [
+    ifelse show-thinking? [
+      ;; Use chat-with-thinking to expose reasoning chain
+      let prompt (word my-observation "\nChoose EXACTLY one action: move-forward, turn-left, turn-right, fire, stay")
+      let response llm:chat-with-thinking prompt
+      let action-text item 0 response
+      let thinking-text item 1 response
+      if thinking-text != "" [
+        output-print (word "--- Tank " who " thinking ---")
+        output-print thinking-text
+        output-print "---"
+      ]
+      set last-action parse-action-response action-text
+    ] [
+      ;; Standard llm:choose
+      let action llm:choose my-observation ["move-forward" "turn-left" "turn-right" "fire" "stay"]
+      set last-action action
+    ]
+
+    if show-observations? [
+      output-print (word "Tank " who " chose: " last-action)
+    ]
+  ] [
+    set last-action "stay"
+    output-print (word "LLM error for tank " who ": " error-message)
+  ]
+end
+
+;; Parse action from free-text response (for show-thinking mode)
+to-report parse-action-response [response]
+  ;; NetLogo has no built-in lower-case, so match common casings
+  let r (word response)
+  if position "move-forward" r != false [ report "move-forward" ]
+  if position "Move-forward" r != false [ report "move-forward" ]
+  if position "turn-left"    r != false [ report "turn-left" ]
+  if position "Turn-left"    r != false [ report "turn-left" ]
+  if position "turn-right"   r != false [ report "turn-right" ]
+  if position "Turn-right"   r != false [ report "turn-right" ]
+  if position "fire"         r != false [ report "fire" ]
+  if position "Fire"         r != false [ report "fire" ]
+  if position "stay"         r != false [ report "stay" ]
+  if position "Stay"         r != false [ report "stay" ]
+  report "stay"
+end
+
+;; ============================================================
+;; MESSAGE GENERATION — Stage 3 communication via llm:chat-with-template
+;; ============================================================
+to generate-message
+  set total-llm-calls total-llm-calls + 1
+  carefully [
+    llm:clear-history
+    let vars (list
+      (list "observation" my-observation)
+    )
+    let msg llm:chat-with-template "message-template.yaml" vars
+    ;; Truncate to keep messages brief
+    if length msg > 80 [ set msg substring msg 0 80 ]
+    set my-message msg
+    set label msg
+    set message-timer 3
+    if show-observations? [
+      output-print (word "Tank " who " says: " msg)
+    ]
+  ] [
+    set my-message ""
+    output-print (word "Message error for tank " who ": " error-message)
+  ]
+end
+
+to deliver-messages
+  ;; Swap messages between allied LLM tanks
+  let blue-llm-tanks sort tanks with [is-llm? and team-id = 2 and tank-health > 0]
+  if length blue-llm-tanks = 2 [
+    let t1 item 0 blue-llm-tanks
+    let t2 item 1 blue-llm-tanks
+    let msg1 [my-message] of t1
+    let msg2 [my-message] of t2
+    ask t1 [
+      set ally-message msg2
+      if msg2 != "" [ set message-timer 3 ]
+    ]
+    ask t2 [
+      set ally-message msg1
+      if msg1 != "" [ set message-timer 3 ]
+    ]
+  ]
+end
+
+;; ============================================================
+;; BOT AI — State machine: patrol → chase → attack → retreat
+;; ============================================================
+to bot-decide
+  ;; Retreat if low health
+  if tank-health = 1 [
+    bot-retreat
+    stop
+  ]
+
+  ;; Attack: enemy aligned on same row/col within 6 patches
+  let target-enemy nobody
+  ;; Check in current facing direction
+  let ahead-patches patches-ahead-n 6
+  let enemies-ahead tanks with [tank-health > 0 and team-id != [team-id] of myself and member? patch-here ahead-patches]
+  if any? enemies-ahead [
+    set last-action "fire"
+    stop
+  ]
+
+  ;; Chase: enemy visible in cone
+  let visible-enemies other tanks with [tank-health > 0 and team-id != [team-id] of myself] in-cone 8 120
+  if any? visible-enemies [
+    let nearest min-one-of visible-enemies [distance myself]
+    bot-chase nearest
+    stop
+  ]
+
+  ;; Default: patrol
+  bot-patrol
+end
+
+to bot-retreat
+  ;; Move toward own base
+  let target-x spawn-x
+  let target-y spawn-y
+  let desired-heading towardsxy target-x target-y
+  let desired-dir round-to-cardinal desired-heading
+  ifelse desired-dir != tank-direction [
+    set last-action ifelse-value (turn-direction-for desired-dir = "left") ["turn-left"] ["turn-right"]
+  ] [
+    ifelse can-move-forward? [
+      set last-action "move-forward"
+    ] [
+      set last-action one-of ["turn-left" "turn-right"]
+    ]
+  ]
+end
+
+to bot-chase [enemy]
+  let desired-heading towards enemy
+  let desired-dir round-to-cardinal desired-heading
+  ifelse desired-dir != tank-direction [
+    set last-action ifelse-value (turn-direction-for desired-dir = "left") ["turn-left"] ["turn-right"]
+  ] [
+    ;; If aligned, fire; otherwise move forward
+    ifelse aligned-with? enemy [
+      set last-action "fire"
+    ] [
+      ifelse can-move-forward? [
+        set last-action "move-forward"
+      ] [
+        set last-action one-of ["turn-left" "turn-right"]
+      ]
+    ]
+  ]
+end
+
+to bot-patrol
+  ;; Simple patrol: move forward, turn randomly when blocked
+  ifelse can-move-forward? [
+    ;; Occasionally turn for variety
+    ifelse random 100 < 15 [
+      set last-action one-of ["turn-left" "turn-right"]
+    ] [
+      set last-action "move-forward"
+    ]
+  ] [
+    set last-action one-of ["turn-left" "turn-right"]
+  ]
+
+  ;; Occasionally fire while patrolling
+  if random 100 < 10 [
+    set last-action "fire"
+  ]
+end
+
+;; Check if enemy is aligned on same row/col in facing direction
+to-report aligned-with? [enemy]
+  let ex [xcor] of enemy
+  let ey [ycor] of enemy
+  if tank-direction = 0   and pxcor = [pxcor] of enemy and ey > ycor [ report true ]
+  if tank-direction = 180 and pxcor = [pxcor] of enemy and ey < ycor [ report true ]
+  if tank-direction = 90  and pycor = [pycor] of enemy and ex > xcor [ report true ]
+  if tank-direction = 270 and pycor = [pycor] of enemy and ex < xcor [ report true ]
+  report false
+end
+
+;; Patches ahead in facing direction, up to n
+to-report patches-ahead-n [n]
+  let result patch-set nobody
+  let i 1
+  while [i <= n] [
+    let p patch-ahead i
+    if p != nobody [ set result (patch-set result p) ]
+    set i i + 1
+  ]
+  report result
+end
+
+;; Round heading to nearest cardinal direction
+to-report round-to-cardinal [h]
+  ;; Normalize to 0-359
+  set h h mod 360
+  if h < 0 [ set h h + 360 ]
+  if h >= 315 or h < 45   [ report 0 ]
+  if h >= 45  and h < 135  [ report 90 ]
+  if h >= 135 and h < 225  [ report 180 ]
+  report 270
+end
+
+;; Determine whether to turn left or right to reach desired direction
+to-report turn-direction-for [desired-dir]
+  let diff (desired-dir - tank-direction) mod 360
+  if diff < 0 [ set diff diff + 360 ]
+  ifelse diff <= 180
+    [ report "right" ]
+    [ report "left" ]
+end
+
+;; Check if tank can move one patch forward
+to-report can-move-forward?
+  let p patch-ahead 1
+  if p = nobody [ report false ]
+  if [terrain-type] of p = "brick"  [ report false ]
+  if [terrain-type] of p = "steel"  [ report false ]
+  if [terrain-type] of p = "water"  [ report false ]
+  if any? other (tanks-on p) with [tank-health > 0] [ report false ]
+  report true
+end
+
+;; ============================================================
+;; ACTION EXECUTION
+;; ============================================================
+to execute-action [action-name]
+  if action-name = "move-forward" [
+    ifelse can-move-forward? [
+      fd 1
+      set last-move-failed? false
+    ] [
+      set last-move-failed? true
+    ]
+    stop
+  ]
+  set last-move-failed? false
+  if action-name = "turn-left" [
+    set tank-direction (tank-direction - 90) mod 360
+    if tank-direction < 0 [ set tank-direction tank-direction + 360 ]
+    set heading tank-direction
+    stop
+  ]
+  if action-name = "turn-right" [
+    set tank-direction (tank-direction + 90) mod 360
+    set heading tank-direction
+    stop
+  ]
+  if action-name = "fire" [
+    if fire-cooldown <= 0 [
+      fire-bullet
+      set fire-cooldown 3
+    ]
+    stop
+  ]
+  ;; "stay" or unknown: do nothing
+end
+
+;; ============================================================
+;; BULLET MECHANICS
+;; ============================================================
+to fire-bullet
+  hatch-bullets 1 [
+    set shape "circle"
+    set size 0.5
+    set color yellow
+    set heading [tank-direction] of myself
+    set bullet-team [team-id] of myself
+    set bullet-direction [tank-direction] of myself
+    set bullet-distance 0
+  ]
+end
+
+to move-bullets
+  ask bullets [
+    ;; Bullets move 2 patches per tick
+    let steps 0
+    while [steps < 2] [
+      let next-p patch-ahead 1
+      ifelse next-p = nobody [
+        die  ;; hit world edge
+        stop
+      ] [
+        ;; Check for wall collision
+        let tt [terrain-type] of next-p
+        if tt = "steel" [
+          ;; Bounce off steel, destroy bullet
+          spawn-explosion xcor ycor
+          die
+          stop
+        ]
+        if tt = "brick" [
+          ;; Damage brick wall
+          ask next-p [
+            set wall-hp wall-hp - 1
+            ifelse wall-hp <= 0 [
+              set terrain-type "open"
+              set pcolor gray - 3
+            ] [
+              set pcolor brown + 3  ;; damaged wall is lighter
+            ]
+          ]
+          spawn-explosion [pxcor] of next-p [pycor] of next-p
+          die
+          stop
+        ]
+
+        ;; Check for tank collision
+        let hit-tanks (tanks-on next-p) with [tank-health > 0 and team-id != [bullet-team] of myself]
+        if any? hit-tanks [
+          ask one-of hit-tanks [
+            set tank-health tank-health - 1
+            if tank-health <= 0 [
+              ;; Tank destroyed
+              ifelse team-id = 1
+                [ set blue-score blue-score + 1 ]
+                [ set red-score red-score + 1 ]
+              spawn-explosion xcor ycor
+              set shape "x"
+              set size 1
+              set color gray
+            ]
+          ]
+          spawn-explosion [pxcor] of next-p [pycor] of next-p
+          die
+          stop
+        ]
+
+        ;; Check for base collision
+        if tt = "base-red" or tt = "base-blue" [
+          let bt [base-team] of next-p
+          if bt != bullet-team [
+            ask next-p [
+              set base-hp base-hp - 1
+              ifelse bt = 1
+                [ set red-base-hp red-base-hp - 1 ]
+                [ set blue-base-hp blue-base-hp - 1 ]
+              if base-hp <= 0 [
+                set terrain-type "open"
+                set pcolor gray - 3
+              ]
+            ]
+            ;; Score for base damage
+            ifelse bt = 1
+              [ set blue-score blue-score + 3 ]
+              [ set red-score red-score + 3 ]
+            spawn-explosion [pxcor] of next-p [pycor] of next-p
+            die
+            stop
+          ]
+        ]
+
+        ;; Move bullet forward
+        fd 1
+        set bullet-distance bullet-distance + 1
+
+        ;; Despawn after 15 patches
+        if bullet-distance >= 15 [
+          die
+          stop
+        ]
+      ]
+      set steps steps + 1
+    ]
+  ]
+end
+
+to check-collisions
+  ;; Stage 1: check if LLM tank reached flag
+  if current-stage = 1 [
+    ask tanks with [is-llm? and tank-health > 0] [
+      if any? flags-here [
+        set game-over? true
+        set winner "Blue (LLM)"
+        output-print "LLM tank reached the flag!"
+      ]
+    ]
+  ]
+end
+
+;; ============================================================
+;; EXPLOSIONS
+;; ============================================================
+to spawn-explosion [ex ey]
+  hatch-explosions 1 [
+    setxy ex ey
+    set shape "star"
+    set color orange
+    set size 1.0
+    set explosion-timer 3
+  ]
+end
+
+to update-explosions
+  ask explosions [
+    set explosion-timer explosion-timer - 1
+    ;; Pulse size
+    set size 1.0 + (3 - explosion-timer) * 0.3
+    set color orange - (3 - explosion-timer)
+    if explosion-timer <= 0 [ die ]
+  ]
+end
+
+;; ============================================================
+;; WIN CONDITION CHECKS
+;; ============================================================
+to check-win-condition
+  if current-stage = 1 [ stop ]  ;; handled in check-collisions
+
+  ;; Base destroyed
+  if red-base-hp <= 0 [
+    set game-over? true
+    set winner "Blue"
+    output-print "Blue wins! Red base destroyed."
+  ]
+  if blue-base-hp <= 0 [
+    set game-over? true
+    set winner "Red"
+    output-print "Red wins! Blue base destroyed."
+  ]
+
+  ;; All enemy tanks eliminated
+  let red-alive count tanks with [team-id = 1 and tank-health > 0]
+  let blue-alive count tanks with [team-id = 2 and tank-health > 0]
+  if red-alive = 0 and blue-alive > 0 [
+    set game-over? true
+    set winner "Blue"
+    output-print "Blue wins! All red tanks eliminated."
+  ]
+  if blue-alive = 0 and red-alive > 0 [
+    set game-over? true
+    set winner "Red"
+    output-print "Red wins! All blue tanks eliminated."
+  ]
+end
+
+to resolve-timeout
+  set game-over? true
+  ifelse red-score > blue-score [
+    set winner "Red"
+    output-print (word "Time's up! Red wins " red-score " to " blue-score)
+  ] [
+    ifelse blue-score > red-score [
+      set winner "Blue"
+      output-print (word "Time's up! Blue wins " blue-score " to " red-score)
+    ] [
+      set winner "Draw"
+      output-print (word "Time's up! Draw at " red-score " each")
+    ]
+  ]
+end
+
+;; ============================================================
+;; REPORTERS for monitors
+;; ============================================================
+to-report red-score-report
+  report red-score
+end
+
+to-report blue-score-report
+  report blue-score
+end
+
+to-report llm-calls-report
+  report total-llm-calls
+end
+
+to-report winner-report
+  report winner
+end
+
+to-report red-base-hp-report
+  report red-base-hp
+end
+
+to-report blue-base-hp-report
+  report blue-base-hp
+end
+
+to-report game-status
+  if game-over? [ report (word "GAME OVER: " winner " wins!") ]
+  report (word "Stage " current-stage " | Tick " ticks "/" max-ticks)
+end
+]]></code>
+  <widgets>
+    <view x="295" wrappingAllowedX="false" y="10" frameRate="10.0" minPycor="-15" height="540" showTickCounter="true" patchSize="17.0" fontSize="10" wrappingAllowedY="false" width="540" tickCounterLabel="ticks" maxPycor="15" updateMode="1" maxPxcor="15" minPxcor="-15"></view>
+    <button x="15" y="10" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="80" display="Setup">setup</button>
+    <button x="105" y="10" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="80" display="Go">go</button>
+    <button x="195" y="10" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="80" display="Step">go</button>
+    <chooser x="15" y="60" height="60" variable="Stage" current="1" width="260" display="Stage">
+      <choice type="string" value="1: Solo Navigation"></choice>
+      <choice type="string" value="2: Team Battle"></choice>
+      <choice type="string" value="3: Team + Comms"></choice>
+    </chooser>
+    <switch x="15" y="130" height="40" on="true" variable="comms-override?" width="170" display="comms-override?"></switch>
+    <switch x="15" y="175" height="40" on="false" variable="show-observations?" width="170" display="show-observations?"></switch>
+    <switch x="15" y="220" height="40" on="false" variable="show-thinking?" width="170" display="show-thinking?"></switch>
+    <slider x="15" step="10" y="270" max="200" width="260" display="max-ticks" height="50" min="20" direction="Horizontal" default="60.0" variable="max-ticks"></slider>
+    <monitor x="15" precision="0" y="330" height="60" fontSize="11" width="125" display="Red Score">red-score-report</monitor>
+    <monitor x="150" precision="0" y="330" height="60" fontSize="11" width="125" display="Blue Score">blue-score-report</monitor>
+    <monitor x="15" precision="0" y="375" height="60" fontSize="11" width="125" display="Red Base HP">red-base-hp-report</monitor>
+    <monitor x="150" precision="0" y="375" height="60" fontSize="11" width="125" display="Blue Base HP">blue-base-hp-report</monitor>
+    <monitor x="15" precision="0" y="420" height="60" fontSize="11" width="125" display="LLM Calls">llm-calls-report</monitor>
+    <monitor x="150" precision="17" y="420" height="60" fontSize="11" width="125" display="Ticks">ticks</monitor>
+    <monitor x="15" precision="17" y="465" height="60" fontSize="9" width="260" display="Status">game-status</monitor>
+    <monitor x="15" precision="17" y="510" height="60" fontSize="9" width="260" display="Winner">winner-report</monitor>
+    <plot x="850" autoPlotX="true" yMax="10.0" autoPlotY="true" yAxis="Score" y="10" xMin="0.0" height="200" legend="false" xMax="100.0" yMin="0.0" width="300" xAxis="Ticks" display="Team Scores">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="Red" color="-2674135" legend="true">
+        <setup></setup>
+        <update>plot red-score</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="Blue" color="-13345367" legend="true">
+        <setup></setup>
+        <update>plot blue-score</update>
+      </pen>
+    </plot>
+    <plot x="850" autoPlotX="true" yMax="10.0" autoPlotY="true" yAxis="Calls" y="220" xMin="0.0" height="150" legend="false" xMax="100.0" yMin="0.0" width="300" xAxis="Ticks" display="LLM Calls (cumulative)">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="calls" color="-7500403" legend="true">
+        <setup></setup>
+        <update>plot total-llm-calls</update>
+      </pen>
+    </plot>
+    <output x="850" y="380" height="170" fontSize="10" width="300"></output>
+  </widgets>
+  <info>## WHAT IS IT?
+
+(a general understanding of what the model is trying to show or explain)
+
+## HOW IT WORKS
+
+(what rules the agents use to create the overall behavior of the model)
+
+## HOW TO USE IT
+
+(how to use the model, including a description of each of the items in the Interface tab)
+
+## THINGS TO NOTICE
+
+(suggested things for the user to notice while running the model)
+
+## THINGS TO TRY
+
+(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
+
+## EXTENDING THE MODEL
+
+(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
+
+## NETLOGO FEATURES
+
+(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
+
+## RELATED MODELS
+
+(models in the NetLogo Models Library and elsewhere which are of related interest)
+
+## CREDITS AND REFERENCES
+
+(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+</info>
+  <turtleShapes>
+    <shape name="default" rotatable="true" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="5"></point>
+        <point x="40" y="250"></point>
+        <point x="150" y="205"></point>
+        <point x="260" y="250"></point>
+      </polygon>
+    </shape>
+    <shape name="airplane" rotatable="true" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="0"></point>
+        <point x="135" y="15"></point>
+        <point x="120" y="60"></point>
+        <point x="120" y="105"></point>
+        <point x="15" y="165"></point>
+        <point x="15" y="195"></point>
+        <point x="120" y="180"></point>
+        <point x="135" y="240"></point>
+        <point x="105" y="270"></point>
+        <point x="120" y="285"></point>
+        <point x="150" y="270"></point>
+        <point x="180" y="285"></point>
+        <point x="210" y="270"></point>
+        <point x="165" y="240"></point>
+        <point x="180" y="180"></point>
+        <point x="285" y="195"></point>
+        <point x="285" y="165"></point>
+        <point x="180" y="105"></point>
+        <point x="180" y="60"></point>
+        <point x="165" y="15"></point>
+      </polygon>
+    </shape>
+    <shape name="arrow" rotatable="true" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="0"></point>
+        <point x="0" y="150"></point>
+        <point x="105" y="150"></point>
+        <point x="105" y="293"></point>
+        <point x="195" y="293"></point>
+        <point x="195" y="150"></point>
+        <point x="300" y="150"></point>
+      </polygon>
+    </shape>
+    <shape name="box" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="285"></point>
+        <point x="285" y="225"></point>
+        <point x="285" y="75"></point>
+        <point x="150" y="135"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="135"></point>
+        <point x="15" y="75"></point>
+        <point x="150" y="15"></point>
+        <point x="285" y="75"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="15" y="75"></point>
+        <point x="15" y="225"></point>
+        <point x="150" y="285"></point>
+        <point x="150" y="135"></point>
+      </polygon>
+      <line endX="150" startY="285" marked="false" color="255" endY="135" startX="150"></line>
+      <line endX="15" startY="135" marked="false" color="255" endY="75" startX="150"></line>
+      <line endX="285" startY="135" marked="false" color="255" endY="75" startX="150"></line>
+    </shape>
+    <shape name="bug" rotatable="true" editableColorIndex="0">
+      <circle x="96" y="182" marked="true" color="-1920102913" diameter="108" filled="true"></circle>
+      <circle x="110" y="127" marked="true" color="-1920102913" diameter="80" filled="true"></circle>
+      <circle x="110" y="75" marked="true" color="-1920102913" diameter="80" filled="true"></circle>
+      <line endX="80" startY="100" marked="true" color="-1920102913" endY="30" startX="150"></line>
+      <line endX="220" startY="100" marked="true" color="-1920102913" endY="30" startX="150"></line>
+    </shape>
+    <shape name="butterfly" rotatable="true" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="165"></point>
+        <point x="209" y="199"></point>
+        <point x="225" y="225"></point>
+        <point x="225" y="255"></point>
+        <point x="195" y="270"></point>
+        <point x="165" y="255"></point>
+        <point x="150" y="240"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="165"></point>
+        <point x="89" y="198"></point>
+        <point x="75" y="225"></point>
+        <point x="75" y="255"></point>
+        <point x="105" y="270"></point>
+        <point x="135" y="255"></point>
+        <point x="150" y="240"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="139" y="148"></point>
+        <point x="100" y="105"></point>
+        <point x="55" y="90"></point>
+        <point x="25" y="90"></point>
+        <point x="10" y="105"></point>
+        <point x="10" y="135"></point>
+        <point x="25" y="180"></point>
+        <point x="40" y="195"></point>
+        <point x="85" y="194"></point>
+        <point x="139" y="163"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="162" y="150"></point>
+        <point x="200" y="105"></point>
+        <point x="245" y="90"></point>
+        <point x="275" y="90"></point>
+        <point x="290" y="105"></point>
+        <point x="290" y="135"></point>
+        <point x="275" y="180"></point>
+        <point x="260" y="195"></point>
+        <point x="215" y="195"></point>
+        <point x="162" y="165"></point>
+      </polygon>
+      <polygon color="255" filled="true" marked="false">
+        <point x="150" y="255"></point>
+        <point x="135" y="225"></point>
+        <point x="120" y="150"></point>
+        <point x="135" y="120"></point>
+        <point x="150" y="105"></point>
+        <point x="165" y="120"></point>
+        <point x="180" y="150"></point>
+        <point x="165" y="225"></point>
+      </polygon>
+      <circle x="135" y="90" marked="false" color="255" diameter="30" filled="true"></circle>
+      <line endX="195" startY="105" marked="false" color="255" endY="60" startX="150"></line>
+      <line endX="105" startY="105" marked="false" color="255" endY="60" startX="150"></line>
+    </shape>
+    <shape name="car" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="300" y="180"></point>
+        <point x="279" y="164"></point>
+        <point x="261" y="144"></point>
+        <point x="240" y="135"></point>
+        <point x="226" y="132"></point>
+        <point x="213" y="106"></point>
+        <point x="203" y="84"></point>
+        <point x="185" y="63"></point>
+        <point x="159" y="50"></point>
+        <point x="135" y="50"></point>
+        <point x="75" y="60"></point>
+        <point x="0" y="150"></point>
+        <point x="0" y="165"></point>
+        <point x="0" y="225"></point>
+        <point x="300" y="225"></point>
+        <point x="300" y="180"></point>
+      </polygon>
+      <circle x="180" y="180" marked="false" color="255" diameter="90" filled="true"></circle>
+      <circle x="30" y="180" marked="false" color="255" diameter="90" filled="true"></circle>
+      <polygon color="255" filled="true" marked="false">
+        <point x="162" y="80"></point>
+        <point x="132" y="78"></point>
+        <point x="134" y="135"></point>
+        <point x="209" y="135"></point>
+        <point x="194" y="105"></point>
+        <point x="189" y="96"></point>
+        <point x="180" y="89"></point>
+      </polygon>
+      <circle x="47" y="195" marked="true" color="-1920102913" diameter="58" filled="true"></circle>
+      <circle x="195" y="195" marked="true" color="-1920102913" diameter="58" filled="true"></circle>
+    </shape>
+    <shape name="circle" rotatable="false" editableColorIndex="0">
+      <circle x="0" y="0" marked="true" color="-1920102913" diameter="300" filled="true"></circle>
+    </shape>
+    <shape name="circle 2" rotatable="false" editableColorIndex="0">
+      <circle x="0" y="0" marked="true" color="-1920102913" diameter="300" filled="true"></circle>
+      <circle x="30" y="30" marked="false" color="255" diameter="240" filled="true"></circle>
+    </shape>
+    <shape name="cow" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="200" y="193"></point>
+        <point x="197" y="249"></point>
+        <point x="179" y="249"></point>
+        <point x="177" y="196"></point>
+        <point x="166" y="187"></point>
+        <point x="140" y="189"></point>
+        <point x="93" y="191"></point>
+        <point x="78" y="179"></point>
+        <point x="72" y="211"></point>
+        <point x="49" y="209"></point>
+        <point x="48" y="181"></point>
+        <point x="37" y="149"></point>
+        <point x="25" y="120"></point>
+        <point x="25" y="89"></point>
+        <point x="45" y="72"></point>
+        <point x="103" y="84"></point>
+        <point x="179" y="75"></point>
+        <point x="198" y="76"></point>
+        <point x="252" y="64"></point>
+        <point x="272" y="81"></point>
+        <point x="293" y="103"></point>
+        <point x="285" y="121"></point>
+        <point x="255" y="121"></point>
+        <point x="242" y="118"></point>
+        <point x="224" y="167"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="73" y="210"></point>
+        <point x="86" y="251"></point>
+        <point x="62" y="249"></point>
+        <point x="48" y="208"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="25" y="114"></point>
+        <point x="16" y="195"></point>
+        <point x="9" y="204"></point>
+        <point x="23" y="213"></point>
+        <point x="25" y="200"></point>
+        <point x="39" y="123"></point>
+      </polygon>
+    </shape>
+    <shape name="cylinder" rotatable="false" editableColorIndex="0">
+      <circle x="0" y="0" marked="true" color="-1920102913" diameter="300" filled="true"></circle>
+    </shape>
+    <shape name="dot" rotatable="false" editableColorIndex="0">
+      <circle x="90" y="90" marked="true" color="-1920102913" diameter="120" filled="true"></circle>
+    </shape>
+    <shape name="face happy" rotatable="false" editableColorIndex="0">
+      <circle x="8" y="8" marked="true" color="-1920102913" diameter="285" filled="true"></circle>
+      <circle x="60" y="75" marked="false" color="255" diameter="60" filled="true"></circle>
+      <circle x="180" y="75" marked="false" color="255" diameter="60" filled="true"></circle>
+      <polygon color="255" filled="true" marked="false">
+        <point x="150" y="255"></point>
+        <point x="90" y="239"></point>
+        <point x="62" y="213"></point>
+        <point x="47" y="191"></point>
+        <point x="67" y="179"></point>
+        <point x="90" y="203"></point>
+        <point x="109" y="218"></point>
+        <point x="150" y="225"></point>
+        <point x="192" y="218"></point>
+        <point x="210" y="203"></point>
+        <point x="227" y="181"></point>
+        <point x="251" y="194"></point>
+        <point x="236" y="217"></point>
+        <point x="212" y="240"></point>
+      </polygon>
+    </shape>
+    <shape name="face neutral" rotatable="false" editableColorIndex="0">
+      <circle x="8" y="7" marked="true" color="-1920102913" diameter="285" filled="true"></circle>
+      <circle x="60" y="75" marked="false" color="255" diameter="60" filled="true"></circle>
+      <circle x="180" y="75" marked="false" color="255" diameter="60" filled="true"></circle>
+      <rectangle endX="240" startY="195" marked="false" color="255" endY="225" startX="60" filled="true"></rectangle>
+    </shape>
+    <shape name="face sad" rotatable="false" editableColorIndex="0">
+      <circle x="8" y="8" marked="true" color="-1920102913" diameter="285" filled="true"></circle>
+      <circle x="60" y="75" marked="false" color="255" diameter="60" filled="true"></circle>
+      <circle x="180" y="75" marked="false" color="255" diameter="60" filled="true"></circle>
+      <polygon color="255" filled="true" marked="false">
+        <point x="150" y="168"></point>
+        <point x="90" y="184"></point>
+        <point x="62" y="210"></point>
+        <point x="47" y="232"></point>
+        <point x="67" y="244"></point>
+        <point x="90" y="220"></point>
+        <point x="109" y="205"></point>
+        <point x="150" y="198"></point>
+        <point x="192" y="205"></point>
+        <point x="210" y="220"></point>
+        <point x="227" y="242"></point>
+        <point x="251" y="229"></point>
+        <point x="236" y="206"></point>
+        <point x="212" y="183"></point>
+      </polygon>
+    </shape>
+    <shape name="fish" rotatable="false" editableColorIndex="0">
+      <polygon color="-1" filled="true" marked="false">
+        <point x="44" y="131"></point>
+        <point x="21" y="87"></point>
+        <point x="15" y="86"></point>
+        <point x="0" y="120"></point>
+        <point x="15" y="150"></point>
+        <point x="0" y="180"></point>
+        <point x="13" y="214"></point>
+        <point x="20" y="212"></point>
+        <point x="45" y="166"></point>
+      </polygon>
+      <polygon color="-1" filled="true" marked="false">
+        <point x="135" y="195"></point>
+        <point x="119" y="235"></point>
+        <point x="95" y="218"></point>
+        <point x="76" y="210"></point>
+        <point x="46" y="204"></point>
+        <point x="60" y="165"></point>
+      </polygon>
+      <polygon color="-1" filled="true" marked="false">
+        <point x="75" y="45"></point>
+        <point x="83" y="77"></point>
+        <point x="71" y="103"></point>
+        <point x="86" y="114"></point>
+        <point x="166" y="78"></point>
+        <point x="135" y="60"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="30" y="136"></point>
+        <point x="151" y="77"></point>
+        <point x="226" y="81"></point>
+        <point x="280" y="119"></point>
+        <point x="292" y="146"></point>
+        <point x="292" y="160"></point>
+        <point x="287" y="170"></point>
+        <point x="270" y="195"></point>
+        <point x="195" y="210"></point>
+        <point x="151" y="212"></point>
+        <point x="30" y="166"></point>
+      </polygon>
+      <circle x="215" y="106" marked="false" color="255" diameter="30" filled="true"></circle>
+    </shape>
+    <shape name="flag" rotatable="false" editableColorIndex="0">
+      <rectangle endX="75" startY="15" marked="true" color="-1920102913" endY="300" startX="60" filled="true"></rectangle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="90" y="150"></point>
+        <point x="270" y="90"></point>
+        <point x="90" y="30"></point>
+      </polygon>
+      <line endX="90" startY="135" marked="true" color="-1920102913" endY="135" startX="75"></line>
+      <line endX="90" startY="45" marked="true" color="-1920102913" endY="45" startX="75"></line>
+    </shape>
+    <shape name="flower" rotatable="false" editableColorIndex="0">
+      <polygon color="1504722175" filled="true" marked="false">
+        <point x="135" y="120"></point>
+        <point x="165" y="165"></point>
+        <point x="180" y="210"></point>
+        <point x="180" y="240"></point>
+        <point x="150" y="300"></point>
+        <point x="165" y="300"></point>
+        <point x="195" y="240"></point>
+        <point x="195" y="195"></point>
+        <point x="165" y="135"></point>
+      </polygon>
+      <circle x="85" y="132" marked="true" color="-1920102913" diameter="38" filled="true"></circle>
+      <circle x="130" y="147" marked="true" color="-1920102913" diameter="38" filled="true"></circle>
+      <circle x="192" y="85" marked="true" color="-1920102913" diameter="38" filled="true"></circle>
+      <circle x="85" y="40" marked="true" color="-1920102913" diameter="38" filled="true"></circle>
+      <circle x="177" y="40" marked="true" color="-1920102913" diameter="38" filled="true"></circle>
+      <circle x="177" y="132" marked="true" color="-1920102913" diameter="38" filled="true"></circle>
+      <circle x="70" y="85" marked="true" color="-1920102913" diameter="38" filled="true"></circle>
+      <circle x="130" y="25" marked="true" color="-1920102913" diameter="38" filled="true"></circle>
+      <circle x="96" y="51" marked="true" color="-1920102913" diameter="108" filled="true"></circle>
+      <circle x="113" y="68" marked="false" color="255" diameter="74" filled="true"></circle>
+      <polygon color="1504722175" filled="true" marked="false">
+        <point x="189" y="233"></point>
+        <point x="219" y="188"></point>
+        <point x="249" y="173"></point>
+        <point x="279" y="188"></point>
+        <point x="234" y="218"></point>
+      </polygon>
+      <polygon color="1504722175" filled="true" marked="false">
+        <point x="180" y="255"></point>
+        <point x="150" y="210"></point>
+        <point x="105" y="210"></point>
+        <point x="75" y="240"></point>
+        <point x="135" y="240"></point>
+      </polygon>
+    </shape>
+    <shape name="house" rotatable="false" editableColorIndex="0">
+      <rectangle endX="255" startY="120" marked="true" color="-1920102913" endY="285" startX="45" filled="true"></rectangle>
+      <rectangle endX="180" startY="210" marked="false" color="255" endY="285" startX="120" filled="true"></rectangle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="15" y="120"></point>
+        <point x="150" y="15"></point>
+        <point x="285" y="120"></point>
+      </polygon>
+      <line endX="270" startY="120" marked="false" color="255" endY="120" startX="30"></line>
+    </shape>
+    <shape name="leaf" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="210"></point>
+        <point x="135" y="195"></point>
+        <point x="120" y="210"></point>
+        <point x="60" y="210"></point>
+        <point x="30" y="195"></point>
+        <point x="60" y="180"></point>
+        <point x="60" y="165"></point>
+        <point x="15" y="135"></point>
+        <point x="30" y="120"></point>
+        <point x="15" y="105"></point>
+        <point x="40" y="104"></point>
+        <point x="45" y="90"></point>
+        <point x="60" y="90"></point>
+        <point x="90" y="105"></point>
+        <point x="105" y="120"></point>
+        <point x="120" y="120"></point>
+        <point x="105" y="60"></point>
+        <point x="120" y="60"></point>
+        <point x="135" y="30"></point>
+        <point x="150" y="15"></point>
+        <point x="165" y="30"></point>
+        <point x="180" y="60"></point>
+        <point x="195" y="60"></point>
+        <point x="180" y="120"></point>
+        <point x="195" y="120"></point>
+        <point x="210" y="105"></point>
+        <point x="240" y="90"></point>
+        <point x="255" y="90"></point>
+        <point x="263" y="104"></point>
+        <point x="285" y="105"></point>
+        <point x="270" y="120"></point>
+        <point x="285" y="135"></point>
+        <point x="240" y="165"></point>
+        <point x="240" y="180"></point>
+        <point x="270" y="195"></point>
+        <point x="240" y="210"></point>
+        <point x="180" y="210"></point>
+        <point x="165" y="195"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="135" y="195"></point>
+        <point x="135" y="240"></point>
+        <point x="120" y="255"></point>
+        <point x="105" y="255"></point>
+        <point x="105" y="285"></point>
+        <point x="135" y="285"></point>
+        <point x="165" y="240"></point>
+        <point x="165" y="195"></point>
+      </polygon>
+    </shape>
+    <shape name="line" rotatable="true" editableColorIndex="0">
+      <line endX="150" startY="0" marked="true" color="-1920102913" endY="300" startX="150"></line>
+    </shape>
+    <shape name="line half" rotatable="true" editableColorIndex="0">
+      <line endX="150" startY="0" marked="true" color="-1920102913" endY="150" startX="150"></line>
+    </shape>
+    <shape name="pentagon" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="15"></point>
+        <point x="15" y="120"></point>
+        <point x="60" y="285"></point>
+        <point x="240" y="285"></point>
+        <point x="285" y="120"></point>
+      </polygon>
+    </shape>
+    <shape name="person" rotatable="false" editableColorIndex="0">
+      <circle x="110" y="5" marked="true" color="-1920102913" diameter="80" filled="true"></circle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="105" y="90"></point>
+        <point x="120" y="195"></point>
+        <point x="90" y="285"></point>
+        <point x="105" y="300"></point>
+        <point x="135" y="300"></point>
+        <point x="150" y="225"></point>
+        <point x="165" y="300"></point>
+        <point x="195" y="300"></point>
+        <point x="210" y="285"></point>
+        <point x="180" y="195"></point>
+        <point x="195" y="90"></point>
+      </polygon>
+      <rectangle endX="172" startY="79" marked="true" color="-1920102913" endY="94" startX="127" filled="true"></rectangle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="195" y="90"></point>
+        <point x="240" y="150"></point>
+        <point x="225" y="180"></point>
+        <point x="165" y="105"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="105" y="90"></point>
+        <point x="60" y="150"></point>
+        <point x="75" y="180"></point>
+        <point x="135" y="105"></point>
+      </polygon>
+    </shape>
+    <shape name="plant" rotatable="false" editableColorIndex="0">
+      <rectangle endX="165" startY="90" marked="true" color="-1920102913" endY="300" startX="135" filled="true"></rectangle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="135" y="255"></point>
+        <point x="90" y="210"></point>
+        <point x="45" y="195"></point>
+        <point x="75" y="255"></point>
+        <point x="135" y="285"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="165" y="255"></point>
+        <point x="210" y="210"></point>
+        <point x="255" y="195"></point>
+        <point x="225" y="255"></point>
+        <point x="165" y="285"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="135" y="180"></point>
+        <point x="90" y="135"></point>
+        <point x="45" y="120"></point>
+        <point x="75" y="180"></point>
+        <point x="135" y="210"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="165" y="180"></point>
+        <point x="165" y="210"></point>
+        <point x="225" y="180"></point>
+        <point x="255" y="120"></point>
+        <point x="210" y="135"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="135" y="105"></point>
+        <point x="90" y="60"></point>
+        <point x="45" y="45"></point>
+        <point x="75" y="105"></point>
+        <point x="135" y="135"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="165" y="105"></point>
+        <point x="165" y="135"></point>
+        <point x="225" y="105"></point>
+        <point x="255" y="45"></point>
+        <point x="210" y="60"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="135" y="90"></point>
+        <point x="120" y="45"></point>
+        <point x="150" y="15"></point>
+        <point x="180" y="45"></point>
+        <point x="165" y="90"></point>
+      </polygon>
+    </shape>
+    <shape name="sheep" rotatable="false" editableColorIndex="15">
+      <circle x="203" y="65" marked="true" color="-1" diameter="88" filled="true"></circle>
+      <circle x="70" y="65" marked="true" color="-1" diameter="162" filled="true"></circle>
+      <circle x="150" y="105" marked="true" color="-1" diameter="120" filled="true"></circle>
+      <polygon color="-1920102913" filled="true" marked="false">
+        <point x="218" y="120"></point>
+        <point x="240" y="165"></point>
+        <point x="255" y="165"></point>
+        <point x="278" y="120"></point>
+      </polygon>
+      <circle x="214" y="72" marked="false" color="-1920102913" diameter="67" filled="true"></circle>
+      <rectangle endX="179" startY="223" marked="true" color="-1" endY="298" startX="164" filled="true"></rectangle>
+      <polygon color="-1" filled="true" marked="true">
+        <point x="45" y="285"></point>
+        <point x="30" y="285"></point>
+        <point x="30" y="240"></point>
+        <point x="15" y="195"></point>
+        <point x="45" y="210"></point>
+      </polygon>
+      <circle x="3" y="83" marked="true" color="-1" diameter="150" filled="true"></circle>
+      <rectangle endX="80" startY="221" marked="true" color="-1" endY="296" startX="65" filled="true"></rectangle>
+      <polygon color="-1" filled="true" marked="true">
+        <point x="195" y="285"></point>
+        <point x="210" y="285"></point>
+        <point x="210" y="240"></point>
+        <point x="240" y="210"></point>
+        <point x="195" y="210"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="false">
+        <point x="276" y="85"></point>
+        <point x="285" y="105"></point>
+        <point x="302" y="99"></point>
+        <point x="294" y="83"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="false">
+        <point x="219" y="85"></point>
+        <point x="210" y="105"></point>
+        <point x="193" y="99"></point>
+        <point x="201" y="83"></point>
+      </polygon>
+    </shape>
+    <shape name="square" rotatable="false" editableColorIndex="0">
+      <rectangle endX="270" startY="30" marked="true" color="-1920102913" endY="270" startX="30" filled="true"></rectangle>
+    </shape>
+    <shape name="square 2" rotatable="false" editableColorIndex="0">
+      <rectangle endX="270" startY="30" marked="true" color="-1920102913" endY="270" startX="30" filled="true"></rectangle>
+      <rectangle endX="240" startY="60" marked="false" color="255" endY="240" startX="60" filled="true"></rectangle>
+    </shape>
+    <shape name="star" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="151" y="1"></point>
+        <point x="185" y="108"></point>
+        <point x="298" y="108"></point>
+        <point x="207" y="175"></point>
+        <point x="242" y="282"></point>
+        <point x="151" y="216"></point>
+        <point x="59" y="282"></point>
+        <point x="94" y="175"></point>
+        <point x="3" y="108"></point>
+        <point x="116" y="108"></point>
+      </polygon>
+    </shape>
+    <shape name="target" rotatable="false" editableColorIndex="0">
+      <circle x="0" y="0" marked="true" color="-1920102913" diameter="300" filled="true"></circle>
+      <circle x="30" y="30" marked="false" color="255" diameter="240" filled="true"></circle>
+      <circle x="60" y="60" marked="true" color="-1920102913" diameter="180" filled="true"></circle>
+      <circle x="90" y="90" marked="false" color="255" diameter="120" filled="true"></circle>
+      <circle x="120" y="120" marked="true" color="-1920102913" diameter="60" filled="true"></circle>
+    </shape>
+    <shape name="tree" rotatable="false" editableColorIndex="0">
+      <circle x="118" y="3" marked="true" color="-1920102913" diameter="94" filled="true"></circle>
+      <rectangle endX="180" startY="195" marked="false" color="-1653716737" endY="300" startX="120" filled="true"></rectangle>
+      <circle x="65" y="21" marked="true" color="-1920102913" diameter="108" filled="true"></circle>
+      <circle x="116" y="41" marked="true" color="-1920102913" diameter="127" filled="true"></circle>
+      <circle x="45" y="90" marked="true" color="-1920102913" diameter="120" filled="true"></circle>
+      <circle x="104" y="74" marked="true" color="-1920102913" diameter="152" filled="true"></circle>
+    </shape>
+    <shape name="triangle" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="30"></point>
+        <point x="15" y="255"></point>
+        <point x="285" y="255"></point>
+      </polygon>
+    </shape>
+    <shape name="triangle 2" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="30"></point>
+        <point x="15" y="255"></point>
+        <point x="285" y="255"></point>
+      </polygon>
+      <polygon color="255" filled="true" marked="false">
+        <point x="151" y="99"></point>
+        <point x="225" y="223"></point>
+        <point x="75" y="224"></point>
+      </polygon>
+    </shape>
+    <shape name="truck" rotatable="false" editableColorIndex="0">
+      <rectangle endX="195" startY="45" marked="true" color="-1920102913" endY="187" startX="4" filled="true"></rectangle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="296" y="193"></point>
+        <point x="296" y="150"></point>
+        <point x="259" y="134"></point>
+        <point x="244" y="104"></point>
+        <point x="208" y="104"></point>
+        <point x="207" y="194"></point>
+      </polygon>
+      <rectangle endX="195" startY="60" marked="false" color="-1" endY="105" startX="195" filled="true"></rectangle>
+      <polygon color="255" filled="true" marked="false">
+        <point x="238" y="112"></point>
+        <point x="252" y="141"></point>
+        <point x="219" y="141"></point>
+        <point x="218" y="112"></point>
+      </polygon>
+      <circle x="234" y="174" marked="false" color="255" diameter="42" filled="true"></circle>
+      <rectangle endX="214" startY="185" marked="true" color="-1920102913" endY="194" startX="181" filled="true"></rectangle>
+      <circle x="144" y="174" marked="false" color="255" diameter="42" filled="true"></circle>
+      <circle x="24" y="174" marked="false" color="255" diameter="42" filled="true"></circle>
+      <circle x="24" y="174" marked="true" color="-1920102913" diameter="42" filled="false"></circle>
+      <circle x="144" y="174" marked="true" color="-1920102913" diameter="42" filled="false"></circle>
+      <circle x="234" y="174" marked="true" color="-1920102913" diameter="42" filled="false"></circle>
+    </shape>
+    <shape name="turtle" rotatable="true" editableColorIndex="0">
+      <polygon color="1504722175" filled="true" marked="false">
+        <point x="215" y="204"></point>
+        <point x="240" y="233"></point>
+        <point x="246" y="254"></point>
+        <point x="228" y="266"></point>
+        <point x="215" y="252"></point>
+        <point x="193" y="210"></point>
+      </polygon>
+      <polygon color="1504722175" filled="true" marked="false">
+        <point x="195" y="90"></point>
+        <point x="225" y="75"></point>
+        <point x="245" y="75"></point>
+        <point x="260" y="89"></point>
+        <point x="269" y="108"></point>
+        <point x="261" y="124"></point>
+        <point x="240" y="105"></point>
+        <point x="225" y="105"></point>
+        <point x="210" y="105"></point>
+      </polygon>
+      <polygon color="1504722175" filled="true" marked="false">
+        <point x="105" y="90"></point>
+        <point x="75" y="75"></point>
+        <point x="55" y="75"></point>
+        <point x="40" y="89"></point>
+        <point x="31" y="108"></point>
+        <point x="39" y="124"></point>
+        <point x="60" y="105"></point>
+        <point x="75" y="105"></point>
+        <point x="90" y="105"></point>
+      </polygon>
+      <polygon color="1504722175" filled="true" marked="false">
+        <point x="132" y="85"></point>
+        <point x="134" y="64"></point>
+        <point x="107" y="51"></point>
+        <point x="108" y="17"></point>
+        <point x="150" y="2"></point>
+        <point x="192" y="18"></point>
+        <point x="192" y="52"></point>
+        <point x="169" y="65"></point>
+        <point x="172" y="87"></point>
+      </polygon>
+      <polygon color="1504722175" filled="true" marked="false">
+        <point x="85" y="204"></point>
+        <point x="60" y="233"></point>
+        <point x="54" y="254"></point>
+        <point x="72" y="266"></point>
+        <point x="85" y="252"></point>
+        <point x="107" y="210"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="119" y="75"></point>
+        <point x="179" y="75"></point>
+        <point x="209" y="101"></point>
+        <point x="224" y="135"></point>
+        <point x="220" y="225"></point>
+        <point x="175" y="261"></point>
+        <point x="128" y="261"></point>
+        <point x="81" y="224"></point>
+        <point x="74" y="135"></point>
+        <point x="88" y="99"></point>
+      </polygon>
+    </shape>
+    <shape name="wheel" rotatable="false" editableColorIndex="0">
+      <circle x="3" y="3" marked="true" color="-1920102913" diameter="294" filled="true"></circle>
+      <circle x="30" y="30" marked="false" color="255" diameter="240" filled="true"></circle>
+      <line endX="150" startY="285" marked="true" color="-1920102913" endY="15" startX="150"></line>
+      <line endX="285" startY="150" marked="true" color="-1920102913" endY="150" startX="15"></line>
+      <circle x="120" y="120" marked="true" color="-1920102913" diameter="60" filled="true"></circle>
+      <line endX="79" startY="40" marked="true" color="-1920102913" endY="269" startX="216"></line>
+      <line endX="269" startY="84" marked="true" color="-1920102913" endY="221" startX="40"></line>
+      <line endX="269" startY="216" marked="true" color="-1920102913" endY="79" startX="40"></line>
+      <line endX="221" startY="40" marked="true" color="-1920102913" endY="269" startX="84"></line>
+    </shape>
+    <shape name="wolf" rotatable="false" editableColorIndex="0">
+      <polygon color="255" filled="true" marked="false">
+        <point x="253" y="133"></point>
+        <point x="245" y="131"></point>
+        <point x="245" y="133"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="2" y="194"></point>
+        <point x="13" y="197"></point>
+        <point x="30" y="191"></point>
+        <point x="38" y="193"></point>
+        <point x="38" y="205"></point>
+        <point x="20" y="226"></point>
+        <point x="20" y="257"></point>
+        <point x="27" y="265"></point>
+        <point x="38" y="266"></point>
+        <point x="40" y="260"></point>
+        <point x="31" y="253"></point>
+        <point x="31" y="230"></point>
+        <point x="60" y="206"></point>
+        <point x="68" y="198"></point>
+        <point x="75" y="209"></point>
+        <point x="66" y="228"></point>
+        <point x="65" y="243"></point>
+        <point x="82" y="261"></point>
+        <point x="84" y="268"></point>
+        <point x="100" y="267"></point>
+        <point x="103" y="261"></point>
+        <point x="77" y="239"></point>
+        <point x="79" y="231"></point>
+        <point x="100" y="207"></point>
+        <point x="98" y="196"></point>
+        <point x="119" y="201"></point>
+        <point x="143" y="202"></point>
+        <point x="160" y="195"></point>
+        <point x="166" y="210"></point>
+        <point x="172" y="213"></point>
+        <point x="173" y="238"></point>
+        <point x="167" y="251"></point>
+        <point x="160" y="248"></point>
+        <point x="154" y="265"></point>
+        <point x="169" y="264"></point>
+        <point x="178" y="247"></point>
+        <point x="186" y="240"></point>
+        <point x="198" y="260"></point>
+        <point x="200" y="271"></point>
+        <point x="217" y="271"></point>
+        <point x="219" y="262"></point>
+        <point x="207" y="258"></point>
+        <point x="195" y="230"></point>
+        <point x="192" y="198"></point>
+        <point x="210" y="184"></point>
+        <point x="227" y="164"></point>
+        <point x="242" y="144"></point>
+        <point x="259" y="145"></point>
+        <point x="284" y="151"></point>
+        <point x="277" y="141"></point>
+        <point x="293" y="140"></point>
+        <point x="299" y="134"></point>
+        <point x="297" y="127"></point>
+        <point x="273" y="119"></point>
+        <point x="270" y="105"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="-1" y="195"></point>
+        <point x="14" y="180"></point>
+        <point x="36" y="166"></point>
+        <point x="40" y="153"></point>
+        <point x="53" y="140"></point>
+        <point x="82" y="131"></point>
+        <point x="134" y="133"></point>
+        <point x="159" y="126"></point>
+        <point x="188" y="115"></point>
+        <point x="227" y="108"></point>
+        <point x="236" y="102"></point>
+        <point x="238" y="98"></point>
+        <point x="268" y="86"></point>
+        <point x="269" y="92"></point>
+        <point x="281" y="87"></point>
+        <point x="269" y="103"></point>
+        <point x="269" y="113"></point>
+      </polygon>
+    </shape>
+    <shape name="x" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="270" y="75"></point>
+        <point x="225" y="30"></point>
+        <point x="30" y="225"></point>
+        <point x="75" y="270"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="30" y="75"></point>
+        <point x="75" y="30"></point>
+        <point x="270" y="225"></point>
+        <point x="225" y="270"></point>
+      </polygon>
+    </shape>
+  </turtleShapes>
+  <linkShapes>
+    <shape name="default" curviness="0.0">
+      <lines>
+        <line x="-0.2" visible="false">
+          <dash value="0.0"></dash>
+          <dash value="1.0"></dash>
+        </line>
+        <line x="0.0" visible="true">
+          <dash value="1.0"></dash>
+          <dash value="0.0"></dash>
+        </line>
+        <line x="0.2" visible="false">
+          <dash value="0.0"></dash>
+          <dash value="1.0"></dash>
+        </line>
+      </lines>
+      <indicator>
+        <shape name="link direction" rotatable="true" editableColorIndex="0">
+          <line endX="90" startY="150" marked="true" color="-1920102913" endY="180" startX="150"></line>
+          <line endX="210" startY="150" marked="true" color="-1920102913" endY="180" startX="150"></line>
+        </shape>
+      </indicator>
+    </shape>
+  </linkShapes>
+  <previewCommands>setup repeat 75 [ go ]</previewCommands>
+</model>
