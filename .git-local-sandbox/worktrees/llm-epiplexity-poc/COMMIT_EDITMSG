@@ -1,0 +1,9 @@
+fix: correct llm:set-history format and add LLM initialization
+
+- Fixed llm:set-history in epiplexity-game-of-life.nlogo to use flat
+  list of alternating user/assistant strings instead of nested lists
+  with role labels (per API spec)
+- Added setup-llm procedure to bounded-observer-diversity.nlogo to
+  load config file with API keys
+- Added provider readiness check in observe-with-all to skip
+  unavailable providers gracefully with helpful error messages

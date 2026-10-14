@@ -1,0 +1,63 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = false
+	logallrefupdates = true
+	ignorecase = true
+	precomposeunicode = true
+	hooksPath = /dev/null
+[remote "llm"]
+	url = https://github.com/JNK234/Netlogo-LLM-Extension.git
+	fetch = +refs/heads/*:refs/remotes/llm/*
+[pull]
+	rebase = false
+[branch "main"]
+	remote = llm
+	merge = refs/heads/main
+[remote "thebizzle"]
+	url = https://github.com/TheBizzle/LLM-Extension.git
+	fetch = +refs/heads/*:refs/remotes/thebizzle/*
+[branch "pr-1-with-path-fix"]
+	remote = thebizzle
+	merge = refs/heads/main
+	vscode-merge-base = thebizzle/main
+	vscode-merge-base = thebizzle/main
+[branch "local-treasure-hunt"]
+	remote = llm
+	merge = refs/heads/claude/treasure-hunt-llm-agents-011CUWkpMWAkoBPBVG1Ut2mn
+	vscode-merge-base = llm/claude/treasure-hunt-llm-agents-011CUWkpMWAkoBPBVG1Ut2mn
+	vscode-merge-base = llm/claude/treasure-hunt-llm-agents-011CUWkpMWAkoBPBVG1Ut2mn
+[branch "config-update"]
+	vscode-merge-base = llm/claude/treasure-hunt-llm-agents-011CUWkpMWAkoBPBVG1Ut2mn
+	remote = llm
+	merge = refs/heads/config-update
+[branch "config-update-clean"]
+	vscode-merge-base = llm/main
+[branch "config-validation-only"]
+	remote = llm
+	merge = refs/heads/config-validation-only
+[branch "treasure-hunt-improvements"]
+	remote = llm
+	merge = refs/heads/treasure-hunt-improvements
+	vscode-merge-base = llm/config-validation-only
+[branch "refactor/issue-6-code-review"]
+	vscode-merge-base = llm/config-update
+	remote = llm
+	merge = refs/heads/refactor/issue-6-code-review
+[user]
+	name = JNK234
+	email = jwalapuramnarasimha@gmail.com
+[remote "origin"]
+	url = https://github.com/JNK234/Netlogo-LLM-Extension.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "feature/epiplexity-01-full-context"]
+	remote = origin
+	merge = refs/heads/feature/epiplexity-01-full-context
+[branch "feature/epiplexity-02-full-context"]
+	remote = origin
+	merge = refs/heads/feature/epiplexity-02-full-context
+[commit]
+	gpgsign = false
+[branch "feature/flocking-boids"]
+	remote = origin
+	merge = refs/heads/feature/flocking-boids

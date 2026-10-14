@@ -1,0 +1,9 @@
+0000000000000000000000000000000000000000 db9bc60ee5ba71a978aede09108e3e7a846ae4c6 JNK234 <jwalapuramnarasimha@gmail.com> 1770490980 +0530	branch: Created from HEAD
+db9bc60ee5ba71a978aede09108e3e7a846ae4c6 5bd002965c824ba0f1922ad3be30d689d5237931 JNK234 <jwalapuramnarasimha@gmail.com> 1770491254 +0530	commit: feat(epiplexity): Add Game of Life model with LLM prediction observer
+5bd002965c824ba0f1922ad3be30d689d5237931 94e6ca5d9c29c18e3f564b4ffeef86ff62f20035 JNK234 <jwalapuramnarasimha@gmail.com> 1770491259 +0530	commit: feat(epiplexity): Add LLM configuration for epiplexity demo
+94e6ca5d9c29c18e3f564b4ffeef86ff62f20035 df71dd0e657eba36e1395d88a88a11d7ea2003d0 JNK234 <jwalapuramnarasimha@gmail.com> 1770491264 +0530	commit: docs(epiplexity): Add comprehensive README for epiplexity demo
+df71dd0e657eba36e1395d88a88a11d7ea2003d0 d461e476f5c57203df051a10107d50becb0e495b JNK234 <jwalapuramnarasimha@gmail.com> 1770491274 +0530	commit: feat: add bounded observer diversity NetLogo model
+d461e476f5c57203df051a10107d50becb0e495b e96cbc006499cb1fafc736903464fa4007354e87 JNK234 <jwalapuramnarasimha@gmail.com> 1770491279 +0530	commit: docs: add README for bounded observer diversity demo
+e96cbc006499cb1fafc736903464fa4007354e87 69030bfeb68f3ae961cc709dc02a80b3b90bc38e JNK234 <jwalapuramnarasimha@gmail.com> 1770491294 +0530	commit: config: add LLM configuration template for bounded observer demo
+69030bfeb68f3ae961cc709dc02a80b3b90bc38e 98958b40b3329049b2595b212d8e73d224853cb9 JNK234 <jwalapuramnarasimha@gmail.com> 1770491300 +0530	commit: docs: add sample results and analysis for bounded observer demo
+98958b40b3329049b2595b212d8e73d224853cb9 111e3e390fec39ceade3b35d19164b1046d628e6 JNK234 <jwalapuramnarasimha@gmail.com> 1770491699 +0530	commit: fix: correct llm:set-history format and add LLM initialization

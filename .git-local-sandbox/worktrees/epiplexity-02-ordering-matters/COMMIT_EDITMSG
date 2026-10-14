@@ -1,0 +1,9 @@
+Add Ordering Matters demo (Epiplexity #5) - Bronze
+
+Tests if LLM learns rules differently based on example presentation order.
+- 3 agents: forward, reversed, shuffled ordering
+- 5 hidden rules to test (rules.yaml)
+- LLM templates for hypothesis generation and judging
+- BehaviorSpace experiment: 5 rules × 3 orders × 3 seeds
+- Plot script with placeholder visualization
+- Auto-exports results.csv

@@ -1,0 +1,9 @@
+0000000000000000000000000000000000000000 5048b1cc71089940eb1bf315c8eeeb2b7d614b83 JNK234 <jwalapuramnarasimha@gmail.com> 1768076257 -0600	branch: Created from HEAD
+5048b1cc71089940eb1bf315c8eeeb2b7d614b83 47d74f1174c886284a53544ed11732a987037164 JNK234 <jwalapuramnarasimha@gmail.com> 1768076434 -0600	commit: refactor: replace awkward re-throw pattern with guard clause
+47d74f1174c886284a53544ed11732a987037164 b35a8c25b9d34b6b082826ec36bfb6fd6cb52ea7 JNK234 <jwalapuramnarasimha@gmail.com> 1768076503 -0600	commit: refactor: simplify timeout parsing with Option-based approach
+b35a8c25b9d34b6b082826ec36bfb6fd6cb52ea7 0247efda9bedf1410e69c7a53ecabcfc434568ab JNK234 <jwalapuramnarasimha@gmail.com> 1768076566 -0600	commit: refactor: simplify config parsing with regex pattern matching
+0247efda9bedf1410e69c7a53ecabcfc434568ab 8b12b85b7fa6d5c2ace8b7e5b58f68d909d97ea7 JNK234 <jwalapuramnarasimha@gmail.com> 1768076681 -0600	commit: refactor: replace manual locking with ConcurrentHashMap
+8b12b85b7fa6d5c2ace8b7e5b58f68d909d97ea7 61bfe729b53ebe16a02486e3e348aa4a7d96ff7a JNK234 <jwalapuramnarasimha@gmail.com> 1768077284 -0600	commit: refactor: create BaseHttpProvider to reduce provider boilerplate
+61bfe729b53ebe16a02486e3e348aa4a7d96ff7a a77ec3bad846996acd377e55451d134def2b7e2a JNK234 <jwalapuramnarasimha@gmail.com> 1768079915 -0600	commit: fix: handle missing parts in Gemini response when MAX_TOKENS reached
+a77ec3bad846996acd377e55451d134def2b7e2a db9bc60ee5ba71a978aede09108e3e7a846ae4c6 JNK234 <jwalapuramnarasimha@gmail.com> 1768082024 -0600	commit: fix: use def instead of val to avoid Scala initialization order bug
+db9bc60ee5ba71a978aede09108e3e7a846ae4c6 1748657b68b2e4a81833a6789a0db1cf542c2179 JNK234 <jwalapuramnarasimha@gmail.com> 1771229699 +0530	commit: refactor: convert model validation from hard block to soft warning
