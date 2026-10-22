@@ -13,26 +13,99 @@ import scala.concurrent.{Future, ExecutionContext, Promise}
 import scala.concurrent.duration._
 import scala.util.{Try, Success, Failure}
 
+/** A non-success HTTP response, carrying the status code so callers can branch on it. */
+class HttpStatusException(val statusCode: Int, val errorBody: String, message: String)
+  extends RuntimeException(message)
+
 object BaseHttpProvider {
   /** Waits at or above this are announced on stderr so a stall isn't mistaken for a hang. */
   private[providers] val WaitNoticeThresholdMs = 2000L
 
   // Process-wide counters so a modeler can tell how much of a run was spent
-  // sitting out rate limits, rather than guessing from wall-clock time.
-  private[providers] val rateLimitWaits = new java.util.concurrent.atomic.LongAdder()
-  private[providers] val rateLimitWaitMillis = new java.util.concurrent.atomic.LongAdder()
+  // sitting out retries (rate limits, server errors, overloads, network
+  // failures), rather than guessing from wall-clock time.
+  private[providers] val retryWaits = new java.util.concurrent.atomic.LongAdder()
+  private[providers] val retryWaitMillis = new java.util.concurrent.atomic.LongAdder()
 
-  /** Number of rate-limit waits that have been announced this session. */
-  def rateLimitWaitCount: Long = rateLimitWaits.sum()
+  /** Number of retry waits that have been announced this session. */
+  def retryWaitCount: Long = retryWaits.sum()
 
-  /** Total milliseconds spent waiting out announced rate limits this session. */
-  def rateLimitWaitTotalMs: Long = rateLimitWaitMillis.sum()
+  /** Total milliseconds spent in announced retry waits this session. */
+  def retryWaitTotalMs: Long = retryWaitMillis.sum()
 
-  /** Reset the rate-limit counters. Primarily for tests and fresh runs. */
-  def resetRateLimitStats(): Unit = {
-    rateLimitWaits.reset()
-    rateLimitWaitMillis.reset()
+  // (provider, model) pairs already told that schema-constrained output is unsupported.
+  private[providers] val responseFormatFallbackNoticed: java.util.Set[String] =
+    java.util.concurrent.ConcurrentHashMap.newKeySet[String]()
+
+  /**
+   * True when a 400 says the model rejected the requested response_format, as
+   * opposed to any other bad request (bad key, unknown model) that must still fail.
+   */
+  private[providers] def isResponseFormatUnsupported(e: HttpStatusException): Boolean = {
+    val body = e.errorBody.toLowerCase
+    e.statusCode == 400 &&
+      Seq("response_format", "json_schema", "json_object", "structured", "not supported", "unsupported")
+        .exists(body.contains)
   }
+
+  /** Reset the retry-wait counters. Primarily for tests and fresh runs. */
+  def resetRetryWaitStats(): Unit = {
+    retryWaits.reset()
+    retryWaitMillis.reset()
+  }
+
+  /**
+   * Server-side statuses worth retrying: the request was fine, the provider was
+   * briefly unable to serve it. 529 is Anthropic's "overloaded". 429 is handled
+   * separately because it also carries a requested delay and quota guidance.
+   */
+  val TransientStatuses: Set[Int] = Set(500, 502, 503, 504, 529)
+
+  /** `e` and its chain of causes, outermost first. */
+  private[providers] def causes(e: Throwable): List[Throwable] =
+    Iterator.iterate(e)(_.getCause).takeWhile(_ != null).take(16).toList
+
+  /**
+   * Whether a failed send is a transport hiccup worth retrying: the connection
+   * could not be opened, dropped mid-read, or timed out. Checked across the
+   * cause chain because backends and Future plumbing wrap the original error.
+   */
+  def isTransientFailure(e: Throwable): Boolean =
+    !isUnknownHost(e) && causes(e).exists {
+      case _: SttpClientException.ConnectException | _: SttpClientException.ReadException => true
+      case _: java.net.ConnectException | _: java.net.SocketTimeoutException => true
+      case _: java.net.http.HttpTimeoutException => true
+      case _ => false
+    }
+
+  /**
+   * Whether a failed send is a host name that does not resolve. java.net.http
+   * reports this as a ConnectException caused by UnresolvedAddressException, so
+   * it would otherwise look like a refused connection. Not retried: a mistyped
+   * base URL will not resolve on the next attempt either.
+   */
+  def isUnknownHost(e: Throwable): Boolean =
+    causes(e).exists {
+      case _: java.nio.channels.UnresolvedAddressException | _: java.net.UnknownHostException => true
+      case _ => false
+    }
+
+  /**
+   * Whether an error body says the API key itself was rejected. Gemini reports a
+   * bad key as HTTP 400 with reason API_KEY_INVALID rather than as a 401.
+   */
+  def isInvalidApiKey(code: Int, errorBody: String): Boolean =
+    code == 401 || errorBody.contains("API_KEY_INVALID")
+
+  /**
+   * The stderr line announcing a retry wait, e.g.
+   * "NOTE: Anthropic returned HTTP 529 (overloaded); retrying in 2.0s (attempt 2 of 4)".
+   * `attempt` is the 0-based attempt that just failed; attempts are counted 1-based
+   * out of the initial request plus every allowed retry.
+   */
+  def retryWaitNotice(provider: String, cause: String, delayMs: Long, attempt: Int, maxRetries: Int): String =
+    f"NOTE: $provider $cause; retrying in ${delayMs / 1000.0}%.1fs " +
+    s"(attempt ${attempt + 2} of ${maxRetries + 1})"
 
   // Single daemon thread schedules retry attempts. Daemon so it never blocks JVM
   // shutdown; one idle thread persists across extension reloads, which is fine.
@@ -73,7 +146,8 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
   // constructing the real HTTP client.
   protected lazy val backend: Backend[Future] = HttpClientFutureBackend()
 
-  // Retry policy for rate-limit (HTTP 429) responses. retryBaseDelayMs is a
+  // Retry policy for rate-limit (HTTP 429) responses and other transient
+  // failures (5xx, 529, connect/read timeouts). retryBaseDelayMs is a
   // protected def so tests can shrink the delays.
   protected def retryBaseDelayMs: Long = RetryPolicy.DefaultBaseDelay.toMillis
 
@@ -114,26 +188,42 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
   protected def requestThrottle: Option[RequestThrottle] =
     RequestThrottle.forProvider(
       providerName,
-      configStore.get(baseUrlConfigKey).getOrElse(defaultBaseUrl),
+      resolvedBaseUrl,
       configStore.get(RequestThrottle.MAX_CONCURRENT_REQUESTS),
       configStore.get(RequestThrottle.MIN_REQUEST_INTERVAL_MS)
     )
 
   /**
-   * Reports a rate-limit wait to the modeler. A silent multi-second stall inside
+   * Reports a retry wait to the modeler. A silent multi-second stall inside
    * `go` is indistinguishable from a hang, so long waits are announced on stderr.
    * Short waits stay quiet to avoid spamming the console on routine backoff.
+   *
+   * @param cause what is being waited out, e.g. "returned HTTP 529 (overloaded)"
    */
-  protected def notifyRateLimitWait(delayMs: Long, attempt: Int, maxRetries: Int): Unit =
+  protected def notifyRetryWait(delayMs: Long, attempt: Int, maxRetries: Int, cause: String): Unit =
     if (delayMs >= BaseHttpProvider.WaitNoticeThresholdMs) {
-      System.err.println(
-        f"NOTE: $providerName rate limited (HTTP 429); waiting ${delayMs / 1000.0}%.1fs " +
-        s"before retry ${attempt + 1} of $maxRetries. " +
-        "Set retry_max_elapsed_seconds / retry_max_retries to tune, or reduce request rate."
-      )
-      BaseHttpProvider.rateLimitWaits.increment()
-      BaseHttpProvider.rateLimitWaitMillis.add(delayMs)
+      System.err.println(BaseHttpProvider.retryWaitNotice(displayName, cause, delayMs, attempt, maxRetries))
+      BaseHttpProvider.retryWaits.increment()
+      BaseHttpProvider.retryWaitMillis.add(delayMs)
     }
+
+  /**
+   * Tells the modeler, once per (provider, model), that structured output fell
+   * back to an unconstrained reply because the model rejected the response_format.
+   */
+  protected def notifyResponseFormatUnsupported(model: String): Unit =
+    System.err.println(
+      s"NOTE: $displayName model $model does not support schema-constrained output " +
+      "(HTTP 400 on response_format); resending without it, so the reply is unconstrained."
+    )
+
+  /** Human-readable provider name for messages, from the provider registry. */
+  def displayName: String =
+    ProviderRegistry.get(providerName).map(_.displayName).getOrElse(providerName)
+
+  /** Next step suggested when this provider's endpoint cannot be reached. */
+  protected def unreachableHint: String =
+    s"Check your network connection and $baseUrlConfigKey."
 
   // Initialize with provider-specific defaults
   initializeDefaults()
@@ -148,6 +238,11 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
   protected def requiresApiKey: Boolean
 
   protected def buildApiUrl(baseUrl: String): Uri
+
+  /** Base URL for requests: provider-specific key, then legacy base_url, then default. */
+  protected def resolvedBaseUrl: String =
+    ConfigStore.resolveBaseUrl(configStore, baseUrlConfigKey, defaultBaseUrl)
+
   protected def buildHeaders(apiKey: Option[String]): Map[String, String]
   protected def createProviderRequest(request: ChatRequest): ujson.Value
   protected def parseProviderResponse(responseBody: String, model: String): ChatResponse
@@ -156,11 +251,10 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
    * Initialize provider-specific default configuration
    */
   protected def initializeDefaults(): Unit = {
-    configStore.set(ConfigStore.PROVIDER, providerName)
-    configStore.set(ConfigStore.MODEL, defaultModel)
-    configStore.set(baseUrlConfigKey, defaultBaseUrl)
-    configStore.set(ConfigStore.TEMPERATURE, ConfigStore.DEFAULT_TEMPERATURE)
-    configStore.set(ConfigStore.MAX_TOKENS, defaultMaxTokens)
+    configStore.setDefault(ConfigStore.PROVIDER, providerName)
+    configStore.setDefault(ConfigStore.MODEL, defaultModel)
+    configStore.setDefault(ConfigStore.TEMPERATURE, ConfigStore.DEFAULT_TEMPERATURE)
+    configStore.setDefault(ConfigStore.MAX_TOKENS, defaultMaxTokens)
   }
 
   /**
@@ -168,7 +262,16 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
    */
   override def chat(request: ChatRequest): Future[ChatResponse] = {
     validateConfig() match {
-      case Success(_) => sendChatRequest(request)
+      case Success(_) =>
+        sendChatRequest(request).recoverWith {
+          // Some models reject response_format outright; resend once without it.
+          // Callers already prompt for the expected shape, so the reply still parses.
+          case e: HttpStatusException
+              if request.responseFormat.isDefined && BaseHttpProvider.isResponseFormatUnsupported(e) =>
+            if (BaseHttpProvider.responseFormatFallbackNoticed.add(s"$providerName/${request.model}"))
+              notifyResponseFormatUnsupported(request.model)
+            sendChatRequest(request.copy(responseFormat = None))
+        }
       case Failure(e) => Future.failed(e)
     }
   }
@@ -240,7 +343,7 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
       configStore.get(apiKeyConfigKey).orElse(configStore.get(ConfigStore.API_KEY))
     }
 
-    val baseUrl = configStore.get(baseUrlConfigKey).getOrElse(defaultBaseUrl)
+    val baseUrl = resolvedBaseUrl
     val apiUrl = buildApiUrl(baseUrl)
     val headers = buildHeaders(apiKey)
     val requestBody = createProviderRequest(request).toString()
@@ -269,9 +372,56 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
       errorBody
     )
 
+  /** Short reason shown next to an HTTP status in messages. */
+  protected def statusReason(code: Int): String = code match {
+    case 400 => "bad request"
+    case 401 => "invalid API key"
+    case 403 => "access denied"
+    case 404 => "not found"
+    case 408 => "request timeout"
+    case 413 => "request too large"
+    case 422 => "unprocessable request"
+    case 429 => "rate limited"
+    case 500 => "server error"
+    case 502 => "bad gateway"
+    case 503 => "service unavailable"
+    case 504 => "gateway timeout"
+    case 529 => "overloaded"
+    case _   => "error"
+  }
+
+  /** One next step for a request the provider rejected outright. */
+  protected def rejectedHint(code: Int): String = code match {
+    case 401 | 403 => s"Check $apiKeyConfigKey in your config or call llm:set-api-key."
+    case 404       => s"Check the model name and $baseUrlConfigKey."
+    case 413       => "Shorten the prompt or the conversation history."
+    case _         => "Check the model name and request settings in your config."
+  }
+
+  /** Short description of a transport failure, e.g. "connection refused". */
+  private def transportReason(e: Throwable): String = {
+    // Checked most-specific first across the whole chain: a TimeoutException is
+    // a ReadException. Unknown hosts never get here; see isUnknownHost.
+    val chain = BaseHttpProvider.causes(e)
+    def has(p: Throwable => Boolean): Boolean = chain.exists(p)
+    if (has {
+      case _: SttpClientException.TimeoutException | _: java.net.SocketTimeoutException |
+           _: java.net.http.HttpTimeoutException => true
+      case _ => false
+    }) "timed out"
+    else if (has {
+      case _: SttpClientException.ConnectException | _: java.net.ConnectException => true
+      case _ => false
+    }) "connection refused"
+    else if (has(_.isInstanceOf[SttpClientException.ReadException])) "connection dropped"
+    else "network error"
+  }
+
   /**
-   * Send an HTTP request, retrying rate-limit (HTTP 429) responses with jittered
-   * exponential backoff. Only rate-limit errors retry; all others fail immediately.
+   * Send an HTTP request, retrying transient failures with jittered exponential
+   * backoff: rate limits (HTTP 429), server errors (500, 502, 503, 504), Anthropic's
+   * 529 "overloaded", and connect/read timeouts. Every other error fails at once.
+   * All transient failures share the same RetryPolicy, backoff and budget.
    *
    * The delay the provider asks for wins over our own backoff when it is longer,
    * because retrying before a quota window reopens is guaranteed to fail. Waiting
@@ -292,32 +442,79 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
     val rng = retryRandom
     val startedAt = System.currentTimeMillis()
 
+    val baseUrl = resolvedBaseUrl
+
     def isRateLimited(code: StatusCode, error: String): Boolean =
       code.code == 429 || error.toLowerCase.contains("rate_limit")
 
+    def details(error: String): String = {
+      val trimmed = error.trim
+      if (trimmed.isEmpty) ""
+      else s" Details: ${if (trimmed.length > 300) trimmed.take(300) + "..." else trimmed}"
+    }
+
+    /** Wait and try again if the policy allows, otherwise fail with `exhausted`. */
+    def retryOrFail(n: Int, elapsedMs: Long, requestedMs: Option[Long], cause: String)(
+      exhausted: => Throwable
+    ): Future[ChatResponse] = {
+      val delayMs = policy.delayMsFor(n, requestedMs, rng)
+      if (policy.canRetry(n, elapsedMs, delayMs)) {
+        notifyRetryWait(delayMs, n, policy.maxRetries, cause)
+        BaseHttpProvider.delayedFuture(delayMs)(attempt(n + 1, elapsedMs + delayMs))
+      } else Future.failed(exhausted)
+    }
+
     def attempt(n: Int, elapsedMs: Long): Future[ChatResponse] =
-      httpRequest.send(backend).flatMap { response =>
-        response.body match {
-          case Right(responseBody) =>
-            Future.successful(parseProviderResponse(responseBody, model))
+      httpRequest.send(backend).transformWith {
+        case Success(response) =>
+          val code = response.code.code
+          response.body match {
+            case Right(responseBody) =>
+              Future.successful(parseProviderResponse(responseBody, model))
 
-          case Left(error) if isRateLimited(response.code, error) =>
-            val delayMs = policy.delayMsFor(n, parseRetryDelayMs(response, error), rng)
-            if (policy.canRetry(n, elapsedMs, delayMs)) {
-              notifyRateLimitWait(delayMs, n, policy.maxRetries)
-              BaseHttpProvider.delayedFuture(delayMs)(attempt(n + 1, elapsedMs + delayMs))
-            } else {
-              Future.failed(new RuntimeException(
-                s"HTTP request failed after ${n + 1} attempts " +
-                s"(rate limited, HTTP ${response.code.code}) after waiting " +
-                f"${elapsedMs / 1000.0}%.1fs: $error. " +
-                "This model's quota may be too low for this simulation - reduce the " +
-                "request rate, or raise retry_max_elapsed_seconds / retry_max_retries."))
-            }
+            case Left(error) if isRateLimited(response.code, error) =>
+              retryOrFail(n, elapsedMs, parseRetryDelayMs(response, error),
+                          s"returned HTTP $code (${statusReason(429)})") {
+                new RuntimeException(
+                  s"$displayName returned HTTP $code (${statusReason(429)}) after ${n + 1} attempts " +
+                  f"and ${elapsedMs / 1000.0}%.1fs of waiting. " +
+                  "This model's quota may be too low for this simulation - reduce the request " +
+                  "rate with the throttling settings, or raise retry_max_elapsed_seconds / " +
+                  "retry_max_retries." + details(error))
+              }
 
-          case Left(error) =>
-            Future.failed(new RuntimeException(s"HTTP request failed: $error"))
-        }
+            case Left(error) if BaseHttpProvider.TransientStatuses.contains(code) =>
+              val cause = s"returned HTTP $code (${statusReason(code)})"
+              retryOrFail(n, elapsedMs, parseRetryDelayMs(response, error), cause) {
+                new RuntimeException(
+                  s"$displayName $cause after ${n + 1} attempts. " +
+                  "Try again shortly, or lower concurrency with the throttling settings." +
+                  details(error))
+              }
+
+            case Left(error) =>
+              // Report a rejected key as such whatever status carried it.
+              val reasonCode = if (BaseHttpProvider.isInvalidApiKey(code, error)) 401 else code
+              Future.failed(new HttpStatusException(code, error,
+                s"$displayName rejected the request: HTTP $code (${statusReason(reasonCode)}). " +
+                rejectedHint(reasonCode) + details(error)))
+          }
+
+        case Failure(e) if BaseHttpProvider.isUnknownHost(e) =>
+          Future.failed(new RuntimeException(
+            s"Could not reach $displayName at $baseUrl (unknown host). " +
+            s"Check $baseUrlConfigKey in your config for a typo.", e))
+
+        case Failure(e) if BaseHttpProvider.isTransientFailure(e) =>
+          val reason = transportReason(e)
+          retryOrFail(n, elapsedMs, None, s"could not be reached ($reason)") {
+            new RuntimeException(
+              s"Could not reach $displayName at $baseUrl ($reason) after ${n + 1} attempts. " +
+              unreachableHint, e)
+          }
+
+        case Failure(e) =>
+          Future.failed(e)
       }
 
     val completed = requestThrottle match {
@@ -337,6 +534,10 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
 
   override def setConfig(key: String, value: String): Unit = {
     configStore.set(key, value)
+  }
+
+  override def setDefaultConfig(key: String, value: String): Unit = {
+    configStore.setDefault(key, value)
   }
 
   override def getConfig(key: String): Option[String] = {

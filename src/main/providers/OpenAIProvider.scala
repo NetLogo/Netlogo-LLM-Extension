@@ -14,7 +14,7 @@ class OpenAIProvider(implicit ec: ExecutionContext) extends OpenAICompatibleProv
 
   override def providerName: String = "openai"
 
-  override def defaultModel: String = "gpt-4o-mini"
+  override def defaultModel: String = ModelRegistry.defaultModel("openai")
 
   override protected def defaultBaseUrl: String = "https://api.openai.com/v1"
 

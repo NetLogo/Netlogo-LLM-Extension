@@ -47,7 +47,7 @@ class GeminiProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
       .orElse(configStore.get(ConfigStore.API_KEY))
       .getOrElse(throw new IllegalStateException("API key not configured"))
 
-    val baseUrl = configStore.get(baseUrlConfigKey).getOrElse(defaultBaseUrl)
+    val baseUrl = resolvedBaseUrl
     val apiUrl = uri"$baseUrl/models/${request.model}:generateContent?key=$apiKey"
 
     val headers = Map("Content-Type" -> "application/json")
@@ -83,12 +83,17 @@ class GeminiProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
    * Gemini expects:
    * - "contents" array with "role" and "parts"
    * - Role mapping: "assistant" → "model", "user" → "user"
+   * - System messages in a top-level "systemInstruction", not in "contents"
    * - "generationConfig" for optional parameters (temperature, maxOutputTokens)
    */
   override protected def createProviderRequest(request: ChatRequest): ujson.Value = {
+    // Gemini takes system prompts as a top-level systemInstruction, not as a
+    // turn in contents; several system messages are joined into one.
+    val (systemMessages, chatMessages) = request.messages.partition(_.role == "system")
+
     // Convert messages to Gemini's format
     val contents = ujson.Arr(
-      request.messages.map { msg =>
+      chatMessages.map { msg =>
         val role = if (msg.role == "assistant") "model" else "user"
         ujson.Obj(
           "role" -> role,
@@ -102,6 +107,14 @@ class GeminiProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
     val baseRequest = ujson.Obj(
       "contents" -> contents
     )
+
+    if (systemMessages.nonEmpty) {
+      baseRequest("systemInstruction") = ujson.Obj(
+        "parts" -> ujson.Arr(
+          ujson.Obj("text" -> systemMessages.map(_.content).mkString("\n\n"))
+        )
+      )
+    }
 
     // Add generation config if parameters are specified
     val generationConfig = ujson.Obj()
@@ -120,12 +133,21 @@ class GeminiProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
 
     if (isThinking) {
       val thinkingObj = ujson.Obj()
-      // Map reasoning effort or set budget
-      request.thinkingConfig.flatMap(_.budgetTokens).foreach { budget =>
-        thinkingObj("thinkingBudget") = budget
-      }
-      request.thinkingConfig.flatMap(_.reasoningEffort).foreach { effort =>
-        thinkingObj("thinkingLevel") = effort.toUpperCase
+      // Map reasoning effort or set budget.
+      //
+      // Gemini 3+ steers depth with thinkingLevel and returns a 400 when
+      // thinkingLevel and thinkingBudget arrive together; it still takes a lone
+      // thinkingBudget. Gemini 2.5 only knows thinkingBudget. So the effort wins
+      // on 3+, and is dropped on 2.5.
+      val effort = request.thinkingConfig.flatMap(_.reasoningEffort)
+      val budget = request.thinkingConfig.flatMap(_.budgetTokens)
+      if (GeminiProvider.usesThinkingLevel(request.model)) {
+        effort match {
+          case Some(e) => thinkingObj("thinkingLevel") = GeminiProvider.thinkingLevel(e)
+          case None => budget.foreach(b => thinkingObj("thinkingBudget") = b)
+        }
+      } else {
+        budget.foreach(b => thinkingObj("thinkingBudget") = b)
       }
       generationConfig("thinkingConfig") = thinkingObj
       hasConfig = true
@@ -250,4 +272,28 @@ class GeminiProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
         throw new RuntimeException(s"Failed to parse Gemini response: ${e.getMessage}\nResponse: $responseBody", e)
     }
   }
+}
+
+object GeminiProvider {
+
+  private val Generation = """(?:^|/)gemini-(\d+)""".r
+
+  /**
+   * Whether a model takes thinkingLevel (Gemini 3 and later) rather than only
+   * thinkingBudget (2.5 and earlier). Unrecognized names count as newer, the
+   * direction new models move.
+   */
+  def usesThinkingLevel(model: String): Boolean =
+    Generation.findFirstMatchIn(model.toLowerCase).forall(_.group(1).toInt >= 3)
+
+  /**
+   * Map the extension's reasoning_effort onto Gemini's thinkingLevel. Gemini
+   * has MINIMAL where the extension has "none", and nothing above HIGH.
+   */
+  def thinkingLevel(effort: String): String =
+    effort.toLowerCase.trim match {
+      case "none" => "MINIMAL"
+      case "xhigh" | "max" => "HIGH"
+      case other => other.toUpperCase
+    }
 }

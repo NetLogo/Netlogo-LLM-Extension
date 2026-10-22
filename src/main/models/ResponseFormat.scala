@@ -2,6 +2,8 @@
 // ABOUTME: Parses and normalizes modeler-supplied JSON Schema strings into a provider-neutral form
 package org.nlogo.extensions.llm.models
 
+import org.nlogo.extensions.llm.utils.JsonToNetLogo
+
 /**
  * How a provider should constrain the shape of its reply.
  *
@@ -110,7 +112,7 @@ object ResponseFormat {
       catch {
         case e: Exception =>
           throw new IllegalArgumentException(
-            s"Schema is not valid JSON: ${e.getMessage}"
+            s"Schema is not valid JSON: ${JsonToNetLogo.parseErrorMessage(e)}"
           )
       }
 

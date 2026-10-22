@@ -4,6 +4,11 @@
 
 This guide provides comprehensive configuration details for all supported LLM providers, including hyperparameters, model options, and provider-specific settings.
 
+Model lists and each provider's default model come from the extension's model
+catalog (`models.yaml`), current as of October 2026. Model IDs retire often; to
+add a new ID or change a default without updating the extension, put a
+`models.yaml` in `~/.netlogo-llm/` — see [CONFIGURATION.md](CONFIGURATION.md#model-catalog-modelsyaml-user-catalog-models-overrideyaml).
+
 ## OpenAI Configuration
 
 ### API Setup
@@ -18,7 +23,7 @@ This guide provides comprehensive configuration details for all supported LLM pr
 # Required Parameters
 provider=openai
 api_key=sk-your-openai-key-here
-model=gpt-4o-mini
+model=gpt-6-luna
 
 # Optional Parameters  
 base_url=https://api.openai.com/v1
@@ -31,13 +36,29 @@ timeout_seconds=30
 
 | Model | Description | Context | Cost (per 1K tokens) |
 |-------|-------------|---------|---------------------|
-| `gpt-4o-mini` | Fast, cost-effective GPT-4 | 128K | Input: $0.00015, Output: $0.0006 |
-| `gpt-4o` | Most capable GPT-4 variant | 128K | Input: $0.005, Output: $0.015 |
-| `gpt-4-turbo` | Fast GPT-4 with large context | 128K | Input: $0.01, Output: $0.03 |
-| `gpt-4` | Original GPT-4 | 8K | Input: $0.03, Output: $0.06 |
-| `gpt-3.5-turbo` | Legacy but capable | 16K | Input: $0.0005, Output: $0.0015 |
+| `gpt-6-luna` | Fast, cost-effective reasoning model (default) | 1.05M | Input: $0.0001, Output: $0.0005 |
+| `gpt-6.1-sol` | Mid-tier GPT-6 | — | Input: $0.002, Output: $0.01 |
+| `gpt-6-astra` | Most capable GPT-6 | — | Input: $0.01, Output: $0.05 |
+| `gpt-5.6-luna` / `gpt-5.6-terra` / `gpt-5.6-sol` | Previous GPT-5.x reasoning models | — | See OpenAI pricing |
+| `gpt-4o-mini` | Deprecated, served until 2027-01-14 | 128K | Input: $0.00015, Output: $0.0006 |
 
-**Recommended for NetLogo**: `gpt-4o-mini` (best balance of speed, capability, and cost)
+**Recommended for NetLogo**: `gpt-6-luna` (best balance of speed, capability, and cost)
+
+GPT-5.x and GPT-6.x are reasoning models, like the retired o-series. The
+extension sends them in reasoning format automatically: system prompts go as
+`developer` messages, `max_tokens` is sent as `max_completion_tokens`, and
+`temperature` is not sent. Set depth with `reasoning_effort`
+(`none|low|medium|high|xhigh`).
+
+Reasoning tokens count against `max_completion_tokens`. When you have not set
+`max_tokens`, reasoning models are sent `max_completion_tokens=4000` instead of
+the provider default (1000), so the model has room left to answer. Any
+`max_tokens` you set yourself, in a config file or a profile, is sent unchanged,
+even one below 4000. If a reply still comes back empty because the model used
+its whole budget (`finish_reason=length`), the call fails with an error that
+names the tokens used and tells you to set `max_tokens` above that. The tokens
+are still counted in `llm:usage` and `llm:usage-total`. The same applies to
+reasoning models on OpenRouter, Together AI and Groq.
 
 ### Hyperparameters
 
@@ -80,7 +101,7 @@ For Azure OpenAI or custom deployments:
 provider=openai
 base_url=https://your-resource.openai.azure.com/openai/deployments/your-deployment/chat/completions?api-version=2024-02-15-preview
 api_key=your-azure-key
-model=gpt-4o-mini
+model=gpt-6-luna
 ```
 
 ## Anthropic (Claude) Configuration
@@ -97,7 +118,7 @@ model=gpt-4o-mini
 # Required Parameters
 provider=anthropic
 api_key=sk-ant-your-anthropic-key-here
-model=claude-3-haiku-20240307
+model=claude-haiku-5-5
 
 # Optional Parameters
 base_url=https://api.anthropic.com/v1
@@ -110,12 +131,16 @@ timeout_seconds=30
 
 | Model | Description | Context | Cost (per 1K tokens) |
 |-------|-------------|---------|---------------------|
-| `claude-3-haiku-20240307` | Fast, cost-effective | 200K | Input: $0.00025, Output: $0.00125 |
-| `claude-3-sonnet-20240229` | Balanced performance | 200K | Input: $0.003, Output: $0.015 |
-| `claude-3-opus-20240229` | Most capable Claude | 200K | Input: $0.015, Output: $0.075 |
-| `claude-3-5-sonnet-20241022` | Latest improved Sonnet | 200K | Input: $0.003, Output: $0.015 |
+| `claude-haiku-5-5` | Fast, cost-effective (default) | — | Input: $0.0001, Output: $0.0005 (prompts up to 100K) |
+| `claude-sonnet-5-5` | Balanced performance | — | Input: $0.002, Output: $0.01 |
+| `claude-opus-5-5` | Most capable Opus | — | Input: $0.004, Output: $0.02 |
+| `claude-fable-5-1` | Most capable Claude | — | Input: $0.01, Output: $0.05 |
+| `claude-haiku-4-5-20251001` | Previous Haiku (still served) | 200K | See Anthropic pricing |
 
-**Recommended for NetLogo**: `claude-3-haiku-20240307` (excellent speed and capability for most use cases)
+**Recommended for NetLogo**: `claude-haiku-5-5` (excellent speed and capability for most use cases)
+
+Claude 4.7 and later (including every 5.x model) reject a non-default
+`temperature`, so the extension leaves it out for them.
 
 ### Hyperparameters
 
@@ -170,7 +195,7 @@ top_k=20           # Moderately focused
 # Required Parameters
 provider=gemini
 api_key=your-google-ai-api-key-here
-model=gemini-1.5-flash
+model=gemini-3.5-flash-lite
 
 # Optional Parameters
 base_url=https://generativelanguage.googleapis.com/v1beta
@@ -183,12 +208,17 @@ timeout_seconds=30
 
 | Model | Description | Context | Cost (per 1K tokens) |
 |-------|-------------|---------|---------------------|
-| `gemini-1.5-flash` | Fast, free tier available | 1M | Free tier available |
-| `gemini-1.5-pro` | Most capable Gemini | 2M | Input: $0.00125, Output: $0.005 |
-| `gemini-1.0-pro` | Original Gemini Pro | 32K | Input: $0.0005, Output: $0.0015 |
-| `gemini-pro` | Alias for gemini-1.0-pro | 32K | Input: $0.0005, Output: $0.0015 |
+| `gemini-3.5-flash-lite` | Fast, free tier available (default) | — | Free tier available |
+| `gemini-3.8-flash` | Stronger Flash tier | — | See Google pricing |
+| `gemini-3.1-pro-preview` | Most capable Gemini (preview) | — | See Google pricing |
+| `gemini-2.5-flash` / `gemini-2.5-pro` | Only for projects that already used 2.5 | 1M | See Google pricing |
 
-**Recommended for NetLogo**: `gemini-1.5-flash` (excellent free tier, very fast)
+**Recommended for NetLogo**: `gemini-3.5-flash-lite` (excellent free tier, very fast)
+
+Thinking depth: Gemini 3 and later take `reasoning_effort`, sent as
+`thinkingLevel` (`none` becomes `MINIMAL`, `xhigh` becomes `HIGH`); when an
+effort is set, `thinking_budget_tokens` is not sent with it, because the API
+rejects the two together. Gemini 2.5 takes only `thinking_budget_tokens`.
 
 ### Hyperparameters
 
@@ -250,7 +280,7 @@ candidate_count=1  # Default (recommended)
 # Required Parameters
 provider=openrouter
 openrouter_api_key=sk-or-your-openrouter-key-here
-model=openai/gpt-4o-mini
+model=openai/gpt-oss-20b
 
 # Optional Parameters
 openrouter_base_url=https://openrouter.ai/api/v1
@@ -265,18 +295,20 @@ Model names use vendor prefixes (`vendor/model-name`):
 
 | Model | Description | Context |
 |-------|-------------|---------|
-| `openai/gpt-4o` | OpenAI GPT-4o via OpenRouter | 128K |
-| `openai/gpt-4o-mini` | Fast, cost-effective GPT-4 | 128K |
-| `openai/o3-mini` | OpenAI reasoning model | 128K |
-| `anthropic/claude-3.5-sonnet` | Anthropic Claude 3.5 Sonnet | 200K |
-| `anthropic/claude-sonnet-4-20250514` | Latest Claude Sonnet 4 | 200K |
-| `google/gemini-2.5-flash` | Google Gemini Flash | 1M |
-| `google/gemini-2.5-pro` | Google Gemini Pro | 1M |
+| `openai/gpt-oss-20b` | Fast open-weight reasoning model (default) | 131K |
+| `openai/gpt-oss-120b` | Larger open-weight reasoning model | 131K |
+| `openai/gpt-6-luna` | OpenAI GPT-6 Luna via OpenRouter | 1.05M |
+| `anthropic/claude-haiku-5.5` | Anthropic Claude Haiku 5.5 | — |
+| `google/gemini-3.5-flash-lite` | Google Gemini Flash-Lite | — |
+| `google/gemini-3.8-flash` | Google Gemini Flash | — |
 | `meta-llama/llama-3.3-70b-instruct` | Meta Llama 3.3 70B | 128K |
-| `deepseek/deepseek-r1` | DeepSeek reasoning model | 64K |
-| `deepseek/deepseek-chat-v3-0324` | DeepSeek Chat V3 | 64K |
+| `deepseek/deepseek-v4.1-flash` | DeepSeek V4.1 Flash | — |
+| `qwen/qwen3.8-flash` | Qwen 3.8 Flash | — |
+| `openrouter/auto` | OpenRouter picks a model per request | — |
 
-**Recommended for NetLogo**: `openai/gpt-4o-mini` (fast, cheap, capable)
+**Recommended for NetLogo**: `openai/gpt-oss-20b` (fast, cheap, capable)
+
+Avoid `:free` model variants as a default; OpenRouter adds and removes them often.
 
 ### Why OpenRouter?
 
@@ -296,7 +328,7 @@ translates automatically:
 
 ```netlogo
 llm:set-provider "openrouter"
-llm:set-model "deepseek/deepseek-r1"
+llm:set-model "openai/gpt-oss-20b"
 llm:set-thinking true
 llm:set-reasoning-effort "high"
 ```
@@ -315,7 +347,7 @@ llm:set-reasoning-effort "high"
 # Required Parameters
 provider=together
 together_api_key=your-together-key-here
-model=meta-llama/Llama-3.3-70B-Instruct-Turbo
+model=Qwen/Qwen3.8-Flash
 
 # Optional Parameters
 together_base_url=https://api.together.xyz/v1
@@ -330,31 +362,33 @@ Model names use vendor prefixes (`vendor/model-name`):
 
 | Model | Description | Context |
 |-------|-------------|---------|
-| `meta-llama/Llama-3.3-70B-Instruct-Turbo` | Fast Llama 3.3 70B | 128K |
-| `meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo` | Largest Llama | 128K |
-| `meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo` | Small, fast Llama | 128K |
-| `deepseek-ai/DeepSeek-R1` | DeepSeek reasoning model | 64K |
-| `deepseek-ai/DeepSeek-V3` | DeepSeek V3 chat | 64K |
-| `Qwen/Qwen2.5-72B-Instruct-Turbo` | Qwen 2.5 72B | 128K |
-| `google/gemma-3-27b-it` | Google Gemma 3 | 128K |
-| `mistralai/Mistral-Small-24B-Instruct-2501` | Mistral Small | 32K |
+| `Qwen/Qwen3.8-Flash` | Fast Qwen 3.8 (default) | — |
+| `Qwen/Qwen3.5-9B` | Small, cheap Qwen | — |
+| `Qwen/Qwen3.7-Plus` | Larger Qwen | — |
+| `openai/gpt-oss-120b` | Open-weight reasoning model | 131K |
+| `deepseek-ai/DeepSeek-V4.1-Flash` | DeepSeek V4.1 Flash | — |
+| `zai-org/GLM-5.3-Flash` | GLM 5.3 Flash | — |
+| `meta-models/Muse-Glimmer-30B` | Meta Muse Glimmer 30B | — |
+| `moonshotai/Kimi-K3` | Kimi K3 | — |
 
-**Recommended for NetLogo**: `meta-llama/Llama-3.3-70B-Instruct-Turbo` (fast, capable, good value)
+**Recommended for NetLogo**: `Qwen/Qwen3.8-Flash` (fast, capable, good value: $0.15 in / $0.47 out per 1M tokens)
+
+Together IDs are case-sensitive. No Llama model is left on Together serverless.
 
 ### Why Together AI?
 
 - **Fast inference** on popular open-source models
 - **Pay-per-token** pricing, often cheaper than proprietary APIs
-- **Open-source models** — Llama, DeepSeek, Qwen, Gemma, Mistral
-- **Reasoning support** — DeepSeek-R1 with thinking output
+- **Open-source models** — Qwen, DeepSeek, GLM, gpt-oss, Kimi
+- **Reasoning support** — Qwen 3.8 and gpt-oss with thinking output
 
 ### Thinking/Reasoning Models
 
-Together AI supports reasoning models like DeepSeek-R1:
+Together AI supports reasoning models like Qwen 3.8:
 
 ```netlogo
 llm:set-provider "together"
-llm:set-model "deepseek-ai/DeepSeek-R1"
+llm:set-model "Qwen/Qwen3.8-Flash"
 llm:set-thinking true
 let result llm:chat-with-thinking "What is 15 * 17?"
 ; result is [answer thinking-text]
@@ -389,11 +423,12 @@ timeout_seconds=30
 |-------|-------------|---------|
 | `openai/gpt-oss-20b` | Fast open-weight reasoning model | 131K |
 | `openai/gpt-oss-120b` | Larger open-weight reasoning model | 131K |
-| `openai/gpt-oss-safeguard-20b` | Safety-tuned gpt-oss variant | 131K |
-| `groq/compound` | Agentic system with built-in tool use | 131K |
-| `groq/compound-mini` | Smaller agentic system | 131K |
-| `qwen/qwen3.6-27b` | Qwen 3.6 reasoning model (preview) | 131K |
+| `qwen/qwen3.8-27b` | Qwen 3.8 reasoning model (preview) | 131K |
 | `minimaxai/minimax-m2.7` | MiniMax M2.7 (preview) | 131K |
+| `meta-models/muse-spark-open` | Meta Muse Spark (preview) | 131K |
+
+Groq shut down `groq/compound*`, the Llama 3.x models (on free and developer
+tiers) and `qwen/qwen3.6-27b` in 2026.
 
 **Recommended for NetLogo**: `openai/gpt-oss-20b` (fast, cheap, generous free tier)
 
@@ -421,6 +456,71 @@ let result llm:chat-with-thinking "What is 15 * 17?"
 Groq's model lineup changes frequently — check the
 [deprecations page](https://console.groq.com/docs/deprecations) before relying on
 a specific model in a long-lived model file.
+
+## TypeSafe (Jev) Configuration
+
+Jev, TypeSafe's System One model, does not write text. It answers a typed question
+about a prompt (pick an option, rate on levels, or yes/no) with a calibrated
+probability for every possible answer. Use it with `llm:decide`, `llm:decide-all`
+and `llm:choose`. The free-text primitives (`llm:chat` and friends) raise
+`typesafe (Jev) returns decisions, not text; use llm:decide, llm:decide-all or llm:choose`.
+
+### API Setup
+
+1. **Get API Key**: Visit [console.typesafe.ai](https://console.typesafe.ai/)
+2. **Rate Limits**: View your organization's limits at [console.typesafe.ai/rate-limits](https://console.typesafe.ai/rate-limits)
+3. **Docs**: [docs.typesafe.ai](https://docs.typesafe.ai)
+
+### Configuration Parameters
+
+```ini
+# Required Parameters
+provider=typesafe
+typesafe_api_key=your-typesafe-key-here
+model=jev-latest
+
+# Optional Parameters
+typesafe_base_url=https://api.typesafe.ai
+timeout_seconds=30
+```
+
+`temperature`, `max_tokens` and the thinking settings do not apply to Jev and are ignored.
+
+### Available Models
+
+| Model | Description | Price |
+|-------|-------------|-------|
+| `jev-latest` | Alias for the newest stable release (the default) | $0.042 per million input tokens; output free |
+| `jev-preview` | Alias for the newest release, stable or not | same |
+| `jev-1.13.0` | Pinned version | same |
+| `jev-1.14.0` | Pinned version | same |
+
+An alias can move to a new version without notice; pin a version if you calibrated
+thresholds against one. `llm:usage` reports `cost` for TypeSafe calls, computed from the
+input tokens the API reports at the published price.
+
+`demos/el-farol-decisions` is a complete Jev model: 150 agents, three `llm:decide-all`
+batches per tick, and monitors for cost and latency per tick.
+
+### How the primitives map to the API
+
+Each call sends `POST /v1/systemone` with your prompt as `state` and one question:
+
+| Spec | TypeSafe question | `answer` / `probability` |
+|------|-------------------|--------------------------|
+| `["choice" [options]]` | `choice` (1-255 options) | top option / its probability |
+| `["score" [levels]]` | `score` (2-10 levels, 0-based) | expected level / confidence |
+| `["yes-no"]` | `noul` | `true`/`false` / probability of that answer |
+
+HTTP 429 and 529 (overloaded) are retried with backoff like every other provider; a
+401 reports an invalid key and names `typesafe_api_key`.
+
+```netlogo
+llm:set-provider "typesafe"
+llm:set-api-key "your-typesafe-key"
+show llm:decide "Last week 70 of 100 went to the bar. Go tonight?" ["yes-no"]
+; => [false 0.71 [[true 0.29] [false 0.71]]]
+```
 
 ## Ollama (Local) Configuration
 
@@ -582,12 +682,12 @@ Use separate config files for easy switching:
 # config-openai.txt
 provider=openai
 api_key=sk-your-openai-key
-model=gpt-4o-mini
+model=gpt-6-luna
 
 # config-claude.txt  
 provider=anthropic
 api_key=sk-ant-your-claude-key
-model=claude-3-haiku-20240307
+model=claude-haiku-5-5
 
 # config-local.txt
 provider=ollama
@@ -626,8 +726,8 @@ end
 
 | Provider | Input Cost/1K | Output Cost/1K | 100 Chat Turns |
 |----------|---------------|----------------|-----------------|
-| OpenAI (gpt-4o-mini) | $0.00015 | $0.0006 | ~$0.08 |
-| Claude (Haiku) | $0.00025 | $0.00125 | ~$0.15 |
+| OpenAI (gpt-6-luna) | $0.0001 | $0.0005 | ~$0.06 |
+| Claude (Haiku 5.5) | $0.0001 | $0.0005 | ~$0.06 |
 | Gemini (Flash) | Free tier | Free tier | Free |
 | Ollama | Free | Free | Free |
 
@@ -636,7 +736,7 @@ end
 For **minimal costs**:
 ```ini
 provider=gemini
-model=gemini-1.5-flash  # Free tier
+model=gemini-3.5-flash-lite  # Free tier
 max_tokens=512          # Shorter responses
 temperature=0.3         # More focused
 ```
@@ -665,7 +765,7 @@ max_tokens=1024         # Reasonable length
 **"Model not found"**
 - Check model name spelling
 - Verify model access for your tier
-- Use `gpt-4o-mini` as fallback
+- Use `gpt-6-luna` (the default) as fallback
 
 ### Claude Issues
 

@@ -1,5 +1,5 @@
-// ABOUTME: Unit tests for BaseHttpProvider rate-limit retry with exponential backoff
-// ABOUTME: Uses an sttp BackendStub to script 429/200/500 responses without real HTTP
+// ABOUTME: Unit tests for BaseHttpProvider retry of rate limits, 5xx/529 and transport failures
+// ABOUTME: Uses an sttp BackendStub to script 429/5xx/200 responses and failed sends without real HTTP
 package org.nlogo.extensions.llm.providers
 
 import org.nlogo.extensions.llm.models.{ChatRequest, ChatResponse, ChatMessage, Choice}
@@ -27,9 +27,12 @@ class StubbedProvider(stub: BackendStub[Future], counter: AtomicInteger) extends
 
   /** Delays actually slept, in order, so tests can assert on backoff behavior. */
   val observedDelays = new java.util.concurrent.ConcurrentLinkedQueue[Long]()
-  override protected def notifyRateLimitWait(delayMs: Long, attempt: Int, maxRetries: Int): Unit = {
+  /** What each retry was waiting out, e.g. "returned HTTP 529 (overloaded)". */
+  val observedCauses = new java.util.concurrent.ConcurrentLinkedQueue[String]()
+  override protected def notifyRetryWait(delayMs: Long, attempt: Int, maxRetries: Int, cause: String): Unit = {
     observedDelays.add(delayMs)
-    super.notifyRateLimitWait(delayMs, attempt, maxRetries)
+    observedCauses.add(cause)
+    super.notifyRetryWait(delayMs, attempt, maxRetries, cause)
   }
   def delays: List[Long] = observedDelays.toArray(Array.empty[java.lang.Long]).map(_.toLong).toList
 
@@ -58,6 +61,10 @@ class StubbedProvider(stub: BackendStub[Future], counter: AtomicInteger) extends
 }
 
 class RetrySpec extends AnyFunSuite {
+
+  // Real providers read the registry for their defaults and display names; it is
+  // normally installed by LLMExtension.load(). registerAll() is idempotent.
+  ProviderRegistrations.registerAll()
 
   private def request = ChatRequest(model = "stub-model", messages = Seq(ChatMessage.user("hi")))
 
@@ -121,8 +128,7 @@ class RetrySpec extends AnyFunSuite {
     provider.setConfig(RetryPolicy.MAX_RETRIES, "3")
 
     val ex = intercept[RuntimeException](Await.result(provider.chat(request), 10.seconds))
-    assert(ex.getMessage.contains("after 4 attempts"))
-    assert(ex.getMessage.contains("rate limited"))
+    assert(ex.getMessage.startsWith("stub returned HTTP 429 (rate limited) after 4 attempts"), ex.getMessage)
     assert(counter.get() == 4)
   }
 
@@ -131,12 +137,13 @@ class RetrySpec extends AnyFunSuite {
     assert(RetryPolicy.DefaultMaxRetries > 3)
   }
 
-  test("non-rate-limit errors fail immediately without retry") {
-    val (stub, counter) = stubReturning(serverError)
+  test("transient 5xx errors are retried then succeed") {
+    val (stub, counter) = stubReturning(serverError, serverError, ok("recovered"))
     val provider = new StubbedProvider(stub, counter)
 
-    intercept[RuntimeException](Await.result(provider.chat(request), 5.seconds))
-    assert(counter.get() == 1)
+    val result = Await.result(provider.chat(request), 5.seconds)
+    assert(result.firstMessage.map(_.content).contains("recovered"))
+    assert(counter.get() == 3)
   }
 
   test("honors Retry-After header and still succeeds") {
@@ -316,10 +323,185 @@ class RetrySpec extends AnyFunSuite {
   }
 
   test("long waits are recorded so a stall is distinguishable from a hang") {
-    BaseHttpProvider.resetRateLimitStats()
+    BaseHttpProvider.resetRetryWaitStats()
     val policy = RetryPolicy()
     // A 3s wait is above the notice threshold and should be counted.
     assert(policy.delayMsFor(0, Some(3000L), () => 0.0) >= BaseHttpProvider.WaitNoticeThresholdMs)
-    assert(BaseHttpProvider.rateLimitWaitCount == 0L, "counters start clean")
+    assert(BaseHttpProvider.retryWaitCount == 0L, "counters start clean")
+  }
+
+  // --- Transient server and transport failures (#48, #60) ---
+
+  private def status(code: Int, body: String = "error"): Response[StubBody] =
+    ResponseStub.adjust(body, StatusCode(code))
+
+  /** A stub whose first `failures` sends fail with `error`, then answer "ok". */
+  private def stubFailingSends(failures: Int)(
+    error: GenericRequest[?, ?] => Exception
+  ): (BackendStub[Future], AtomicInteger) = {
+    val counter = new AtomicInteger(0)
+    val backend = BackendStub.asynchronousFuture.whenAnyRequest.thenRespondF { req =>
+      if (counter.getAndIncrement() < failures) Future.failed(error(req))
+      else Future.successful(ok("ok"))
+    }
+    (backend, counter)
+  }
+
+  private def connectRefused(req: GenericRequest[?, ?]): Exception =
+    new SttpClientException.ConnectException(req, new java.net.ConnectException("Connection refused"))
+
+  test("Anthropic 529 overloaded is retried then succeeds") {
+    val (stub, counter) = stubReturning(status(529, """{"type":"error","error":{"type":"overloaded_error"}}"""), ok("fine"))
+    val provider = new StubbedProvider(stub, counter)
+
+    val result = Await.result(provider.chat(request), 5.seconds)
+    assert(result.firstMessage.map(_.content).contains("fine"))
+    assert(counter.get() == 2)
+    assert(provider.observedCauses.peek() == "returned HTTP 529 (overloaded)")
+  }
+
+  test("502, 503 and 504 are retried") {
+    Seq(502, 503, 504).foreach { code =>
+      val (stub, counter) = stubReturning(status(code), ok("fine"))
+      val provider = new StubbedProvider(stub, counter)
+      Await.result(provider.chat(request), 5.seconds)
+      assert(counter.get() == 2, s"HTTP $code must be retried")
+    }
+  }
+
+  test("4xx other than 429 is never retried") {
+    Seq(400, 401, 403, 404, 422).foreach { code =>
+      val (stub, counter) = stubReturning(status(code), ok("fine"))
+      val provider = new StubbedProvider(stub, counter)
+      val ex = intercept[RuntimeException](Await.result(provider.chat(request), 5.seconds))
+      assert(counter.get() == 1, s"HTTP $code must not be retried")
+      assert(ex.getMessage.startsWith(s"stub rejected the request: HTTP $code"), ex.getMessage)
+    }
+  }
+
+  test("401 names the API key setting to fix") {
+    val (stub, counter) = stubReturning(status(401, """{"error":{"message":"Incorrect API key"}}"""))
+    val provider = new StubbedProvider(stub, counter)
+
+    val ex = intercept[RuntimeException](Await.result(provider.chat(request), 5.seconds))
+    assert(ex.getMessage.startsWith(
+      "stub rejected the request: HTTP 401 (invalid API key). " +
+      "Check stub_api_key in your config or call llm:set-api-key."), ex.getMessage)
+    assert(ex.getMessage.contains("Incorrect API key"), "the provider's own detail is kept")
+  }
+
+  test("exhausted 529 retries give a friendly message") {
+    val (stub, counter) = stubReturning(status(529))
+    val provider = new StubbedProvider(stub, counter)
+    provider.setConfig(RetryPolicy.MAX_RETRIES, "3")
+
+    val ex = intercept[RuntimeException](Await.result(provider.chat(request), 10.seconds))
+    assert(ex.getMessage.startsWith(
+      "stub returned HTTP 529 (overloaded) after 4 attempts. " +
+      "Try again shortly, or lower concurrency with the throttling settings."), ex.getMessage)
+    assert(counter.get() == 4)
+  }
+
+  test("a send that fails to connect is retried then succeeds") {
+    val (stub, counter) = stubFailingSends(2)(connectRefused)
+    val provider = new StubbedProvider(stub, counter)
+
+    val result = Await.result(provider.chat(request), 5.seconds)
+    assert(result.firstMessage.map(_.content).contains("ok"))
+    assert(counter.get() == 3)
+    assert(provider.observedCauses.peek() == "could not be reached (connection refused)")
+  }
+
+  test("read timeouts are retried then succeed") {
+    val (stub, counter) = stubFailingSends(1) { req =>
+      new SttpClientException.TimeoutException(req, new java.net.http.HttpTimeoutException("request timed out"))
+    }
+    val provider = new StubbedProvider(stub, counter)
+
+    Await.result(provider.chat(request), 5.seconds)
+    assert(counter.get() == 2)
+  }
+
+  test("timeouts nested as the cause of another exception are retried") {
+    // The stub backend already maps a bare SocketTimeoutException to sttp's
+    // TimeoutException, so wrap one to exercise the cause-chain check.
+    val (stub, counter) = stubFailingSends(1) { _ =>
+      new java.util.concurrent.CompletionException(new java.net.SocketTimeoutException("Read timed out"))
+    }
+    val provider = new StubbedProvider(stub, counter)
+
+    Await.result(provider.chat(request), 5.seconds)
+    assert(counter.get() == 2)
+  }
+
+  test("non-transport send failures are not retried") {
+    val (stub, counter) = stubFailingSends(5)(_ => new IllegalArgumentException("bad request object"))
+    val provider = new StubbedProvider(stub, counter)
+
+    intercept[IllegalArgumentException](Await.result(provider.chat(request), 5.seconds))
+    assert(counter.get() == 1)
+  }
+
+  test("an unreachable Ollama server names the URL and asks if it is running") {
+    val (stub, counter) = stubFailingSends(100)(connectRefused)
+    val provider = new OllamaProvider {
+      override lazy val backend: Backend[Future] = stub
+      override protected def retryBaseDelayMs: Long = 1L
+      override protected def retryRandom: () => Double = () => 0.0
+    }
+    provider.setConfig(RetryPolicy.MAX_RETRIES, "1")
+    provider.setConfig(org.nlogo.extensions.llm.config.ConfigStore.OLLAMA_BASE_URL, "http://localhost:11434")
+
+    val ex = intercept[RuntimeException](Await.result(provider.chat(request), 5.seconds))
+    assert(ex.getMessage == "Could not reach Ollama at http://localhost:11434 (connection refused) " +
+      "after 2 attempts. Is the Ollama server running?", ex.getMessage)
+    assert(counter.get() == 2)
+  }
+
+  /** What java.net.http raises for a host that does not resolve, as sttp wraps it. */
+  private def unresolvedHost(req: GenericRequest[?, ?]): Exception = {
+    val connect = new java.net.ConnectException()
+    connect.initCause(new java.nio.channels.UnresolvedAddressException())
+    new SttpClientException.ConnectException(req, connect)
+  }
+
+  test("an unknown host is reported as such and not retried") {
+    val (stub, counter) = stubFailingSends(100)(unresolvedHost)
+    val provider = new OllamaProvider {
+      override lazy val backend: Backend[Future] = stub
+      override protected def retryBaseDelayMs: Long = 1L
+      override protected def retryRandom: () => Double = () => 0.0
+    }
+    provider.setConfig(RetryPolicy.MAX_RETRIES, "2")
+    provider.setConfig(org.nlogo.extensions.llm.config.ConfigStore.OLLAMA_BASE_URL, "http://no-such-host-zz.invalid")
+
+    val ex = intercept[RuntimeException](Await.result(provider.chat(request), 5.seconds))
+    assert(ex.getMessage == "Could not reach Ollama at http://no-such-host-zz.invalid (unknown host). " +
+      "Check ollama_base_url in your config for a typo.", ex.getMessage)
+    assert(counter.get() == 1, "a host that does not resolve will not resolve on retry")
+  }
+
+  test("Gemini's HTTP 400 API_KEY_INVALID points at the API key setting") {
+    val body = """{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.",""" +
+      """"status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}"""
+    val (stub, counter) = stubReturning(status(400, body))
+    val provider = new StubbedProvider(stub, counter)
+
+    val ex = intercept[RuntimeException](Await.result(provider.chat(request), 5.seconds))
+    assert(ex.getMessage.startsWith(
+      "stub rejected the request: HTTP 400 (invalid API key). " +
+      "Check stub_api_key in your config or call llm:set-api-key."), ex.getMessage)
+    assert(counter.get() == 1)
+  }
+
+  test("providers report a readable display name") {
+    assert(new ClaudeProvider().displayName == "Anthropic (Claude)")
+    assert(new OpenAIProvider().displayName == "OpenAI")
+    assert(new OllamaProvider().displayName == "Ollama")
+  }
+
+  test("the retry wait notice names the provider, status and attempt") {
+    assert(BaseHttpProvider.retryWaitNotice("Anthropic", "returned HTTP 529 (overloaded)", 2000L, 0, 3) ==
+      "NOTE: Anthropic returned HTTP 529 (overloaded); retrying in 2.0s (attempt 2 of 4)")
   }
 }

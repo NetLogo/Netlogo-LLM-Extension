@@ -27,7 +27,7 @@ Use inline commands or a config file. A config file keeps secrets out of your mo
 extensions [ llm ]
 llm:set-provider "openai"
 llm:set-api-key "sk-REPLACE_ME"
-llm:set-model "gpt-4o-mini"
+llm:set-model "gpt-6-luna"
 ```
 - Config file (recommended):
   - Create a `config.txt` using the key=value format and load it:

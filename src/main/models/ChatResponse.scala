@@ -7,12 +7,14 @@ import upickle.default.{ReadWriter => RW, macroRW}
  *
  * @param index The index of this choice (usually 0 for single responses)
  * @param message The message content of the response
- * @param finishReason The reason the response ended (e.g., "stop", "length")
+ * @param finishReason The reason the response ended (e.g., "stop", "length"); empty when not reported
+ * @param refusal The model's explanation when it declined to answer, if it did
  */
 case class Choice(
   index: Int,
   message: ChatMessage,
-  finishReason: String
+  finishReason: String,
+  refusal: Option[String] = None
 )
 
 object Choice {
@@ -32,8 +34,9 @@ object Choice {
  *    not.
  *  - totalTokens is taken from the provider when reported, else computed.
  *  - reasoning / cache counts are absent when the provider does not report them.
- *  - cost is only present when a provider reports it directly (OpenRouter);
- *    nothing is ever estimated.
+ *  - cost is only present when a provider reports it directly (OpenRouter),
+ *    or bills one published price per reported token (TypeSafe: input tokens
+ *    only, output free), so it is exact; nothing is ever estimated.
  *  - latencyMs is the wall time of the whole call as the modeler experiences
  *    it, including throttle queueing and rate-limit retries.
  */
@@ -121,6 +124,13 @@ case class ChatResponse(
    */
   def firstContent: Option[String] = {
     firstMessage.map(_.content)
+  }
+
+  /**
+   * The refusal text of the first choice, when the model declined to answer
+   */
+  def refusal: Option[String] = {
+    choices.headOption.flatMap(_.refusal)
   }
 }
 

@@ -59,6 +59,12 @@ trait LLMProvider {
   def setConfig(key: String, value: String): Unit
 
   /**
+   * Set a configuration parameter that holds a seeded default rather than a
+   * value the user chose. Providers that treat the two alike need not override.
+   */
+  def setDefaultConfig(key: String, value: String): Unit = setConfig(key, value)
+
+  /**
    * Get a configuration parameter value
    *
    * @param key The configuration key

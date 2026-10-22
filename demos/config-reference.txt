@@ -1,0 +1,194 @@
+# NetLogo Multi-LLM Extension - Comprehensive Configuration Reference
+# This file contains ALL possible configuration options and values
+# Use this as a reference when setting up different providers
+
+# =============================================================================
+# IMPORTANT NOTES
+# =============================================================================
+# 
+# Configuration Precedence: Runtime commands > Config file > Built-in defaults
+# - Use config file for persistent settings (recommended)
+# - Runtime commands (llm:set-provider, etc.) override config file values
+# - Built-in defaults apply only if no config file or runtime command is used
+# - Built-in default models come from the model catalog (models.yaml). To change
+#   them or add model IDs without rebuilding, put a models.yaml in
+#   ~/.netlogo-llm/ (see docs/CONFIGURATION.md, "Model catalog")
+#
+# Immediate Validation:
+# - When loading config or setting provider, validation happens immediately
+# - Cloud providers (OpenAI, Anthropic, Gemini) require API keys
+# - Ollama requires the server to be running and reachable
+# - Invalid configurations throw helpful errors with setup instructions
+#
+# Provider-Specific Keys:
+# - Use provider-specific keys: openai_api_key, anthropic_api_key, gemini_api_key
+# - This allows configuring multiple providers at once
+# - Generic 'api_key' still supported for backward compatibility
+#
+# Getting Help:
+# - Use 'print llm:provider-help "provider-name"' for setup instructions
+# - Use 'print llm:provider-status' to see which providers are ready
+# - Use 'print llm:active' to verify current provider and model
+
+# =============================================================================
+# PROVIDER CONFIGURATION
+# =============================================================================
+
+# Available providers: openai, anthropic, gemini, ollama
+# provider=openai
+
+# =============================================================================
+# OPENAI CONFIGURATION
+# =============================================================================
+
+# OpenAI Models (choose one):
+# model=gpt-6-luna              # Default - fast and affordable reasoning model (recommended)
+# model=gpt-6.1-sol             # Mid-tier GPT-6
+# model=gpt-6-astra             # Most capable GPT-6
+# model=gpt-5.6-luna            # Previous small GPT-5.x
+# model=gpt-5.6-sol             # Previous mid-tier GPT-5.x
+# model=gpt-4o-mini             # Deprecated, served until 2027-01-14
+# Note: GPT-5.x/6.x are reasoning models - temperature is not sent; use
+# reasoning_effort (none|low|medium|high|xhigh) to control depth.
+
+# OpenAI API Configuration:
+# openai_api_key=sk-your-openai-api-key-here
+# openai_base_url=https://api.openai.com/v1
+
+# =============================================================================
+# ANTHROPIC (CLAUDE) CONFIGURATION  
+# =============================================================================
+
+# Claude Models (choose one):
+# model=claude-haiku-5-5             # Default - fastest and most affordable (recommended)
+# model=claude-sonnet-5-5            # Balanced
+# model=claude-opus-5-5              # Most capable Opus
+# model=claude-fable-5-1             # Most capable overall
+# model=claude-haiku-4-5-20251001    # Previous Haiku (still served)
+
+# Anthropic API Configuration:
+# anthropic_api_key=sk-ant-your-anthropic-api-key-here
+# anthropic_base_url=https://api.anthropic.com/v1
+
+# =============================================================================
+# GOOGLE GEMINI CONFIGURATION
+# =============================================================================
+
+# Gemini Models (choose one):
+# model=gemini-3.5-flash-lite         # Default - fast and affordable (recommended)
+# model=gemini-3.8-flash              # Stronger Flash tier
+# model=gemini-3.1-pro-preview        # Pro (preview)
+# model=gemini-2.5-flash              # Only for projects that already used 2.5
+
+# Google AI API Configuration:
+# gemini_api_key=your-google-ai-api-key-here
+# gemini_base_url=https://generativelanguage.googleapis.com/v1beta
+
+# =============================================================================
+# OLLAMA (LOCAL) CONFIGURATION
+# =============================================================================
+
+# Ollama Models (choose one - must be installed locally):
+# model=llama3.2                # Latest Llama (default)
+# model=llama3.1                # Previous Llama version
+# model=llama3                  # Llama 3 base
+# model=llama2                  # Llama 2 base
+# model=mistral                 # Mistral 7B
+# model=mixtral                 # Mixtral 8x7B
+# model=codellama               # Code-specialized Llama
+# model=vicuna                  # Vicuna chat model
+# model=phi3                    # Microsoft Phi-3
+# model=gemma                   # Google Gemma
+# model=qwen2                   # Alibaba Qwen2
+# model=deepseek-coder          # DeepSeek Coder
+
+# Ollama Server Configuration:
+# ollama_base_url=http://localhost:11434        # Default local Ollama server
+# ollama_base_url=http://192.168.1.100:11434    # Remote Ollama server example
+# No API key needed for Ollama
+
+# Note: Ollama requires the server to be running. Install from https://ollama.com
+# Run 'ollama list' to see installed models, 'ollama pull <model>' to download new ones
+
+# =============================================================================
+# TYPESAFE (JEV) CONFIGURATION
+# =============================================================================
+
+# Jev returns decisions with probabilities, not text. Use llm:decide,
+# llm:decide-all or llm:choose; llm:chat and the other text primitives raise
+# an error on this provider. temperature and max_tokens do not apply.
+
+# TypeSafe Models (choose one):
+# model=jev-latest              # Default - newest stable release (alias)
+# model=jev-preview             # Newest release, stable or not (alias)
+# model=jev-1.14.0              # Pinned version
+# model=jev-1.13.0              # Pinned version
+
+# TypeSafe API Configuration:
+# provider=typesafe
+# typesafe_api_key=your-typesafe-api-key-here
+# typesafe_base_url=https://api.typesafe.ai
+
+# =============================================================================
+# GENERATION PARAMETERS (ALL PROVIDERS)
+# =============================================================================
+
+# Temperature: Controls randomness (0.0 = deterministic, 1.0 = very random)
+# temperature=0.7               # Default - balanced creativity
+# temperature=0.0               # Deterministic output
+# temperature=0.3               # Less random, more focused
+# temperature=1.0               # More creative/random
+
+# Max Tokens: Maximum response length
+# max_tokens=1000               # Default for OpenAI
+# max_tokens=4000               # Higher for longer responses (Claude)
+# max_tokens=2048               # Typical for Gemini/Ollama
+
+# Timeout: How long to wait for response (seconds)
+# timeout_seconds=30            # Default timeout
+# timeout_seconds=60            # Longer for complex requests
+# timeout_seconds=120           # Very long for large responses
+
+# =============================================================================
+# EXAMPLE CONFIGURATIONS BY PROVIDER
+# =============================================================================
+
+# Example 1: OpenAI Setup
+# provider=openai
+# model=gpt-6-luna
+# api_key=sk-your-openai-key-here
+# temperature=0.7
+# max_tokens=2000
+
+# Example 2: Claude Setup  
+# provider=anthropic
+# model=claude-haiku-5-5
+# api_key=sk-ant-your-claude-key-here
+# temperature=0.5
+# max_tokens=4000
+
+# Example 3: Gemini Setup
+# provider=gemini
+# model=gemini-3.5-flash-lite
+# api_key=your-gemini-key-here
+# temperature=0.8
+# max_tokens=2048
+
+# Example 4: Local Ollama Setup
+# provider=ollama
+# model=deepseek-r1:1.5b
+# base_url=http://localhost:11434
+# temperature=0.7
+# max_tokens=2048
+# timeout_seconds=60
+
+# =============================================================================
+# NOTES
+# =============================================================================
+
+# 1. Only uncomment the lines you want to use
+# 2. API keys are required for OpenAI, Anthropic, and Gemini
+# 3. Ollama requires a local server running (ollama serve)
+# 4. Base URLs only need to be changed if using custom endpoints
+# 5. Models must be available for your API tier/account
+# 6. Ollama models must be pulled first: ollama pull llama3.2

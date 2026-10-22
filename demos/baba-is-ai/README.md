@@ -83,12 +83,12 @@ api_key=YOUR_KEY_HERE
 
 # Anthropic
 provider=anthropic
-model=claude-sonnet-4-20250514
+model=claude-haiku-5-5
 api_key=YOUR_KEY_HERE
 
 # Gemini
 provider=gemini
-model=gemini-2.0-flash
+model=gemini-3.5-flash-lite
 api_key=YOUR_KEY_HERE
 ```
 

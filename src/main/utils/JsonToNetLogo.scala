@@ -15,6 +15,20 @@ import org.nlogo.core.LogoList
 object JsonToNetLogo {
 
   /**
+   * Describe why a `ujson.read` call failed.
+   *
+   * The ujson that NetLogo ships (4.4+) wraps the underlying
+   * `ujson.ParseException` in a trace exception whose message is only the JSON
+   * path (e.g. `$`), so the useful text lives in the cause chain.
+   */
+  def parseErrorMessage(e: Throwable): String = {
+    val chain = Iterator.iterate(e)(_.getCause).takeWhile(_ != null).toSeq
+    chain.collectFirst { case p: ujson.ParseException => s"${p.clue} at index ${p.index}" }
+      .orElse(chain.collectFirst { case i: ujson.IncompleteParseException => i.getMessage })
+      .getOrElse(e.getMessage)
+  }
+
+  /**
    * Parse a JSON string and convert it to a NetLogo value.
    *
    * @throws IllegalArgumentException if the text is not valid JSON
@@ -25,7 +39,7 @@ object JsonToNetLogo {
       catch {
         case e: Exception =>
           throw new IllegalArgumentException(
-            s"Response was not valid JSON: ${e.getMessage}. Response text: $jsonText"
+            s"Response was not valid JSON: ${parseErrorMessage(e)}. Response text: $jsonText"
           )
       }
     convert(parsed)
@@ -46,7 +60,7 @@ object JsonToNetLogo {
       catch {
         case e: Exception =>
           throw new IllegalArgumentException(
-            s"Response was not valid JSON: ${e.getMessage}. Response text: $jsonText"
+            s"Response was not valid JSON: ${parseErrorMessage(e)}. Response text: $jsonText"
           )
       }
 

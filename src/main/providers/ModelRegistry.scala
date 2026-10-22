@@ -12,9 +12,13 @@ import scala.util.{Try, Success, Failure}
  * - Model validation
  * - Custom model tracking
  *
- * Models are loaded from:
+ * Models are loaded from, lowest layer first:
  * 1. Bundled YAML config in JAR resources (/config/models.yaml)
- * 2. Optional override config (models-override.yaml) in model directory
+ * 2. Optional user catalog (~/.netlogo-llm/models.yaml, see ModelRegistryLoader.userCatalogPath)
+ * 3. Optional override config (models-override.yaml) in model directory
+ *
+ * Any layer may name a provider's default model with `default:`; without one
+ * the ProviderDescriptor default in ProviderRegistrations.scala applies.
  */
 object ModelRegistry {
 
@@ -23,28 +27,58 @@ object ModelRegistry {
 
   // Mutable state for dynamic loading (access must be synchronized)
   private var providers: Map[String, ProviderModels] = Map.empty
+  // Bundled (or fallback) catalog with the user catalog merged in, kept apart so
+  // each model-directory override is applied to it fresh
+  private var bundled: Map[String, ProviderModels] = Map.empty
+  // The model-directory override currently applied on top of `bundled`
+  private var overrideLayer: Map[String, ProviderModels] = Map.empty
   private var isInitialized: Boolean = false
   private var modelDirLoaded: Option[String] = None
   private var overrideLoadMessage: Option[String] = None
+  private var userWarning: Option[String] = None
 
-  // Fallback config in case YAML loading fails (minimal set for stability).
-  //
-  // Every provider's defaultModel must appear here as well as in models.yaml.
-  // The drift guard in ProviderDefaultsSpec checks descriptors against the
-  // LOADED registry, so a stale entry here survives it — which is how the
-  // retired models #62 removed elsewhere lingered in this map.
-  private[llm] val FALLBACK_CONFIG: Map[String, ProviderModels] = Map(
-    "openai" -> ProviderModels(Set("gpt-4o", "gpt-4o-mini", "gpt-4", "gpt-3.5-turbo"), isCustom = false),
-    "anthropic" -> ProviderModels(Set(
-      "claude-opus-5", "claude-sonnet-5",
-      "claude-haiku-4-5-20251001", "claude-opus-4-5-20251101"
-    ), isCustom = false),
-    "gemini" -> ProviderModels(Set("gemini-2.5-pro", "gemini-2.5-flash", "gemini-3-pro-preview"), isCustom = false),
-    "ollama" -> ProviderModels(Set("llama3.2:3b", "llama3.2:1b", "mistral", "phi4"), isCustom = false),
-    "openrouter" -> ProviderModels(Set("openai/gpt-4o", "openai/gpt-4o-mini", "anthropic/claude-3.5-sonnet", "deepseek/deepseek-r1"), isCustom = false),
-    "together" -> ProviderModels(Set("meta-llama/Llama-3.3-70B-Instruct-Turbo", "deepseek-ai/DeepSeek-R1", "Qwen/Qwen2.5-72B-Instruct-Turbo"), isCustom = false),
-    "groq" -> ProviderModels(Set("openai/gpt-oss-20b", "openai/gpt-oss-120b", "groq/compound-mini"), isCustom = false)
-  )
+  /**
+   * Catalog used when models.yaml cannot be loaded: each registered
+   * provider's descriptor default and nothing else.
+   *
+   * Deliberately no hand-kept model list here — a list in Scala goes stale
+   * without anyone noticing, which is what #64 removed.
+   */
+  private[llm] def descriptorFallback(): Map[String, ProviderModels] = {
+    ensureDescriptors()
+    ProviderRegistry.allNames.toSeq.flatMap(ProviderRegistry.get).map { d =>
+      d.name -> ProviderModels(Set(d.defaultModel), isCustom = false, default = Some(d.defaultModel))
+    }.toMap
+  }
+
+  // Descriptors are normally registered by LLMExtension.load(), but the
+  // registry can be read before that (ConfigStore.withDefaults runs in the
+  // extension's constructor). registerAll() is idempotent.
+  private def ensureDescriptors(): Unit =
+    if (!ProviderRegistry.isInitialized) ProviderRegistrations.registerAll()
+
+  /**
+   * Bundled catalog (or the descriptor fallback) with the user catalog merged
+   * over it. A broken user file is reported and skipped.
+   */
+  private def loadBase(): (Map[String, ProviderModels], Option[String]) = {
+    val base = ModelRegistryLoader.loadBundledConfig() match {
+      case Success(config) => config
+      case Failure(error) =>
+        System.err.println(s"WARNING: Failed to load bundled model config: ${error.getMessage}")
+        System.err.println("WARNING: Using each provider's default model only")
+        descriptorFallback()
+    }
+
+    val userPath = ModelRegistryLoader.userCatalogPath
+    ModelRegistryLoader.loadUserConfig(userPath) match {
+      case Success(user) => (ModelRegistryLoader.mergeUserConfig(base, user), None)
+      case Failure(error) =>
+        val warning = s"WARNING: Ignoring user model catalog $userPath: ${error.getMessage}"
+        System.err.println(warning)
+        (base, Some(warning))
+    }
+  }
 
   /**
    * Initialize the registry by loading bundled configuration
@@ -55,24 +89,36 @@ object ModelRegistry {
   def init(): Unit = lock.synchronized {
     if (isInitialized) return
 
-    ModelRegistryLoader.loadBundledConfig() match {
-      case Success(config) =>
-        providers = config
-        isInitialized = true
-
-      case Failure(error) =>
-        // Fall back to hardcoded minimal config if YAML loading fails
-        System.err.println(s"WARNING: Failed to load bundled model config: ${error.getMessage}")
-        System.err.println("WARNING: Using fallback hardcoded model registry")
-        providers = FALLBACK_CONFIG
-        isInitialized = true
-    }
+    val (base, warning) = loadBase()
+    bundled = base
+    providers = base
+    userWarning = warning
+    isInitialized = true
   }
+
+  /**
+   * Re-read the bundled catalog and the user catalog, keeping any
+   * model-directory override in effect on top.
+   *
+   * Swaps the catalog in one step, so readers never see an empty registry.
+   */
+  private[llm] def reload(): Unit = lock.synchronized {
+    val (base, warning) = loadBase()
+    bundled = base
+    providers = if (overrideLayer.nonEmpty) ModelRegistryLoader.mergeConfigs(base, overrideLayer) else base
+    userWarning = warning
+    isInitialized = true
+  }
+
+  /** The warning printed for a broken user catalog at the last load, if any. */
+  private[llm] def userCatalogWarning: Option[String] = lock.synchronized(userWarning)
 
   /**
    * Load override configuration from a model directory
    *
    * Merges override config with bundled config. Override takes precedence.
+   * Always rebuilds from the bundled catalog, so an override from a previously
+   * loaded directory never survives a load from a directory without one.
    * Returns a notification message if custom models were loaded.
    *
    * @param modelDir Directory containing models-override.yaml
@@ -84,19 +130,39 @@ object ModelRegistry {
     ModelRegistryLoader.loadOverrideConfig(modelDir) match {
       case Success((overrideConfig, customCount)) =>
         if (overrideConfig.nonEmpty) {
-          providers = ModelRegistryLoader.mergeConfigs(providers, overrideConfig)
+          providers = ModelRegistryLoader.mergeConfigs(bundled, overrideConfig)
+          overrideLayer = overrideConfig
           modelDirLoaded = Some(modelDir)
           val message = s"Loaded $customCount custom models from override config"
           overrideLoadMessage = Some(message)
           Some(message)
         } else {
+          clearOverrideState()
           None
         }
 
       case Failure(error) =>
         System.err.println(s"WARNING: Failed to load override config: ${error.getMessage}")
+        clearOverrideState()
         None
     }
+  }
+
+  /**
+   * Drop any loaded override and restore the bundled catalog
+   *
+   * Used when there is no model directory (e.g. an unsaved model).
+   */
+  def clearOverride(): Unit = lock.synchronized {
+    ensureInitialized()
+    clearOverrideState()
+  }
+
+  private def clearOverrideState(): Unit = {
+    providers = bundled
+    overrideLayer = Map.empty
+    modelDirLoaded = None
+    overrideLoadMessage = None
   }
 
   /**
@@ -182,9 +248,12 @@ object ModelRegistry {
    */
   def reset(): Unit = lock.synchronized {
     providers = Map.empty
+    bundled = Map.empty
+    overrideLayer = Map.empty
     isInitialized = false
     modelDirLoaded = None
     overrideLoadMessage = None
+    userWarning = None
   }
 
   /**
@@ -211,14 +280,32 @@ object ModelRegistry {
   /**
    * Get default model for a provider.
    *
-   * Delegates to ProviderRegistry so defaults are defined in one place
-   * (ProviderRegistrations.scala) rather than duplicated here.
+   * The loaded catalog's `default:` for the provider (bundled, user catalog,
+   * or model-directory override — whichever layer set it last), falling back
+   * to the ProviderDescriptor default in ProviderRegistrations.scala.
    *
    * @param providerName Provider name (case-insensitive)
    * @return Default model name
    */
-  def defaultModel(providerName: String): String =
-    ProviderRegistry.defaultModel(providerName)
+  def defaultModel(providerName: String): String = {
+    ensureInitialized()
+    defaultFrom(lock.synchronized(providers), providerName)
+  }
+
+  /**
+   * Default model for a provider in a given catalog, else its descriptor default.
+   *
+   * @param catalog Provider catalog to read `default:` from
+   * @param providerName Provider name (case-insensitive)
+   * @return Default model name
+   */
+  private[llm] def defaultFrom(catalog: Map[String, ProviderModels], providerName: String): String = {
+    val normalizedProvider = providerName.toLowerCase.trim
+    catalog.get(normalizedProvider).flatMap(_.default).getOrElse {
+      ensureDescriptors()
+      ProviderRegistry.defaultModel(normalizedProvider)
+    }
+  }
 
   /**
    * Check if a model is valid for a provider

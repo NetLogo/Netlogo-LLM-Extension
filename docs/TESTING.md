@@ -102,10 +102,10 @@ The suite runs the same 13 test procedures regardless of provider, plus two prov
 - `test-sync-chat`, `test-async-chat`, `test-choose`, `test-history` — core chat flow
 - `test-thinking-config`, `test-chat-with-thinking` — reasoning primitives and `[answer thinking]` return shape
 - `test-openrouter-vendor-prefix` — vendor-prefixed model names (skips unless `provider=openrouter`)
-- `test-together-thinking` — DeepSeek-R1 `<think>` tag extraction (skips unless `provider=together` AND model contains "DeepSeek")
+- `test-together-thinking` — DeepSeek `<think>` tag extraction (skips unless `provider=together` AND model contains "DeepSeek")
 - `test-reasoning-marker` — `[reasoning]` marker visible in `llm:list-models`
 
-To exercise everything, run the suite twice — once with `provider=openrouter`, once with `provider=together` (use `model=deepseek-ai/DeepSeek-R1` and `max_tokens=2000+` for the Together reasoning test).
+To exercise everything, run the suite twice — once with `provider=openrouter`, once with `provider=together` (use `model=deepseek-ai/DeepSeek-V4.1-Flash` and `max_tokens=2000+` for the Together reasoning test).
 
 Suggested usage:
 - run automated tests first (`sbt test`)
@@ -149,3 +149,30 @@ Typical setup later:
 - separate workflow (manual trigger and/or nightly schedule)
 - secrets like `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `TOGETHER_API_KEY`
 - not required for normal PR merges (to avoid flaky/costly gating)
+
+## Live end-to-end harness
+
+`demos/e2e-tests/e2e-tests.nlogox` makes real API calls through the extension: T1–T11
+cover chat providers (chat, thinking, compile-error, history, structured output, choose,
+throttling, usage, profiles, chat-all) and T12 covers decision providers (TypeSafe Jev:
+`llm:decide`, `llm:decide-all`, `llm:choose`, cost, and the refusal of free-text chat).
+
+Put a key config beside the model (`config-groq.txt`, `config-typesafe.txt`, ...; see the
+`.example` files; these names are gitignored), pick the provider in the chooser, and press
+**run all tests**. Results go to the output area and `e2e-results.txt`.
+
+To run it headless (no GUI), from the repo root with JDK 21+:
+
+```bash
+sbt package "export Runtime/dependencyClasspath" | tail -1 > target/nl-cp.txt
+mkdir -p extensions/llm && cp llm.jar *.jar extensions/llm/   # the extension and its jars
+cd demos/e2e-tests
+# set the provider-under-test chooser's current="N" in a copy of the model, then:
+java -Djava.awt.headless=true -Dnetlogo.extensions.dir=$PWD/../../extensions \
+  -cp "$(cat ../../target/nl-cp.txt)" org.nlogo.headless.Main \
+  --model e2e-tests.nlogox --experiment e2e --table -
+cat e2e-results.txt
+```
+
+NetLogo 7 headless only runs experiments embedded in the `.nlogox`; an external
+`--setup-file` is silently ignored.

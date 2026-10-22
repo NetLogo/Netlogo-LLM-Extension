@@ -240,8 +240,8 @@ to test-openrouter-vendor-prefix
   let original-model item 1 llm:active
   llm:set-model "openai/gpt-4o-mini"
   test-pass "set-model openai/gpt-4o-mini accepted"
-  llm:set-model "anthropic/claude-3.5-haiku"
-  test-pass "set-model anthropic/claude-3.5-haiku accepted"
+  llm:set-model "anthropic/claude-haiku-5.5"
+  test-pass "set-model anthropic/claude-haiku-5.5 accepted"
   llm:set-model original-model
 end
 

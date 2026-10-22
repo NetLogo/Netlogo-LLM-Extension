@@ -9,6 +9,16 @@ import sttp.model.Uri
 import ujson._
 import scala.concurrent.ExecutionContext
 
+object OpenAICompatibleProvider {
+  /**
+   * Smallest completion budget sent to a model in reasoning format when
+   * max_tokens is still the provider default. Reasoning tokens count against
+   * max_completion_tokens, so the plain-chat default leaves too little room
+   * for the visible answer.
+   */
+  val MinReasoningCompletionTokens: Int = 4000
+}
+
 /**
  * Abstract base for providers that use the OpenAI Chat Completions wire format.
  *
@@ -73,7 +83,7 @@ abstract class OpenAICompatibleProvider(implicit ec: ExecutionContext) extends B
     if (isReasoning) {
       // Reasoning models: use max_completion_tokens, no temperature
       request.maxTokens.foreach { maxTokens =>
-        baseRequest("max_completion_tokens") = maxTokens
+        baseRequest("max_completion_tokens") = reasoningCompletionBudget(maxTokens)
       }
       // Apply provider-specific reasoning fields
       applyReasoningFields(baseRequest, request)
@@ -90,6 +100,19 @@ abstract class OpenAICompatibleProvider(implicit ec: ExecutionContext) extends B
     applyResponseFormat(baseRequest, request)
 
     baseRequest
+  }
+
+  /**
+   * The max_completion_tokens for a reasoning-format request. A max_tokens
+   * the user never set (still the seeded default) is raised to
+   * MinReasoningCompletionTokens; any value the user set, even one equal to
+   * the default, is the modeler's choice and is sent unchanged.
+   */
+  protected def reasoningCompletionBudget(maxTokens: Int): Int = {
+    val seededDefault = configStore.isDefault(ConfigStore.MAX_TOKENS) &&
+      configStore.get(ConfigStore.MAX_TOKENS).flatMap(_.trim.toIntOption).contains(maxTokens)
+    if (seededDefault) math.max(maxTokens, OpenAICompatibleProvider.MinReasoningCompletionTokens)
+    else maxTokens
   }
 
   /**
@@ -154,13 +177,18 @@ abstract class OpenAICompatibleProvider(implicit ec: ExecutionContext) extends B
       val choices = parsed("choices").arr.zipWithIndex.map { case (choice, index) =>
         val message = choice("message")
         val role = message("role").str
-        val content = message("content").str
-        val finishReason = choice("finish_reason").str
+        // A refusal arrives as content: null plus a "refusal" string, and
+        // finish_reason may be null too. Read both null-safely so the usage
+        // below is still parsed and the refusal reaches the caller.
+        val content = message.obj.get("content").collect { case ujson.Str(s) => s }.getOrElse("")
+        val finishReason = choice.obj.get("finish_reason").collect { case ujson.Str(s) => s }.getOrElse("")
+        val refusal = message.obj.get("refusal").collect { case ujson.Str(s) => s }
 
         Choice(
           index = index,
           message = ChatMessage(role, content),
-          finishReason = finishReason
+          finishReason = finishReason,
+          refusal = refusal
         )
       }.toArray
 

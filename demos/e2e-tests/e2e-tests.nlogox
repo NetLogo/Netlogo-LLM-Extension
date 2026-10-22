@@ -417,7 +417,8 @@ end
 ;; reuses the active one and the test still proves routing and bookkeeping.
 to-report alt-model
   if provider-under-test = "groq"      [ report "openai/gpt-oss-120b" ]
-  if provider-under-test = "anthropic" [ report "claude-3-5-haiku-latest" ]
+  if provider-under-test = "typesafe"  [ report "jev-preview" ]
+  if provider-under-test = "anthropic" [ report "claude-haiku-4-5-20251001" ]
   report item 1 llm:active
 end
 
@@ -435,6 +436,88 @@ to write-config-with-model [src dst model-name]
 end
 
 ;; Run everything in sequence.
+;; ---------------------------------------------------------------------------
+;; T12 — decisions on a decision provider (TypeSafe Jev)
+;;
+;; llm:decide must report [answer probability distribution] with the right
+;; NetLogo types for each question type, probabilities must form a
+;; distribution, llm:decide-all must answer every agent in one batch, and
+;; free-text chat must be refused with a pointer to the decision primitives.
+;; ---------------------------------------------------------------------------
+
+to-report probability? [x]
+  report is-number? x and x >= 0 and x <= 1
+end
+
+to-report sums-to-one? [dist]
+  report abs (sum map [ pair -> item 1 pair ] dist - 1) < 0.05
+end
+
+to test-decisions
+  log-line "T12 decisions"
+  let r []
+  carefully
+    [ set r llm:decide "You are a cautious retiree. The bar was packed (90 of 100 people) the last 3 nights. Go out tonight?" ["yes-no"] ]
+    [ log-line (word "  yes-no failed: " error-message) ]
+  log-line (word "  yes-no -> " r)
+  assert "yes-no answer is a boolean" (length r = 3 and is-boolean? item 0 r)
+  assert "yes-no probability is in [0, 1]" (length r = 3 and probability? item 1 r)
+  assert "yes-no distribution is [[true p] [false q]]"
+         (length r = 3 and map [ pair -> item 0 pair ] item 2 r = [true false] and sums-to-one? item 2 r)
+
+  set r []
+  carefully
+    [ set r llm:decide "A fire alarm rings. Exit A is 5 m away with 40 people queued; exit B is 30 m away and empty. Which exit?" ["choice" ["A" "B"]] ]
+    [ log-line (word "  choice failed: " error-message) ]
+  log-line (word "  choice -> " r)
+  assert "choice answer is one of the options" (length r = 3 and member? item 0 r ["A" "B"])
+  assert "choice distribution covers both options and sums to 1"
+         (length r = 3 and length item 2 r = 2 and sums-to-one? item 2 r)
+
+  set r []
+  carefully
+    [ set r llm:decide "Smoke is filling the hallway quickly. How fast do you move?" ["score" ["walk" "brisk" "run"]] ]
+    [ log-line (word "  score failed: " error-message) ]
+  log-line (word "  score -> " r)
+  assert "score answer is a number on the 0-2 scale"
+         (length r = 3 and is-number? item 0 r and item 0 r >= 0 and item 0 r <= 2)
+  assert "score distribution is labelled with the level names"
+         (length r = 3 and map [ pair -> item 0 pair ] item 2 r = ["walk" "brisk" "run"])
+
+  let picked ""
+  carefully
+    [ set picked llm:choose "A fire alarm rings. Exit A is close but crowded; exit B is far but empty. Which exit?" ["A" "B"] ]
+    [ set picked (word "ERROR: " error-message) ]
+  log-line (word "  choose -> " picked)
+  assert "llm:choose works on a decision provider" (member? picked ["A" "B"])
+
+  clear-turtles
+  create-turtles 20
+  let calls-before llm:get llm:usage-total "calls"
+  reset-timer
+  let results []
+  carefully
+    [ set results llm:decide-all turtles [ -> (word "You are bar patron " who ". Last 3 nights the bar held "
+                                                  (40 + 3 * who) " of 100 people; it is only fun below 60. Go out tonight?") ] ["yes-no"] ]
+    [ log-line (word "  decide-all failed: " error-message) ]
+  let secs timer
+  log-line (word "  decide-all: " length results " replies in " precision secs 2 " s")
+  assert "decide-all answers every turtle" (length results = 20)
+  assert "every decide-all reply is ok" (length results = 20 and reduce and map [ x -> item 2 x ] results)
+  assert "decide-all recorded one call per turtle" (llm:get llm:usage-total "calls" = calls-before + 20)
+  log-line (word "  usage-total -> " llm:usage-total)
+  assert "a cost was recorded" (is-number? llm:get llm:usage-total "cost" and llm:get llm:usage-total "cost" > 0)
+
+  let refused ""
+  carefully
+    [ set refused llm:chat "Say hello" ]
+    [ set refused error-message ]
+  log-line (word "  chat -> " refused)
+  assert "free-text chat is refused with a pointer to llm:decide"
+         (is-number? position "llm:decide" refused)
+  report-totals
+end
+
 to run-headless
   carefully [ file-delete "e2e-results.txt" ] [ ]
   setup
@@ -448,6 +531,13 @@ to test-all
   clear-output
   set pass-count 0
   set fail-count 0
+  ;; A decision provider answers no free-text prompts, so it runs only T12.
+  if provider-under-test = "typesafe" [
+    test-decisions
+    output-print ""
+    log-line (word "TOTAL  passed " pass-count "   failed " fail-count)
+    stop
+  ]
   test-basic-chat
   test-think-tag-leakage
   test-thinking-path
@@ -473,6 +563,7 @@ end
       <choice type="string" value="ollama"></choice>
       <choice type="string" value="groq"></choice>
       <choice type="string" value="anthropic"></choice>
+      <choice type="string" value="typesafe"></choice>
     </chooser>
     <button x="225" y="15" width="90" height="45" kind="Observer" display="setup" forever="false" disableUntilTicks="false">setup</button>
     <button x="325" y="15" width="120" height="45" kind="Observer" display="run all tests" forever="false" disableUntilTicks="true">test-all</button>

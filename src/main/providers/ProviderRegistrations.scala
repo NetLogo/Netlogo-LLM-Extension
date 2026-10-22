@@ -20,7 +20,7 @@ object ProviderRegistrations {
       apiKeyConfigKey = "openai_api_key",
       baseUrlConfigKey = "openai_base_url",
       defaultBaseUrl = "https://api.openai.com/v1",
-      defaultModel = "gpt-4o-mini",
+      defaultModel = "gpt-6-luna",
       defaultMaxTokens = "1000",
       requiresApiKey = true,
       apiKeyPrefix = Some("sk-"),
@@ -48,7 +48,7 @@ object ProviderRegistrations {
       apiKeyConfigKey = "anthropic_api_key",
       baseUrlConfigKey = "anthropic_base_url",
       defaultBaseUrl = "https://api.anthropic.com/v1",
-      defaultModel = "claude-haiku-4-5-20251001",
+      defaultModel = "claude-haiku-5-5",
       defaultMaxTokens = "4000",
       requiresApiKey = true,
       apiKeyPrefix = None,
@@ -76,7 +76,7 @@ object ProviderRegistrations {
       apiKeyConfigKey = "gemini_api_key",
       baseUrlConfigKey = "gemini_base_url",
       defaultBaseUrl = "https://generativelanguage.googleapis.com/v1beta",
-      defaultModel = "gemini-2.5-flash",
+      defaultModel = "gemini-3.5-flash-lite",
       defaultMaxTokens = "2048",
       requiresApiKey = true,
       apiKeyPrefix = None,
@@ -104,7 +104,7 @@ object ProviderRegistrations {
       apiKeyConfigKey = "ollama_api_key",
       baseUrlConfigKey = "ollama_base_url",
       defaultBaseUrl = "http://localhost:11434",
-      defaultModel = "llama3.2:3b",
+      defaultModel = "llama3.2",
       defaultMaxTokens = "2048",
       requiresApiKey = false,
       apiKeyPrefix = None,
@@ -122,7 +122,7 @@ object ProviderRegistrations {
           |   - Or start Ollama app (it runs in background)
           |
           |3. Pull a model:
-          |   - Run: ollama pull llama3.2:3b
+          |   - Run: ollama pull llama3.2
           |   - Or try: ollama pull deepseek-r1:1.5b (smaller)
           |
           |4. Verify installation:
@@ -142,7 +142,7 @@ object ProviderRegistrations {
       apiKeyConfigKey = "openrouter_api_key",
       baseUrlConfigKey = "openrouter_base_url",
       defaultBaseUrl = "https://openrouter.ai/api/v1",
-      defaultModel = "openai/gpt-4o-mini",
+      defaultModel = "openai/gpt-oss-20b",
       defaultMaxTokens = "1000",
       requiresApiKey = true,
       apiKeyPrefix = None,
@@ -160,9 +160,9 @@ object ProviderRegistrations {
           |   - Or at runtime: llm:set-api-key "sk-or-your-key-here"
           |
           |3. Set a model (vendor-prefixed):
-          |   - llm:set-model "openai/gpt-4o"
-          |   - llm:set-model "anthropic/claude-3.5-sonnet"
-          |   - llm:set-model "deepseek/deepseek-r1"
+          |   - llm:set-model "openai/gpt-oss-20b"
+          |   - llm:set-model "anthropic/claude-haiku-5.5"
+          |   - llm:set-model "google/gemini-3.5-flash-lite"
           |
           |4. Verify:
           |   - Check llm:provider-status for "has-key: true"
@@ -177,7 +177,7 @@ object ProviderRegistrations {
       apiKeyConfigKey = "together_api_key",
       baseUrlConfigKey = "together_base_url",
       defaultBaseUrl = "https://api.together.xyz/v1",
-      defaultModel = "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      defaultModel = "Qwen/Qwen3.8-Flash",
       defaultMaxTokens = "1000",
       requiresApiKey = true,
       apiKeyPrefix = None,
@@ -195,9 +195,9 @@ object ProviderRegistrations {
           |   - Or at runtime: llm:set-api-key "your-key-here"
           |
           |3. Set a model (vendor-prefixed):
-          |   - llm:set-model "meta-llama/Llama-3.3-70B-Instruct-Turbo"
-          |   - llm:set-model "deepseek-ai/DeepSeek-R1"
-          |   - llm:set-model "Qwen/Qwen2.5-72B-Instruct-Turbo"
+          |   - llm:set-model "Qwen/Qwen3.8-Flash"
+          |   - llm:set-model "openai/gpt-oss-120b"
+          |   - llm:set-model "deepseek-ai/DeepSeek-V4.1-Flash"
           |
           |4. Verify:
           |   - Check llm:provider-status for "has-key: true"
@@ -243,7 +243,7 @@ object ProviderRegistrations {
           |3. Set a model:
           |   - llm:set-model "openai/gpt-oss-20b"
           |   - llm:set-model "openai/gpt-oss-120b"
-          |   - llm:set-model "groq/compound-mini"
+          |   - llm:set-model "qwen/qwen3.8-27b"
           |
           |4. Verify:
           |   - Check llm:provider-status for "has-key: true"
@@ -251,6 +251,46 @@ object ProviderRegistrations {
           |Groq's free tier is fast and generous — a good fit for classrooms.
           |Browse models: https://console.groq.com/docs/models""".stripMargin,
       factory = ec => new GroqProvider()(using ec)
+    ))
+
+    ProviderRegistry.register(ProviderDescriptor(
+      name = "typesafe",
+      displayName = "TypeSafe (Jev)",
+      apiKeyConfigKey = "typesafe_api_key",
+      baseUrlConfigKey = "typesafe_base_url",
+      defaultBaseUrl = "https://api.typesafe.ai",
+      defaultModel = "jev-latest",
+      defaultMaxTokens = "1000",
+      requiresApiKey = true,
+      apiKeyPrefix = None,
+      readinessCheck = ReadinessCheck.ApiKey,
+      // Jev returns typed decisions with probabilities, never text or reasoning.
+      exposesThinking = false,
+      helpText =
+        """TypeSafe (Jev) Setup Instructions:
+          |
+          |Jev answers typed questions with calibrated probabilities instead of
+          |writing text. Use llm:decide, llm:decide-all or llm:choose with it;
+          |llm:chat and the other text primitives are not available.
+          |
+          |1. Get an API key:
+          |   - Visit https://console.typesafe.ai/
+          |   - Create a new API key
+          |
+          |2. Set the key:
+          |   - In config file: typesafe_api_key=your-key-here
+          |   - Or at runtime: llm:set-api-key "your-key-here"
+          |
+          |3. Set a model (optional):
+          |   - llm:set-model "jev-latest"   (stable, the default)
+          |   - llm:set-model "jev-preview"  (newest release)
+          |   - llm:set-model "jev-1.14.0"   (pinned version)
+          |
+          |4. Verify:
+          |   - Check llm:provider-status for "has-key: true"
+          |
+          |Docs: https://docs.typesafe.ai""".stripMargin,
+      factory = ec => new TypeSafeProvider()(using ec)
     ))
   }
 }

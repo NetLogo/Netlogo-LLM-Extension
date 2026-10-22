@@ -20,11 +20,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      # NetLogo 7.0.4 is compiled for Java 21
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
           cache: sbt
 
       - name: Setup sbt
@@ -32,3 +33,9 @@ jobs:
 
       - name: Run tests
         run: sbt test
+
+      - name: Build release zip
+        run: sbt packageZip
+
+      - name: Check release zip contents
+        run: scripts/check-zip.sh

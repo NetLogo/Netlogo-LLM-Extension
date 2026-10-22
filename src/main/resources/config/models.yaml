@@ -1,216 +1,242 @@
 # NetLogo LLM Extension - Bundled Model Registry
 # This file defines the supported models for each LLM provider.
 # Only includes current/recommended models - legacy models removed.
+#
+# Each provider is either a plain list of model IDs, or a mapping with:
+#   default: the model used when no model is configured (list it in models
+#            here; in a user catalog or models-override.yaml a default that
+#            is not listed is added to the known models automatically)
+#   models:  the list of known model IDs
+# When a provider has no default:, the default in ProviderRegistrations.scala applies.
+#
+# The same format works in a user catalog at ~/.netlogo-llm/models.yaml
+# (or the path in the llm.models.user.file system property / NETLOGO_LLM_MODELS
+# env var), which adds models and can override default: without rebuilding.
+#
+# Catalog refreshed October 2026 against each provider's models and
+# deprecations pages. Retired and retiring IDs are left out.
 
 openai:
-  # GPT-5 (latest flagship)
-  - gpt-5
-  - gpt-5-mini
-  - gpt-5-nano
-  - gpt-5-chat
-  
-  # o-series reasoning models (latest)
-  - o3-deep-research
-  - o4-mini-deep-research
-  - o3-pro
-  - o3
-  - o3-mini
-  - o4-mini
-  
-  # GPT-4.1 (current non-reasoning)
-  - gpt-4.1
-  - gpt-4.1-mini
-  - gpt-4.1-nano
+  default: gpt-6-luna
+  models:
+    # GPT-6 (reasoning; reasoning_effort none|low|medium|high|xhigh)
+    - gpt-6-luna
+    - gpt-6.1-sol
+    - gpt-6-sol
+    - gpt-6-astra
 
-    # o1 series (previous reasoning)
-  - o1-pro
-  - o1
-  - o1-mini  # deprecated
-  - o1-preview  # deprecated
-  
-  # GPT-4o (stable multimodal)
-  - gpt-4o
-  - gpt-4o-mini
-  - chatgpt-4o
-  - gpt-4o-search-preview
-  - gpt-4o-mini-search-preview
-  - gpt-3.5-turbo
+    # GPT-5.x (reasoning)
+    - gpt-5.6-luna
+    - gpt-5.6-terra
+    - gpt-5.6-sol
+    - gpt-5.5
+    - gpt-5.4
+    - gpt-5.4-mini
+
+    # Deprecated, still served until 2027-01-14
+    - gpt-4o-mini
 
 anthropic:
-  # Adaptive thinking (thinking.type "adaptive" + output_config.effort).
-  # These reject thinking.type "enabled" and any non-default temperature.
-  # IDs are dateless from the 4.6 generation on, and still pinned snapshots.
-  - claude-fable-5
-  - claude-opus-5
-  - claude-sonnet-5
-  - claude-opus-4-8
-  - claude-opus-4-7
+  default: claude-haiku-5-5
+  models:
+    # Adaptive thinking (thinking.type "adaptive" + output_config.effort).
+    # These reject thinking.type "enabled" and any non-default temperature.
+    # IDs are dateless from the 4.6 generation on, and still pinned snapshots.
+    - claude-fable-5-1
+    - claude-opus-5-5
+    - claude-sonnet-5-5
+    - claude-haiku-5-5
+    - claude-fable-5
+    - claude-opus-5
+    - claude-sonnet-5
+    - claude-opus-4-8
+    - claude-opus-4-7
 
-  # Adaptive thinking, extended thinking deprecated but still accepted
-  - claude-opus-4-6
-  - claude-sonnet-4-6
+    # Adaptive thinking, extended thinking deprecated but still accepted
+    - claude-opus-4-6
+    - claude-sonnet-4-6
 
-  # Extended thinking only (thinking.type "enabled" + budget_tokens).
-  # These reject "adaptive".
-  - claude-opus-4-5-20251101
-  - claude-sonnet-4-5-20250929
-  - claude-haiku-4-5-20251001
-
-  # Claude 4.1 / 4 (extended thinking)
-  - claude-opus-4-1-20250805
-  - claude-sonnet-4-20250514
-  - claude-opus-4-20250514
+    # Extended thinking only (thinking.type "enabled" + budget_tokens).
+    # These reject "adaptive".
+    - claude-opus-4-5-20251101
+    - claude-haiku-4-5-20251001
 
 gemini:
-  # Gemini 3 (latest preview)
-  - gemini-3-pro-preview
-  - gemini-3-pro-image-preview
-  - gemini-3-flash-preview
-  
-  # Gemini 2.5 (current production)
-  - gemini-2.5-pro
-  - gemini-2.5-pro-latest
-  - gemini-2.5-pro-preview-tts
-  - gemini-2.5-flash
-  - gemini-2.5-flash-latest
-  - gemini-2.5-flash-preview-09-2025
-  - gemini-2.5-flash-image
-  - gemini-2.5-flash-native-audio-preview-12-2025
-  - gemini-2.5-flash-preview-tts
-  - gemini-2.5-flash-lite
-  - gemini-2.5-flash-lite-latest
-  - gemini-2.5-flash-lite-preview-09-2025
+  default: gemini-3.5-flash-lite
+  models:
+    # Gemini 3+ (thinking depth set with thinkingLevel)
+    - gemini-4-argon
+    - gemini-3.8-flash
+    - gemini-3.6-flash
+    - gemini-3.5-flash-lite
+    - gemini-3.1-pro-preview
+    - gemini-3-flash-preview
+
+    # Gemini 2.5 (thinking depth set with thinkingBudget).
+    # Only open to projects that already used them.
+    - gemini-2.5-pro
+    - gemini-2.5-flash
+    - gemini-2.5-flash-lite
 
 openrouter:
-  # OpenAI models via OpenRouter
-  - openai/gpt-4o
-  - openai/gpt-4o-mini
-  - openai/gpt-4.1
-  - openai/gpt-4.1-mini
-  - openai/o3-mini
-  - openai/o4-mini
+  default: openai/gpt-oss-20b
+  models:
+    # OpenAI models via OpenRouter
+    - openai/gpt-oss-20b
+    - openai/gpt-oss-120b
+    - openai/gpt-6-luna
+    - openai/gpt-4o-mini
 
-  # Anthropic models via OpenRouter
-  - anthropic/claude-sonnet-4-20250514
-  - anthropic/claude-3.5-sonnet
-  - anthropic/claude-3.5-haiku
+    # Anthropic models via OpenRouter
+    - anthropic/claude-haiku-5.5
 
-  # Google models via OpenRouter
-  - google/gemini-2.5-flash
-  - google/gemini-2.5-pro
+    # Google models via OpenRouter
+    - google/gemini-3.5-flash-lite
+    - google/gemini-3.8-flash
+    - google/gemini-2.5-flash
+    - google/gemini-2.5-pro
 
-  # Meta Llama models via OpenRouter
-  - meta-llama/llama-3.3-70b-instruct
-  - meta-llama/llama-3.1-405b-instruct
+    # Meta Llama models via OpenRouter
+    - meta-llama/llama-3.3-70b-instruct
+    - meta-llama/llama-3.1-8b-instruct
 
-  # DeepSeek models via OpenRouter
-  - deepseek/deepseek-r1
-  - deepseek/deepseek-chat-v3-0324
+    # DeepSeek models via OpenRouter
+    - deepseek/deepseek-v4.1-flash
 
-  # Qwen models via OpenRouter
-  - qwen/qwen-max
+    # Qwen models via OpenRouter
+    - qwen/qwen3.8-flash
+    - qwen/qwen3.8-27b
+
+    # Mistral models via OpenRouter
+    - mistralai/mistral-small-2603
+
+    # OpenRouter's automatic router
+    - openrouter/auto
 
 together:
-  # Meta Llama
-  - meta-llama/Llama-3.3-70B-Instruct-Turbo
-  - meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo
-  - meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo
-  - meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo
+  default: Qwen/Qwen3.8-Flash
+  models:
+    # Qwen
+    - Qwen/Qwen3.8-Flash
+    - Qwen/Qwen3.7-Plus
+    - Qwen/Qwen3.5-9B
 
-  # DeepSeek
-  - deepseek-ai/DeepSeek-R1
-  - deepseek-ai/DeepSeek-V3
+    # OpenAI open-weight
+    - openai/gpt-oss-120b
 
-  # Qwen
-  - Qwen/Qwen2.5-72B-Instruct-Turbo
-  - Qwen/Qwen2.5-7B-Instruct-Turbo
+    # DeepSeek
+    - deepseek-ai/DeepSeek-V4.1-Flash
 
-  # Google Gemma
-  - google/gemma-3-27b-it
-
-  # Mistral
-  - mistralai/Mistral-Small-24B-Instruct-2501
+    # Others
+    - zai-org/GLM-5.3-Flash
+    - nvidia/NVIDIA-Nemotron-3.5-Super-VL
+    - meta-models/Muse-Glimmer-30B
+    - MiniMaxAI/MiniMax-M3
+    - moonshotai/Kimi-K3
 
 groq:
-  # OpenAI open-weight models (reasoning, exposed via message.reasoning)
-  - openai/gpt-oss-120b
-  - openai/gpt-oss-20b
-  - openai/gpt-oss-safeguard-20b
+  default: openai/gpt-oss-20b
+  models:
+    # OpenAI open-weight models (reasoning, exposed via message.reasoning)
+    - openai/gpt-oss-20b
+    - openai/gpt-oss-120b
 
-  # Groq agentic systems (built-in tool use)
-  - groq/compound
-  - groq/compound-mini
+    # Preview models
+    - qwen/qwen3.8-27b
+    - minimaxai/minimax-m2.7
+    - meta-models/muse-spark-open
 
-  # Preview models
-  - qwen/qwen3.6-27b
-  - minimaxai/minimax-m2.7
+typesafe:
+  # Jev decision models (llm:decide, llm:decide-all, llm:choose only)
+  default: jev-latest
+  models:
+    - jev-latest
+    - jev-preview
+    - jev-1.13.0
+    - jev-1.14.0
 
 ollama:
-  # Top reasoning models
-  - deepseek-r1:70b
-  - deepseek-r1:32b
-  - deepseek-r1:14b
-  - deepseek-r1:8b
-  - deepseek-r1:1.5b
-  
-  # Meta Llama 3 series (best all-round)
-  - llama3.3:70b
-  - llama3.3:8b
-  - llama3.2:3b
-  - llama3.2:1b
-  - llama3.1:405b
-  - llama3.1:70b
-  - llama3.1:8b
-  
-  # Alibaba Qwen series (multilingual)
-  - qwen2.5:72b
-  - qwen2.5:32b
-  - qwen2.5:14b
-  - qwen2.5:7b
-  - qwen2.5:3b
-  - qwen2.5:1.5b
-  - qwen2.5:0.5b
-  
-  # Coding specialists
-  - qwen2.5-coder:32b
-  - qwen2.5-coder:7b
-  - qwen2.5-coder:1.5b
-  - codellama:34b
-  - codellama:13b
-  - codellama:7b
-  - deepseek-coder-v2:16b
-  - deepseek-coder-v2:6.7b
-  
-  # Google Gemma (efficient)
-  - gemma2:27b
-  - gemma2:9b
-  - gemma2:2b
-  
-  # Microsoft Phi (lightweight powerhouse)
-  - phi4:14b
-  - phi3:14b
-  - phi3:3.8b
-  
-  # Mistral AI series (fast)
-  - mistral:7b
-  - mistral-nemo:12b
-  - mixtral:8x7b
-  - mixtral:8x22b
-  
-  # Vision and multimodal
-  - llava:34b
-  - llava:13b
-  - llava:7b
-  - qwen2-vl:7b
-  - qwen2-vl:2b
-  
-  # Ultra-lightweight (edge devices)
-  - tinyllama:1.1b
-  - orca-mini:3b
-  - stablelm2:1.6b
-  
-  # Conversational specialists
-  - vicuna:13b
-  - vicuna:7b
-  - solar:10.7b
+  default: llama3.2
+  models:
+    # Recommended small default (same as llama3.2:3b)
+    - llama3.2
 
+    # Newer small models
+    - qwen3:4b
+    - qwen3:8b
+    - qwen3.5:4b
+    - qwen3.5:9b
+    - gemma3:4b
+    - gemma3:12b
+    - gemma4:e4b
+    - gpt-oss:20b
+    - mistral
+    - phi4
+
+    # Top reasoning models
+    - deepseek-r1:70b
+    - deepseek-r1:32b
+    - deepseek-r1:14b
+    - deepseek-r1:8b
+    - deepseek-r1:1.5b
+
+    # Meta Llama 3 series (best all-round)
+    - llama3.3:70b
+    - llama3.3:8b
+    - llama3.2:3b
+    - llama3.2:1b
+    - llama3.1:405b
+    - llama3.1:70b
+    - llama3.1:8b
+
+    # Alibaba Qwen series (multilingual)
+    - qwen2.5:72b
+    - qwen2.5:32b
+    - qwen2.5:14b
+    - qwen2.5:7b
+    - qwen2.5:3b
+    - qwen2.5:1.5b
+    - qwen2.5:0.5b
+
+    # Coding specialists
+    - qwen2.5-coder:32b
+    - qwen2.5-coder:7b
+    - qwen2.5-coder:1.5b
+    - codellama:34b
+    - codellama:13b
+    - codellama:7b
+    - deepseek-coder-v2:16b
+    - deepseek-coder-v2:6.7b
+
+    # Google Gemma (efficient)
+    - gemma2:27b
+    - gemma2:9b
+    - gemma2:2b
+
+    # Microsoft Phi (lightweight powerhouse)
+    - phi4:14b
+    - phi3:14b
+    - phi3:3.8b
+
+    # Mistral AI series (fast)
+    - mistral:7b
+    - mistral-nemo:12b
+    - mixtral:8x7b
+    - mixtral:8x22b
+
+    # Vision and multimodal
+    - llava:34b
+    - llava:13b
+    - llava:7b
+    - qwen2-vl:7b
+    - qwen2-vl:2b
+
+    # Ultra-lightweight (edge devices)
+    - tinyllama:1.1b
+    - orca-mini:3b
+    - stablelm2:1.6b
+
+    # Conversational specialists
+    - vicuna:13b
+    - vicuna:7b
+    - solar:10.7b

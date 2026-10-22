@@ -11,7 +11,7 @@ extensions [llm]
 
 to setup
   llm:set-provider "openai"
-  llm:set-model "gpt-4"
+  llm:set-model "gpt-6.1-sol"
 end
 
 to example-template-usage
@@ -481,13 +481,13 @@ end
 
 ### Reasoning Models — Show the Model's Work
 
-Use `llm:chat-with-thinking` to get both the final answer and the model's intermediate reasoning. Works with Anthropic Claude, Gemini 2.x, Ollama qwen3 / deepseek-r1, OpenRouter reasoning models, and Together AI's DeepSeek-R1.
+Use `llm:chat-with-thinking` to get both the final answer and the model's intermediate reasoning. Works with Anthropic Claude, Gemini 2.5 and 3.x, Ollama qwen3 / deepseek-r1, OpenRouter reasoning models, Groq gpt-oss, and Together AI reasoning models.
 
 ```netlogo
 extensions [llm]
 
 to setup-reasoning
-  llm:load-config "config.txt"        ;; e.g. provider=together, model=deepseek-ai/DeepSeek-R1
+  llm:load-config "config.txt"        ;; e.g. provider=together, model=deepseek-ai/DeepSeek-V4.1-Flash
   llm:set-thinking true
   llm:set-reasoning-effort "high"     ;; OpenAI o-series + OpenRouter + Together hybrid
   llm:set-thinking-budget 4096        ;; Anthropic + Gemini
@@ -521,7 +521,7 @@ end
 
 to compare-vendors-via-openrouter
   let prompt "Summarize agent-based modeling in one sentence."
-  foreach ["openai/gpt-4o-mini" "anthropic/claude-3.5-haiku" "meta-llama/llama-3.3-70b-instruct"] [ m ->
+  foreach ["openai/gpt-oss-20b" "anthropic/claude-haiku-5.5" "meta-llama/llama-3.3-70b-instruct"] [ m ->
     llm:set-model m
     print (word m ": " llm:chat prompt)
     llm:clear-history
@@ -991,15 +991,15 @@ end
 
 to optimize-for-mode [mode]
   if mode = "speed" [
-    llm:set-model "gpt-4o-mini"  ; Fastest model
+    llm:set-model "gpt-6-luna"  ; Fastest model
     ; Set low temperature and tokens for speed
   ]
   if mode = "quality" [
-    llm:set-model "gpt-4o"  ; Best model
+    llm:set-model "gpt-6-astra"  ; Best model
     ; Allow higher tokens and temperature
   ]
   if mode = "balanced" [
-    llm:set-model "gpt-4o-mini"  ; Good balance
+    llm:set-model "gpt-6.1-sol"  ; Good balance
     ; Moderate settings
   ]
 end

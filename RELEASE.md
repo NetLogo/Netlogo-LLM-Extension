@@ -1,133 +1,98 @@
 # Release Process
 
-## Creating a New Release
+Releases ship to users through the NetLogo Extension Manager, which reads
+`libraries.conf` in [NetLogo/NetLogo-Libraries](https://github.com/NetLogo/NetLogo-Libraries).
+A release is: a tagged commit here, a GitHub release with the zip, and a PR
+to NetLogo-Libraries that adds the zip and bumps the version.
 
-### 1. Update Version
+## Requirements
 
-Edit `build.sbt`:
+- **JDK 21 or newer.** NetLogo 7.0.4 is compiled for Java 21; JDK 17 fails with
+  `UnsupportedClassVersionError` on `org.nlogo.api.APIVersion`.
+- **sbt 1.10.1** (pinned in `project/build.properties`; NetLogo notes 1.10.2+ can
+  hit a ZipException).
+
+```bash
+export JAVA_HOME=$(/usr/libexec/java_home -v 21+)
+```
+
+## 1. Set the version
+
+In `build.sbt`:
+
 ```scala
-version := "0.2.0"  // Update version number
+version    := "1.1.0"
+isSnapshot := false   // only for the release build; keep true while developing
 ```
 
-### 2. Build Release Package
+With `isSnapshot := false` the plugin refuses to stage the extension from a
+dirty working tree, so commit everything first.
+
+Versioning is semantic: MAJOR for changes that break existing models, MINOR for
+new primitives or providers, PATCH for fixes.
+
+## 2. Build and check the zip
 
 ```bash
-# Set Java 17
-export JAVA_HOME=$(/usr/libexec/java_home -v 17)
-
-# Build distribution ZIP
-sbt clean packageZip
+sbt clean test packageZip
+scripts/check-zip.sh            # asserts the docs, config files and demos are inside
 ```
 
-**Output:** `llm-0.2.0.zip` (11MB)
+Output: `llm-<version>.zip` in the repo root (gitignored). It contains `llm.jar`,
+its dependency jars, `docs/README.md`, `demos/config-reference.txt`, the curated
+demos flattened into `demos/`, and `demos/config.txt` copied from the tracked
+`demos/config-placeholder.txt` (never the developer's local config, which may
+hold real keys). `sbt packageZip` also prints the `libraries.conf` entry to use.
 
-### 3. Test the Release
+Check the manifest says `NetLogo-Extension-API-Version: 7.0`:
 
 ```bash
-# Automated deterministic tests (no API/network required)
-sbt test
-
-# Extract and install release package
-unzip llm-0.2.0.zip
-cp -r llm-0.2.0 "/Applications/NetLogo 7.0.0/extensions/llm"
-
-# Optional manual integration checks (real providers)
-# Open NetLogo and run demos/tests/tests.nlogox
+unzip -p llm-<version>.zip llm.jar > /tmp/llm.jar && unzip -p /tmp/llm.jar META-INF/MANIFEST.MF
 ```
 
-### 4. Create Git Tag
+## 3. Test the release
+
+1. `sbt test` (deterministic, no network) must be green; CI runs the same plus
+   the zip check.
+2. Live harness: open `demos/e2e-tests/e2e-tests.nlogox` with a local
+   `config-<provider>.txt` (see the `.example` files) and run it against at least
+   one cloud provider, Ollama, and TypeSafe (Jev).
+3. Install the zip into a NetLogo 7.0.4 app
+   (`<NetLogo 7.0.4>/extensions/llm/`), open a bundled demo, and run it.
+
+## 4. Tag and publish on GitHub
 
 ```bash
-git add build.sbt llm-0.2.0.zip
-git commit -m "Release v0.2.0"
-git tag v0.2.0
-git push origin main
-git push origin v0.2.0
+git tag v<version>
+git push upstream main v<version>
+gh release create v<version> llm-<version>.zip -R NetLogo/Netlogo-LLM-Extension \
+  --title "LLM Extension v<version>" --notes-file <notes.md>
 ```
 
-### 5. Create GitHub Release
+## 5. Publish to the Extension Manager
 
-1. Go to: https://github.com/JNK234/Netlogo-LLM-Extension/releases
-2. Click "Create a new release"
-3. Select tag: `v0.2.0`
-4. Title: `LLM Extension v0.2.0`
-5. Attach: `llm-0.2.0.zip`
-6. Write release notes
-7. Publish release
+1. Fork https://github.com/NetLogo/NetLogo-Libraries and branch from **`7.0`**
+   (the branch NetLogo 7.0.x reads). Maintainers cherry-pick to `7.1`.
+2. Add `extensions/llm-<version>.zip`.
+3. In `libraries.conf`, update the `llm` entry's `version` (and descriptions if
+   they changed) using the block `sbt packageZip` printed.
+4. Open the PR against `7.0`. For reference, v1.0.0 was NetLogo-Libraries PR #87.
 
-## Release Checklist
+## Checklist
 
-- [ ] Version updated in `build.sbt`
-- [ ] `sbt clean packageZip` completed successfully
-- [ ] `sbt test` passed
-- [ ] ZIP file tested in NetLogo
-- [ ] Optional live-provider checks run (`demos/tests/tests.nlogox`)
-- [ ] Documentation updated if needed
-- [ ] Git tag created
-- [ ] GitHub release published
-- [ ] ZIP file attached to release
+- [ ] `version` set, `isSnapshot := false`, tree committed
+- [ ] `sbt clean test packageZip` green, `scripts/check-zip.sh` passes
+- [ ] Manifest API version is 7.0
+- [ ] Live e2e harness run (cloud provider, Ollama, Jev)
+- [ ] Zip installed and a demo run in NetLogo 7.0.4
+- [ ] Docs updated (`docs/API-REFERENCE.md`, `docs/CONFIGURATION.md`, `docs/PROVIDER-GUIDE.md`)
+- [ ] Tag pushed, GitHub release published with the zip
+- [ ] NetLogo-Libraries PR opened against `7.0`
+- [ ] `isSnapshot := true` restored for development
 
-## Build Outputs
-
-### For Development
-```bash
-sbt clean assembly
-```
-- Output: `target/scala-3.7.0/llm.jar` (172MB)
-- Use: Local testing, quick install
-
-### For Distribution
-```bash
-sbt clean packageZip
-```
-- Output: `llm-x.x.x.zip` (11MB)
-- Use: Official releases, NetLogo Library submission
-
-## Version Numbering
-
-Follow semantic versioning: `MAJOR.MINOR.PATCH`
-
-- **MAJOR**: Breaking changes to API
-- **MINOR**: New features, backward compatible
-- **PATCH**: Bug fixes, backward compatible
-
-Examples:
-- `0.1.0` - Initial release
-- `0.2.0` - Added new primitives
-- `0.2.1` - Fixed bug in config loading
-- `1.0.0` - Stable API, production ready
-
-## Publishing to NetLogo Extension Library
-
-After creating a GitHub release:
-
-1. The package metadata is generated by `sbt packageZip`:
-   ```json
-   {
-     name:             "LLM-Extension"
-     codeName:         "llm"
-     version:          "0.x.x"
-     downloadURL:      "https://github.com/.../llm-0.x.x.zip"
-   }
-   ```
-
-2. Submit to NetLogo Extension Library:
-   - Fork: https://github.com/NetLogo/NetLogo-Libraries
-   - Add entry to `libraries.conf`
-   - Create pull request
-
-## Cleanup After Release
-
-Remove old build artifacts:
+## Development builds
 
 ```bash
-# Remove old JARs from root (keep only latest ZIP)
-rm -f *.jar
-
-# Remove old version directories
-rm -rf llm-0.0.*/
-
-# Keep only:
-# - llm-0.x.x.zip (latest version)
-# - target/ (regenerated on build)
+sbt clean assembly     # fat jar at target/scala-3.7.0/llm.jar, for local installs
+./build.sh             # same, plus install when NETLOGO_DIR is set
 ```

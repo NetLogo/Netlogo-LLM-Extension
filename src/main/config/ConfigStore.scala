@@ -14,6 +14,10 @@ class ConfigStore {
   private val config: scala.collection.concurrent.Map[String, String] =
     new ConcurrentHashMap[String, String]().asScala
 
+  // Keys whose current value was seeded by setDefault rather than chosen by the
+  // user. Any later set, load, or remove of a key takes it out of this set.
+  private val defaulted: java.util.Set[String] = ConcurrentHashMap.newKeySet[String]()
+
   /**
    * Set a configuration value
    *
@@ -22,7 +26,23 @@ class ConfigStore {
    */
   def set(key: String, value: String): Unit = {
     config(key) = value
+    defaulted.remove(key)
   }
+
+  /**
+   * Seed a default value. Unlike set, the key still reads as not chosen by
+   * the user (isDefault) until something else sets it.
+   */
+  def setDefault(key: String, value: String): Unit = {
+    config(key) = value
+    defaulted.add(key)
+  }
+
+  /** True when the key holds a value seeded by setDefault, not one the user set. */
+  def isDefault(key: String): Boolean = defaulted.contains(key)
+
+  /** The keys currently holding seeded default values. */
+  def defaultKeys: Set[String] = defaulted.asScala.toSet
 
   /**
    * Get a configuration value
@@ -62,6 +82,7 @@ class ConfigStore {
    * @return Option containing the removed value
    */
   def remove(key: String): Option[String] = {
+    defaulted.remove(key)
     config.remove(key)
   }
 
@@ -70,16 +91,21 @@ class ConfigStore {
    */
   def clear(): Unit = {
     config.clear()
+    defaulted.clear()
   }
 
   /**
    * Load configuration from a map, replacing existing values
    *
    * @param newConfig Map of configuration key-value pairs
+   * @param defaultKeys Keys in newConfig that hold seeded defaults rather than
+   *                    user choices (used to restore a snapshot)
    */
-  def loadFromMap(newConfig: Map[String, String]): Unit = {
+  def loadFromMap(newConfig: Map[String, String], defaultKeys: Set[String] = Set.empty): Unit = {
     config.clear()
+    defaulted.clear()
     config ++= newConfig
+    defaultKeys.filter(newConfig.contains).foreach(defaulted.add)
   }
 
   /**
@@ -89,6 +115,7 @@ class ConfigStore {
    */
   def updateFromMap(newConfig: Map[String, String]): Unit = {
     config ++= newConfig
+    newConfig.keys.foreach(defaulted.remove)
   }
 
   /**
@@ -178,7 +205,6 @@ object ConfigStore {
 
   // Default values
   val DEFAULT_PROVIDER = "openai"
-  val DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
   val DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
   val DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
   val DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
@@ -192,12 +218,13 @@ object ConfigStore {
    */
   def withDefaults(): ConfigStore = {
     val store = new ConfigStore()
-    store.set(PROVIDER, DEFAULT_PROVIDER)
-    store.set(MODEL, DEFAULT_OPENAI_MODEL)
-    store.set(BASE_URL, DEFAULT_OPENAI_BASE_URL)
-    store.set(TEMPERATURE, DEFAULT_TEMPERATURE)
-    store.set(MAX_TOKENS, DEFAULT_MAX_TOKENS)
-    store.set(TIMEOUT_SECONDS, DEFAULT_TIMEOUT_SECONDS)
+    store.setDefault(PROVIDER, DEFAULT_PROVIDER)
+    // The default provider's default model comes from the model catalog
+    // (models.yaml `default:`), so it can be updated without a Scala change.
+    store.setDefault(MODEL, org.nlogo.extensions.llm.providers.ModelRegistry.defaultModel(DEFAULT_PROVIDER))
+    store.setDefault(TEMPERATURE, DEFAULT_TEMPERATURE)
+    store.setDefault(MAX_TOKENS, DEFAULT_MAX_TOKENS)
+    store.setDefault(TIMEOUT_SECONDS, DEFAULT_TIMEOUT_SECONDS)
     store
   }
   
@@ -214,6 +241,18 @@ object ConfigStore {
    */
   def getProviderBaseUrlName(provider: String): String =
     org.nlogo.extensions.llm.providers.ProviderRegistry.baseUrlConfigKey(provider)
+
+  /**
+   * Resolve the base URL a provider should send to.
+   *
+   * The provider-specific key (e.g. "anthropic_base_url") wins, then the legacy
+   * generic BASE_URL, then the provider's built-in default. Neither key is ever
+   * seeded with a default, so a value present here is one the user set.
+   */
+  def resolveBaseUrl(config: ConfigStore, providerBaseUrlKey: String, defaultBaseUrl: String): String =
+    config.get(providerBaseUrlKey)
+      .orElse(config.get(BASE_URL))
+      .getOrElse(defaultBaseUrl)
 
   /**
    * Get default base URL for a provider.

@@ -49,7 +49,7 @@ Starting from this version, configuration is validated immediately:
 ```
 provider=openai
 openai_api_key=sk-REPLACE_ME
-model=gpt-4o-mini
+model=gpt-6-luna
 temperature=0.7
 max_tokens=1000
 timeout_seconds=30
@@ -59,7 +59,7 @@ timeout_seconds=30
 ```
 provider=anthropic
 anthropic_api_key=sk-ant-REPLACE_ME
-model=claude-3-5-sonnet-20241022
+model=claude-haiku-5-5
 temperature=0.7
 max_tokens=4000
 timeout_seconds=30
@@ -69,7 +69,7 @@ timeout_seconds=30
 ```
 provider=gemini
 gemini_api_key=REPLACE_ME
-model=gemini-1.5-flash
+model=gemini-3.5-flash-lite
 gemini_base_url=https://generativelanguage.googleapis.com/v1beta
 temperature=0.7
 max_tokens=2048
@@ -80,7 +80,7 @@ timeout_seconds=30
 ```
 provider=openrouter
 openrouter_api_key=sk-or-REPLACE_ME
-model=openai/gpt-4o-mini
+model=openai/gpt-oss-20b
 temperature=0.7
 max_tokens=1000
 timeout_seconds=30
@@ -90,10 +90,22 @@ timeout_seconds=30
 ```
 provider=together
 together_api_key=REPLACE_ME
-model=meta-llama/Llama-3.3-70B-Instruct-Turbo
+model=Qwen/Qwen3.8-Flash
 temperature=0.7
 max_tokens=1000
 timeout_seconds=30
+```
+
+### TypeSafe (Jev, decisions with probabilities)
+Jev answers typed questions instead of writing text: use it with `llm:decide`,
+`llm:decide-all` and `llm:choose` (the chat primitives raise an error on it).
+`temperature` and `max_tokens` do not apply.
+```
+provider=typesafe
+typesafe_api_key=REPLACE_ME
+model=jev-latest
+timeout_seconds=30
+# typesafe_base_url=https://api.typesafe.ai
 ```
 
 ### Local (Ollama, no API key)
@@ -115,14 +127,15 @@ anthropic_api_key=sk-ant-REPLACE_ME
 gemini_api_key=REPLACE_ME
 openrouter_api_key=sk-or-REPLACE_ME
 together_api_key=REPLACE_ME
+typesafe_api_key=REPLACE_ME
 
 # Set the active provider
 provider=openai
-model=gpt-4o-mini
+model=gpt-6-luna
 
 # Switch providers at runtime:
 # llm:set-provider "anthropic"
-# llm:set-model "claude-3-5-sonnet-20241022"
+# llm:set-model "claude-sonnet-5-5"
 ```
 
 ### Profiles: one config file per model, different agents on different models
@@ -198,7 +211,7 @@ sudo systemctl enable --now ollama
 ollama pull llama3.2   
 # or
 ollama pull mistral
-ollama pull qwen2
+ollama pull qwen3.5:4b
 ```
 
 4) Verify installed models
@@ -242,7 +255,7 @@ llm:load-config "config.txt"        ;; or a path like "configs/openai.txt"
 ```
 You can override values at runtime:
 ```
-llm:set-model "gpt-4o"
+llm:set-model "gpt-6.1-sol"
 ```
 
 ## Verifying & Troubleshooting
@@ -261,11 +274,63 @@ show llm:chat "Say hello in five words."
 - Do not commit secrets. Keep your config in `.gitignore`.
 - Use `demos/config-reference.txt` as a safe template and keep your real `config.txt` local.
 
-## Custom Model Registry (models-override.yaml)
+## Model Catalog (models.yaml, user catalog, models-override.yaml)
 
-You can add custom or newly released models without waiting for an extension update by creating a `models-override.yaml` file.
+The list of known models and each provider's default model live in YAML, not in
+the extension's code. When a model ID goes stale you edit a YAML file; no
+rebuild is needed.
 
-### Location
+Three layers are read, each on top of the one before:
+
+1. **Bundled catalog** — `models.yaml` inside the extension JAR.
+2. **User catalog** — `~/.netlogo-llm/models.yaml`, read once when the extension
+   starts. It applies to every model you open. To use a different path, set the
+   `llm.models.user.file` Java system property or the `NETLOGO_LLM_MODELS`
+   environment variable.
+3. **Model-directory override** — `models-override.yaml` next to your `.nlogo`
+   file, read by `llm:load-config`.
+
+### Format
+Each provider is either a plain list of model IDs, or a mapping with a
+`default:` and a `models:` list (either may be left out, but not both):
+
+```yaml
+openai:
+  default: gpt-6-luna
+  models:
+    - gpt-6-luna
+    - gpt-6.1-sol
+
+ollama:
+  - llama3.2
+  - my-custom-finetune:latest
+```
+
+`default:` is the model a provider uses when neither your config file
+(`model=`) nor `llm:set-model` names one. Those two still take precedence. When
+no layer sets `default:` for a provider, the extension's built-in default for
+that provider is used.
+
+### User catalog (~/.netlogo-llm/models.yaml)
+The user catalog **adds** to the bundled catalog rather than replacing it:
+- models you list are added to that provider's bundled list
+- a `default:` replaces the bundled default, and that model is added to the
+  provider's list even if you do not list it under `models:`, so it is never
+  reported as unknown
+- a provider the bundled catalog does not have is added
+
+```yaml
+# ~/.netlogo-llm/models.yaml
+openai:
+  default: gpt-6.1-sol        # make this the OpenAI default everywhere
+gemini:
+  - gemini-4-argon-preview    # a model released after this extension version
+```
+
+If the file cannot be parsed, the extension prints a warning naming the file and
+carries on with the bundled catalog. A missing file is fine.
+
+### Model-directory override (models-override.yaml)
 Save the file in the same directory as your `.nlogo` model file:
 ```
 my-model.nlogo
@@ -273,49 +338,41 @@ models-override.yaml   <-- Place it here
 config.txt
 ```
 
-### Format
-The file uses YAML format with provider sections. Each provider section completely replaces the bundled models for that provider:
+Each provider section you include **completely replaces** that provider's list
+from the layers below (bundled + user catalog):
 
 ```yaml
 openai:
-  - gpt-4o
-  - gpt-4o-mini
-  - gpt-4-turbo
-  - o1-preview
-  - o1-mini
-  - gpt-4o-2024-11-20  # Add new model
+  - gpt-6-luna
+  - gpt-6.1-sol
+  - gpt-6-astra  # Add new model
 
 anthropic:
-  - claude-3-5-sonnet-20241022
-  - claude-3-5-haiku-latest
-  - claude-3-opus-latest
-  - claude-3-7-sonnet-20250219  # Add new model
-
-gemini:
-  - gemini-2.0-flash-exp  # Override to use only newest model
-  - gemini-1.5-pro
-  - gemini-1.5-flash
+  default: claude-sonnet-5-5
+  models:
+    - claude-haiku-5-5
+    - claude-sonnet-5-5
 
 ollama:
   - llama3.2
   - mistral
-  - qwen2
   - deepseek-r1:latest  # Add locally installed model
 ```
 
 ### Behavior
-- **Complete replacement**: Each provider section you include completely replaces the bundled models for that provider
+- **Complete replacement**: Each provider section you include completely replaces the models for that provider
 - **Partial override**: You can override just one provider and leave others unchanged
+- **Defaults carry over**: a section without `default:` keeps the default from the layers below
+- **Default is a known model**: a section's `default:` is added to that section's model list
 - **Custom marker**: Models from the override file are marked with `[custom]` in `llm:list-models` output
-- **Validation**: The extension still validates that the model you select exists in the combined registry
+- **Validation**: `llm:set-model` warns (but still proceeds) when a model is not in the combined catalog
 
 ### Use Cases
 1. **New model releases**: Add newly announced models before the extension is updated
    ```yaml
    openai:
-     - gpt-4o
-     - gpt-4o-mini
-     - gpt-5  # Hypothetical future model
+     - gpt-6-luna
+     - gpt-7-preview  # Hypothetical future model
    ```
 
 2. **Local Ollama models**: Include models you've installed locally
@@ -329,15 +386,15 @@ ollama:
 3. **Simplify model list**: Reduce clutter by listing only the models you use
    ```yaml
    anthropic:
-     - claude-3-5-sonnet-20241022  # Only show the model I use
+     - claude-haiku-5-5  # Only show the model I use
    ```
 
 ### Example
 1. Create `models-override.yaml` next to your model:
    ```yaml
    gemini:
-     - gemini-2.0-flash-exp
-     - gemini-1.5-pro
+     - gemini-3.8-flash
+     - gemini-3.1-pro-preview
    ```
 
 2. Load config and check available models:
@@ -347,19 +404,20 @@ ollama:
    print llm:list-models
 
    ; Output shows:
-   ; === Gemini Models ===
-   ; gemini-2.0-flash-exp [custom]
-   ; gemini-1.5-pro [custom]
+   ; --- gemini ---
+   ;   gemini-3.1-pro-preview [reasoning] [custom]
+   ;   gemini-3.8-flash [reasoning] [custom]
    ```
 
 3. Set a custom model:
    ```netlogo
    llm:set-provider "gemini"
-   llm:set-model "gemini-2.0-flash-exp"  ; Uses custom model
+   llm:set-model "gemini-3.8-flash"  ; Uses custom model
    ```
 
 ### Notes
-- The override file is optional - if not present, bundled models are used
-- Invalid YAML syntax will cause an error when loading config
+- The override file is optional - if not present, the bundled and user catalogs are used
+- Invalid YAML prints a warning and the override is ignored
 - The file is loaded automatically when you call `llm:load-config`
-- You must include ALL models you want for a provider - no merging with bundled list
+- You must include ALL models you want for a provider - no merging with the lower layers' list (use the user catalog to add instead)
+- If the bundled catalog itself cannot be read, each provider falls back to its built-in default model only

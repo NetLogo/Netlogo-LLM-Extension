@@ -1,0 +1,13 @@
+# El Farol demo — settings for the "typesafe (Jev)" backend
+#
+# Copy this file to config.txt and fill in your key. config.txt is gitignored,
+# so your key stays out of version control. Get a key at https://console.typesafe.ai/
+
+provider=typesafe
+model=jev-latest
+typesafe_api_key=YOUR_TYPESAFE_API_KEY
+timeout_seconds=30
+
+# Each night sends one request per patron, three times, all at once. If your plan's
+# rate limit rejects that, cap how many are in flight:
+#max_concurrent_requests=50

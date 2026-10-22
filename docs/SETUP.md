@@ -31,17 +31,19 @@ This extension requires **NetLogo 7.0.0 or later**. Check your version in NetLog
 2. **Create config.txt**:
 ```
 provider=openai
-model=gpt-4o-mini
+model=gpt-6-luna
 api_key=sk-your-openai-key-here
 temperature=0.7
 max_tokens=1000
 ```
 
 **Available Models**:
-- `gpt-4o-mini` - Fast, cost-effective (recommended)
-- `gpt-4o` - Most capable GPT-4 variant
-- `gpt-4-turbo` - Faster GPT-4 with large context
-- `gpt-3.5-turbo` - Legacy model, still capable
+- `gpt-6-luna` - Fast, cost-effective reasoning model (recommended)
+- `gpt-6.1-sol` - Mid-tier GPT-6
+- `gpt-6-astra` - Most capable GPT-6
+- `gpt-4o-mini` - Deprecated, served until 2027-01-14
+
+GPT-5.x and GPT-6.x are reasoning models: `temperature` is not sent to them.
 
 ### Anthropic (Claude Models)
 
@@ -49,17 +51,19 @@ max_tokens=1000
 2. **Create config.txt**:
 ```
 provider=anthropic
-model=claude-3-haiku-20240307
+model=claude-haiku-5-5
 api_key=sk-ant-your-anthropic-key-here
 temperature=0.5
 max_tokens=4000
 ```
 
 **Available Models**:
-- `claude-3-haiku-20240307` - Fast, cost-effective (recommended)
-- `claude-3-sonnet-20240229` - Balanced performance
-- `claude-3-opus-20240229` - Most capable Claude
-- `claude-3-5-sonnet-20241022` - Latest improved Sonnet
+- `claude-haiku-5-5` - Fast, cost-effective (recommended)
+- `claude-sonnet-5-5` - Balanced performance
+- `claude-opus-5-5` - Most capable Opus
+- `claude-fable-5-1` - Most capable Claude
+
+Claude 4.7 and later reject a non-default `temperature`, so it is not sent to them.
 
 ### Google Gemini
 
@@ -67,16 +71,16 @@ max_tokens=4000
 2. **Create config.txt**:
 ```
 provider=gemini
-model=gemini-1.5-flash
+model=gemini-3.5-flash-lite
 api_key=your-google-ai-api-key-here
 temperature=0.8
 max_tokens=2048
 ```
 
 **Available Models**:
-- `gemini-1.5-flash` - Fast, free tier available (recommended)
-- `gemini-1.5-pro` - Most capable Gemini
-- `gemini-pro` - Original Gemini Pro
+- `gemini-3.5-flash-lite` - Fast, free tier available (recommended)
+- `gemini-3.8-flash` - Stronger Flash tier
+- `gemini-3.1-pro-preview` - Most capable Gemini (preview)
 
 ### Ollama (Local Models)
 
@@ -109,47 +113,46 @@ OpenRouter routes requests to many model vendors (OpenAI, Anthropic, Google, Met
 2. **Create config.txt**:
 ```
 provider=openrouter
-model=openai/gpt-4o-mini
+model=openai/gpt-oss-20b
 openrouter_api_key=sk-or-your-key-here
 temperature=0.7
 max_tokens=1000
 ```
 
 **Available Models** (vendor-prefixed):
-- `openai/gpt-4o-mini` - Fast, cost-effective (recommended)
-- `openai/gpt-4o` - GPT-4o through OpenRouter
-- `anthropic/claude-3.5-sonnet` - Claude 3.5 Sonnet
-- `anthropic/claude-3.5-haiku` - Fast Claude
-- `google/gemini-2.0-flash-exp` - Latest Gemini
+- `openai/gpt-oss-20b` - Fast, cost-effective (recommended)
+- `openai/gpt-6-luna` - GPT-6 Luna through OpenRouter
+- `anthropic/claude-haiku-5.5` - Fast Claude
+- `google/gemini-3.5-flash-lite` - Fast Gemini
 - `meta-llama/llama-3.3-70b-instruct` - Llama 3.3 70B
-- `deepseek/deepseek-r1` - Reasoning model
+- `deepseek/deepseek-v4.1-flash` - DeepSeek V4.1 Flash
 
 Browse the full catalog: [openrouter.ai/models](https://openrouter.ai/models)
 
 ### Together AI (open-source models)
 
-Together AI provides fast inference for open-source models (Llama, DeepSeek, Qwen, Mistral, Gemma) via an OpenAI-compatible API.
+Together AI provides fast inference for open-source models (Qwen, DeepSeek, GLM, gpt-oss, Kimi) via an OpenAI-compatible API.
 
 1. **Get API Key**: Visit [api.together.ai/settings/api-keys](https://api.together.ai/settings/api-keys)
 2. **Create config.txt**:
 ```
 provider=together
-model=meta-llama/Llama-3.3-70B-Instruct-Turbo
+model=Qwen/Qwen3.8-Flash
 together_api_key=your-together-key-here
 temperature=0.7
 max_tokens=1000
 ```
 
-**Available Models** (vendor-prefixed):
-- `meta-llama/Llama-3.3-70B-Instruct-Turbo` - Fast Llama 3.3 (recommended)
-- `meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo` - Llama 3.1 70B
-- `deepseek-ai/DeepSeek-R1` - Reasoning model with `<think>` tag output
-- `Qwen/Qwen2.5-72B-Instruct-Turbo` - Qwen 2.5 72B
-- `mistralai/Mixtral-8x22B-Instruct-v0.1` - Mistral mixture-of-experts
+**Available Models** (vendor-prefixed, case-sensitive):
+- `Qwen/Qwen3.8-Flash` - Fast Qwen 3.8 (recommended)
+- `Qwen/Qwen3.5-9B` - Small, cheap Qwen
+- `openai/gpt-oss-120b` - Open-weight reasoning model
+- `deepseek-ai/DeepSeek-V4.1-Flash` - DeepSeek V4.1 Flash
+- `zai-org/GLM-5.3-Flash` - GLM 5.3 Flash
 
 Browse the full catalog: [api.together.ai/models](https://api.together.ai/models)
 
-**Reasoning model note:** DeepSeek-R1 emits its thinking inside `<think>...</think>` tags (sometimes filling the entire response). Use `llm:chat-with-thinking` to get the answer and reasoning split out, and bump `max_tokens` to 2000+ so the model has room to finish its answer after thinking.
+**Reasoning model note:** reasoning models may emit their thinking inside `<think>...</think>` tags (sometimes filling the entire response). Use `llm:chat-with-thinking` to get the answer and reasoning split out, and bump `max_tokens` to 2000+ so the model has room to finish its answer after thinking.
 
 ### Groq (fast free-tier inference)
 
@@ -168,8 +171,8 @@ max_tokens=1000
 **Available Models**:
 - `openai/gpt-oss-20b` - Fast open-weight reasoning model (recommended)
 - `openai/gpt-oss-120b` - Larger open-weight reasoning model
-- `groq/compound-mini` - Agentic system with built-in tool use
-- `qwen/qwen3.6-27b` - Qwen 3.6 reasoning model (preview)
+- `qwen/qwen3.8-27b` - Qwen 3.8 reasoning model (preview)
+- `minimaxai/minimax-m2.7` - MiniMax M2.7 (preview)
 
 Browse the full catalog: [console.groq.com/docs/models](https://console.groq.com/docs/models)
 
@@ -177,20 +180,39 @@ Browse the full catalog: [console.groq.com/docs/models](https://console.groq.com
 
 **Model lifecycle note:** Groq retires models often. If a model stops working, check [console.groq.com/docs/deprecations](https://console.groq.com/docs/deprecations).
 
+### TypeSafe (Jev) (typed decisions with probabilities)
+
+TypeSafe's Jev answers a typed question about a prompt (a choice, a score or a yes/no) with a probability for every possible answer, instead of writing text. It works only with `llm:decide`, `llm:decide-all` and `llm:choose`; `llm:chat` and the other text primitives raise an error on it.
+
+1. **Get API Key**: Visit [typesafe.ai](https://typesafe.ai) (keys are created in the console at [console.typesafe.ai](https://console.typesafe.ai/))
+2. **Create config.txt**:
+```
+provider=typesafe
+model=jev-latest
+typesafe_api_key=your-typesafe-key-here
+```
+
+**Available Models**:
+- `jev-latest` - Stable release (recommended, the default)
+- `jev-preview` - Newest release
+- `jev-1.14.0` / `jev-1.13.0` - Pinned versions
+
+`temperature` and `max_tokens` do not apply. Docs: [docs.typesafe.ai](https://docs.typesafe.ai)
+
 ## Configuration Parameters
 
 ### Core Settings
 
 | Parameter | Description | Required | Default |
 |-----------|-------------|----------|---------|
-| `provider` | LLM provider (`openai`, `anthropic`, `gemini`, `ollama`, `openrouter`, `together`, `groq`) | Yes | - |
+| `provider` | LLM provider (`openai`, `anthropic`, `gemini`, `ollama`, `openrouter`, `together`, `groq`, `typesafe`) | Yes | - |
 | `model` | Model identifier | Yes | Provider-specific |
 | `api_key` | API authentication key | Yes* | - |
 | `temperature` | Response randomness (0.0-1.0) | No | 0.7 |
 | `max_tokens` | Maximum response length | No | 1000 |
 | `timeout_seconds` | Request timeout | No | 30 |
-| `retry_max_retries` | Retry attempts after a rate-limit (HTTP 429) response | No | 6 |
-| `retry_max_elapsed_seconds` | Total time allowed waiting out rate limits | No | 65 |
+| `retry_max_retries` | Retry attempts after a rate limit (HTTP 429), server error (500/502/503/504), Anthropic overload (529) or connection timeout | No | 6 |
+| `retry_max_elapsed_seconds` | Total time allowed waiting out rate limits and other transient errors | No | 65 |
 | `max_concurrent_requests` | Maximum requests in flight at once, per provider | No | 0 (off) |
 | `min_request_interval_ms` | Minimum milliseconds between request starts | No | 0 (off) |
 
@@ -309,6 +331,10 @@ call the LLM every N ticks) rather than only raising `retry_max_elapsed_seconds`
 - `base_url`: `https://api.groq.com/openai/v1`
 - `max_tokens`: 1000
 - API key config field: `groq_api_key`
+
+**TypeSafe (Jev)**:
+- `base_url`: `https://api.typesafe.ai`
+- API key config field: `typesafe_api_key`
 
 ## Testing Your Setup
 

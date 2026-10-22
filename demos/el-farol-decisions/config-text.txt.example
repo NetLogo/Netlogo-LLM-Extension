@@ -1,0 +1,17 @@
+# El Farol demo — settings for the "text LLM" backend
+#
+# Copy this file to config-text.txt. Any chat provider works; local Ollama needs no key.
+# config-text.txt is gitignored, so a key you add stays out of version control.
+
+provider=ollama
+model=qwen2.5vl:3b
+base_url=http://localhost:11434
+
+# --- or a hosted model ---
+#provider=groq
+#groq_api_key=YOUR_GROQ_API_KEY
+#model=openai/gpt-oss-20b
+
+temperature=0.7
+max_tokens=50
+timeout_seconds=60
