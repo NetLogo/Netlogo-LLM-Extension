@@ -24,7 +24,7 @@ globals [
 ]
 
 patches-own [
-  region  ;; bar-index of the bar this patch belongs to; -1 home; -2 street or wall
+  region  ;; bar-index of this patch's bar; -1 home, -2 street or wall, -3 sign
 ]
 
 patrons-own [
@@ -66,11 +66,12 @@ to setup
   reset-ticks
 end
 
-;; Bars fill the top half of the view, one column each; home is the bottom strip.
+;; The town: bars across the top, each with a sign row naming it; a street
+;; in the middle; homes on a lawn along the bottom.
 to setup-town
   ask patches [
     set region -2
-    if pycor <= min-pycor + 5 [ set region -1 ]
+    if pycor <= min-pycor + 8 [ set region -1 ]
     if pycor >= 0 [
       set region floor ((pxcor - min-pxcor) * num-bars / world-width)
     ]
@@ -80,7 +81,16 @@ to setup-town
     region >= 0 and patch-at 1 0 != nobody and [ region ] of patch-at 1 0 != region
   ]
   ask walls [ set region -2 ]
-  ask patches with [ region = -1 ] [ set pcolor gray - 4 ]
+  ;; the top row of each bar is its sign: patrons stand below it, never on it
+  ask patches with [ pycor = max-pycor ] [ set region -3 set pcolor gray - 4 ]
+  ;; the street, with a dashed centre line
+  ask patches with [ region = -2 and pycor < 0 ] [
+    set pcolor ifelse-value pycor = -2 and pxcor mod 3 = 0
+      [ gray - 1.5 ] [ gray - 3.5 ]
+  ]
+  ask patches with [ region = -1 ] [
+    set pcolor ifelse-value (pxcor + pycor) mod 2 = 0 [ green - 4 ] [ green - 3.8 ]
+  ]
 end
 
 ;; Every patron starts from the same three random nights of history, so any
@@ -116,8 +126,13 @@ to load-backend-config
       explain-config-problem (word "Could not load " config-file ": " error-message)
     ]
   ] [
-    explain-config-problem (word "No " config-file " beside this model. Copy "
-      config-file ".example to " config-file " and put your API key in it.")
+    explain-config-problem (word "No " config-file " beside this model. "
+      "Create it with "
+      ifelse-value jev-backend?
+        [ "provider=typesafe, model=jev-latest and typesafe_api_key=YOUR_KEY" ]
+        [ (word "a chat provider, for example provider=groq, "
+            "model=openai/gpt-oss-20b and groq_api_key=YOUR_KEY") ]
+      ", one setting per line (see config-reference.txt).")
   ]
   ;; the extension's zip ships one shared config.txt, which may name a chat provider
   if config-ok? and jev-backend? and item 0 llm:active != "typesafe" [
@@ -374,7 +389,8 @@ end
 to show-one-prompt
   let someone one-of patrons
   output-print (word "Night " (ticks + 1) ", a " [ persona ] of someone ":")
-  output-print [ go-prompt ] of someone
+  output-print ifelse-value jev-backend?
+    [ [ go-prompt ] of someone ] [ [ text-prompt ] of someone ]
   output-print ""
 end
 
@@ -406,17 +422,32 @@ to move-to-spot [ spot ]  ;; patron procedure
   setxy (xcor + random-float 0.8 - 0.4) (ycor + random-float 0.8 - 0.4)
 end
 
-;; A bar turns red when it holds more than capacity tonight.
+;; A bar turns red when it holds more than capacity tonight. Each sign shows
+;; the bar's name and tonight's crowd against its capacity.
 to recolor-bars
-  ask patches with [ region >= 0 ] [
-    set pcolor ifelse-value item region attendance > capacity
-      [ red - 2 ] [ item region bar-colors - 3 ]
-  ]
   foreach range num-bars [ i ->
-    let top-row sort-on [ pxcor ] patches with [ region = i and pycor = max-pycor ]
-    ask item (floor (length top-row / 2)) top-row [
-      set plabel (word item i bar-names " " item i attendance "/" capacity)
+    let crowded? item i attendance > capacity
+    let floor-color ifelse-value crowded? [ red - 3 ] [ item i bar-colors - 3 ]
+    ask patches with [ region = i ] [ set pcolor floor-color ]
+    ;; the sign spans the bar's columns; its label sits one patch in from the
+    ;; right end, because a patch label is drawn to the left of its patch
+    let sign patches with [
+      region = -3 and [ region ] of patch-at 0 -1 = i
     ]
+    ask sign [
+      set pcolor ifelse-value crowded? [ red - 1 ] [ item i bar-colors - 1 ]
+      set plabel ""
+    ]
+    ask max-one-of sign with [ pxcor < max [ pxcor ] of sign ] [ pxcor ] [
+      set plabel-color white
+      set plabel (word item i bar-names "  " item i attendance " / " capacity
+        ifelse-value crowded? [ "  FULL" ] [ "" ])
+    ]
+  ]
+  ;; the count of patrons at home sits on the street, just above the lawn
+  ask patch (max-pxcor - 1) (min-pycor + 9) [
+    set plabel-color white
+    set plabel (word "stayed home: " count patrons with [ chosen-bar < 0 ])
   ]
 end
 ]]></code>
