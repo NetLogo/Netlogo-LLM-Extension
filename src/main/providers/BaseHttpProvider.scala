@@ -13,6 +13,10 @@ import scala.concurrent.{Future, ExecutionContext, Promise}
 import scala.concurrent.duration._
 import scala.util.{Try, Success, Failure}
 
+/** A non-success HTTP response, carrying the status code so callers can branch on it. */
+class HttpStatusException(val statusCode: Int, val errorBody: String)
+  extends RuntimeException(s"HTTP request failed: $errorBody")
+
 object BaseHttpProvider {
   /** Waits at or above this are announced on stderr so a stall isn't mistaken for a hang. */
   private[providers] val WaitNoticeThresholdMs = 2000L
@@ -27,6 +31,21 @@ object BaseHttpProvider {
 
   /** Total milliseconds spent waiting out announced rate limits this session. */
   def rateLimitWaitTotalMs: Long = rateLimitWaitMillis.sum()
+
+  // (provider, model) pairs already told that schema-constrained output is unsupported.
+  private[providers] val responseFormatFallbackNoticed: java.util.Set[String] =
+    java.util.concurrent.ConcurrentHashMap.newKeySet[String]()
+
+  /**
+   * True when a 400 says the model rejected the requested response_format, as
+   * opposed to any other bad request (bad key, unknown model) that must still fail.
+   */
+  private[providers] def isResponseFormatUnsupported(e: HttpStatusException): Boolean = {
+    val body = e.errorBody.toLowerCase
+    e.statusCode == 400 &&
+      Seq("response_format", "json_schema", "json_object", "structured", "not supported", "unsupported")
+        .exists(body.contains)
+  }
 
   /** Reset the rate-limit counters. Primarily for tests and fresh runs. */
   def resetRateLimitStats(): Unit = {
@@ -135,6 +154,16 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
       BaseHttpProvider.rateLimitWaitMillis.add(delayMs)
     }
 
+  /**
+   * Tells the modeler, once per (provider, model), that structured output fell
+   * back to an unconstrained reply because the model rejected the response_format.
+   */
+  protected def notifyResponseFormatUnsupported(model: String): Unit =
+    System.err.println(
+      s"NOTE: $providerName model $model does not support schema-constrained output " +
+      "(HTTP 400 on response_format); resending without it, so the reply is unconstrained."
+    )
+
   // Initialize with provider-specific defaults
   initializeDefaults()
 
@@ -168,7 +197,16 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
    */
   override def chat(request: ChatRequest): Future[ChatResponse] = {
     validateConfig() match {
-      case Success(_) => sendChatRequest(request)
+      case Success(_) =>
+        sendChatRequest(request).recoverWith {
+          // Some models reject response_format outright; resend once without it.
+          // Callers already prompt for the expected shape, so the reply still parses.
+          case e: HttpStatusException
+              if request.responseFormat.isDefined && BaseHttpProvider.isResponseFormatUnsupported(e) =>
+            if (BaseHttpProvider.responseFormatFallbackNoticed.add(s"$providerName/${request.model}"))
+              notifyResponseFormatUnsupported(request.model)
+            sendChatRequest(request.copy(responseFormat = None))
+        }
       case Failure(e) => Future.failed(e)
     }
   }
@@ -316,7 +354,7 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
             }
 
           case Left(error) =>
-            Future.failed(new RuntimeException(s"HTTP request failed: $error"))
+            Future.failed(new HttpStatusException(response.code.code, error))
         }
       }
 
