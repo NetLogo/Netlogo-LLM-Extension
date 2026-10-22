@@ -10,7 +10,7 @@ LLMConfigPrimitives
 
 LLMProvidersAll
   extensions [llm]
-  length llm:providers-all => 7
+  length llm:providers-all => 8
   member? "openai" llm:providers-all => true
   member? "anthropic" llm:providers-all => true
   member? "gemini" llm:providers-all => true
@@ -18,12 +18,13 @@ LLMProvidersAll
   member? "openrouter" llm:providers-all => true
   member? "together" llm:providers-all => true
   member? "groq" llm:providers-all => true
+  member? "typesafe" llm:providers-all => true
 
 LLMProviderStatus
   extensions [llm]
   O> llm:set-api-key "test-key"
   O> llm:set-provider "openai"
-  length llm:provider-status => 7
+  length llm:provider-status => 8
 
 LLMListModels
   extensions [llm]
@@ -1302,3 +1303,159 @@ LLMChatAsyncAfterClearAllSkipsUnawaitedReply
   llm:history => []
   llm:get llm:usage-total "calls" => 0
   O> clear-all
+
+LLMDecideChoice
+  extensions [llm]
+  globals [r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "typesafe"
+  O> clear-all
+  item 0 llm:active => "typesafe"
+  item 1 llm:active => "jev-latest"
+  O> set r llm:decide "__TEST_DECIDE:stay:0.5 bar tonight?" ["choice" ["move" "stay" "wait"]]
+  r => ["stay" 0.5 [["move" 0.25] ["stay" 0.5] ["wait" 0.25]]]
+  llm:decide "bar tonight?" ["choice" ["move" "stay"]] => ["move" 1 [["move" 1] ["stay" 0]]]
+  llm:history => []
+  O> clear-all
+
+LLMDecideScore
+  extensions [llm]
+  globals [r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "typesafe"
+  O> clear-all
+  O> set r llm:decide "__TEST_DECIDE:2:0.5 how crowded?" ["score" ["low" "medium" "high"]]
+  r => [1.25 0.5 [["low" 0.25] ["medium" 0.25] ["high" 0.5]]]
+  is-number? item 0 r => true
+  llm:history => []
+  O> clear-all
+
+LLMDecideYesNo
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "typesafe"
+  O> clear-all
+  llm:decide "__TEST_DECIDE:true:0.75 go?" ["yes-no"] => [true 0.75 [[true 0.75] [false 0.25]]]
+  llm:decide "__TEST_DECIDE:false:0.75 go?" ["yes-no"] => [false 0.75 [[true 0.25] [false 0.75]]]
+  llm:history => []
+  O> clear-all
+
+LLMDecideRecordsUsageUntilClearAll
+  extensions [llm]
+  globals [r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "typesafe"
+  O> clear-all
+  O> set r llm:decide "__TEST_USAGE:5,1 go?" ["yes-no"]
+  O> set r llm:decide "__TEST_USAGE:2,0 go?" ["choice" ["a" "b"]]
+  llm:get llm:usage "input-tokens" => 7
+  llm:get llm:usage "calls" => 2
+  llm:get llm:usage-total "calls" => 2
+  O> clear-all
+  llm:get llm:usage "calls" => 0
+  llm:get llm:usage-total "calls" => 0
+
+LLMDecideSpecValidation
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "typesafe"
+  O> clear-all
+  llm:decide "x" [] => ERROR Extension exception: llm:decide: spec must be ["choice" [options]], ["score" [levels]] or ["yes-no"]
+  llm:decide "x" ["vote" ["a"]] => ERROR Extension exception: llm:decide: unknown decision type "vote"; use "choice", "score" or "yes-no"
+  llm:decide "x" ["choice" []] => ERROR Extension exception: llm:decide: "choice" needs a list of 1 to 255 options
+  llm:decide "x" ["choice" "a"] => ERROR Extension exception: llm:decide: "choice" needs a list of 1 to 255 options
+  llm:decide "x" ["choice" ["a" "a"]] => ERROR Extension exception: llm:decide: "choice" options must be distinct, but "a" appears more than once
+  llm:decide "x" ["choice" ["a" ""]] => ERROR Extension exception: llm:decide: "choice" options must be non-empty strings
+  llm:decide "x" ["choice" ["a" 3]] => ERROR Extension exception: llm:decide: "choice" options must be non-empty strings
+  llm:decide "x" ["score" ["only"]] => ERROR Extension exception: llm:decide: "score" needs a list of 2 to 10 levels
+  llm:decide "x" ["score" ["a" "b" "c" "d" "e" "f" "g" "h" "i" "j" "k"]] => ERROR Extension exception: llm:decide: "score" needs a list of 2 to 10 levels
+  llm:decide "x" ["score" ["a" ""]] => ERROR Extension exception: llm:decide: "score" levels must be non-empty strings
+  llm:decide "x" ["yes-no" ["a"]] => ERROR Extension exception: llm:decide: "yes-no" takes no list
+  O> crt 1
+  llm:decide-all turtles [ -> "x" ] ["vote"] => ERROR Extension exception: llm:decide-all: unknown decision type "vote"; use "choice", "score" or "yes-no"
+  llm:get llm:usage-total "calls" => 0
+
+LLMDecideNeedsDecisionProvider
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  llm:decide "x" ["yes-no"] => ERROR Extension exception: provider "openai" has no decision API; use llm:choose, or llm:set-provider "typesafe"
+  O> crt 2
+  llm:decide-all turtles [ -> "x" ] ["yes-no"] => ERROR Extension exception: provider "openai" has no decision API; use llm:choose, or llm:set-provider "typesafe"
+  llm:get llm:usage-total "calls" => 0
+
+LLMDecideAllMixedResults
+  extensions [llm]
+  globals [r bad good]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "typesafe"
+  O> clear-all
+  O> crt 3
+  O> set r llm:decide-all turtles [ -> ifelse-value who = 1 [ "__TEST_FAIL" ] [ "__TEST_USAGE:2,0 __TEST_DECIDE:stay:0.75 go?" ] ] ["choice" ["move" "stay"]]
+  length r => 3
+  map [ x -> length x ] r => [3 3 3]
+  sort map [ x -> [who] of item 0 x ] r => [0 1 2]
+  O> set bad first filter [ x -> [who] of item 0 x = 1 ] r
+  O> set good filter [ x -> [who] of item 0 x != 1 ] r
+  item 2 bad => false
+  member? "simulated provider failure" item 1 bad => true
+  map [ x -> item 2 x ] good => [true true]
+  map [ x -> item 1 x ] good => [["stay" 0.75 [["move" 0.25] ["stay" 0.75]]] ["stay" 0.75 [["move" 0.25] ["stay" 0.75]]]]
+  [llm:get llm:usage "input-tokens"] of turtle 0 => 2
+  [llm:get llm:usage "calls"] of turtle 1 => 0
+  llm:get llm:usage-total "calls" => 2
+  [llm:history] of turtle 0 => []
+  O> clear-all
+
+LLMDecideAllPromptRunsAsEachAgent
+  extensions [llm]
+  globals [r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "typesafe"
+  O> clear-all
+  O> crt 2
+  O> set r llm:decide-all turtles [ -> (word "__TEST_DECIDE:" item who ["true" "false"] ":1 go?") ] ["yes-no"]
+  reduce and map [ x -> item 0 item 1 x = ([who] of item 0 x = 0) ] r => true
+  llm:decide-all no-turtles [ -> "x" ] ["yes-no"] => []
+  O> clear-all
+
+LLMChooseOnDecisionProvider
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "typesafe"
+  O> clear-all
+  llm:choose "__TEST_USAGE:3,0 __TEST_DECIDE:south:0.9 where to?" ["north" "south"] => "south"
+  llm:choose "where to?" ["north" "south"] => "north"
+  llm:history => []
+  llm:get llm:usage "input-tokens" => 3
+  llm:get llm:usage "calls" => 2
+  O> clear-all
+
+LLMTextPrimitivesOnDecisionProvider
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "typesafe"
+  O> clear-all
+  llm:chat "hi" => ERROR Extension exception: typesafe (Jev) returns decisions, not text; use llm:decide, llm:decide-all or llm:choose
+  llm:chat-async "hi" => ERROR Extension exception: typesafe (Jev) returns decisions, not text; use llm:decide, llm:decide-all or llm:choose
+  llm:chat-with-thinking "hi" => ERROR Extension exception: typesafe (Jev) returns decisions, not text; use llm:decide, llm:decide-all or llm:choose
+  llm:chat-json "hi" => ERROR Extension exception: typesafe (Jev) returns decisions, not text; use llm:decide, llm:decide-all or llm:choose
+  llm:chat-with-schema "hi" "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}}}" => ERROR Extension exception: typesafe (Jev) returns decisions, not text; use llm:decide, llm:decide-all or llm:choose
+  llm:chat-with-template "demos/simple-template.yaml" [["text" "hi"]] => ERROR Extension exception: typesafe (Jev) returns decisions, not text; use llm:decide, llm:decide-all or llm:choose
+  O> crt 1
+  llm:chat-all turtles [ -> "hi" ] => ERROR Extension exception: typesafe (Jev) returns decisions, not text; use llm:decide, llm:decide-all or llm:choose
+  llm:history => []
+  llm:get llm:usage-total "calls" => 0
+
+LLMTypeSafeProviderInfo
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "typesafe"
+  empty? (llm:provider-help "typesafe") => false
+  member? "typesafe" llm:providers => true
+  (position "jev-preview" llm:list-models) != false => true
+  item 1 first filter [ x -> first x = "typesafe" ] llm:provider-status => ["ready" true]
+  item 2 first filter [ x -> first x = "typesafe" ] llm:provider-status => ["has-key" true]
+  O> llm:set-model "jev-1.14.0"
+  item 1 llm:active => "jev-1.14.0"

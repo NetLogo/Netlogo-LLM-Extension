@@ -34,8 +34,9 @@ object Choice {
  *    not.
  *  - totalTokens is taken from the provider when reported, else computed.
  *  - reasoning / cache counts are absent when the provider does not report them.
- *  - cost is only present when a provider reports it directly (OpenRouter);
- *    nothing is ever estimated.
+ *  - cost is only present when a provider reports it directly (OpenRouter),
+ *    or bills one published price per reported token (TypeSafe: input tokens
+ *    only, output free), so it is exact; nothing is ever estimated.
  *  - latencyMs is the wall time of the whole call as the modeler experiences
  *    it, including throttle queueing and rate-limit retries.
  */

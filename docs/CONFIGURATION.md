@@ -96,6 +96,18 @@ max_tokens=1000
 timeout_seconds=30
 ```
 
+### TypeSafe (Jev, decisions with probabilities)
+Jev answers typed questions instead of writing text: use it with `llm:decide`,
+`llm:decide-all` and `llm:choose` (the chat primitives raise an error on it).
+`temperature` and `max_tokens` do not apply.
+```
+provider=typesafe
+typesafe_api_key=REPLACE_ME
+model=jev-latest
+timeout_seconds=30
+# typesafe_base_url=https://api.typesafe.ai
+```
+
 ### Local (Ollama, no API key)
 ```
 provider=ollama
@@ -115,6 +127,7 @@ anthropic_api_key=sk-ant-REPLACE_ME
 gemini_api_key=REPLACE_ME
 openrouter_api_key=sk-or-REPLACE_ME
 together_api_key=REPLACE_ME
+typesafe_api_key=REPLACE_ME
 
 # Set the active provider
 provider=openai

@@ -1,7 +1,7 @@
 package org.nlogo.extensions.llm.providers
 
 import org.nlogo.extensions.llm.config.ConfigStore
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, Choice, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat, Usage}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, Choice, DecisionQuestion, DecisionResult, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat, Usage}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 
@@ -248,4 +248,71 @@ class DeterministicTestProvider(implicit ec: ExecutionContext) extends LLMProvid
   override def defaultModel: String = "deterministic-model"
 
   override def supportsModel(model: String): Boolean = true
+}
+
+/**
+ * Deterministic stand-in for a decision provider (TypeSafe), used by tests
+ * whenever the configured provider is "typesafe".
+ *
+ * Kept separate from DeterministicTestProvider so llm:choose on every other
+ * provider still exercises the chat path. Answers are prompt-driven:
+ *  - __TEST_DECIDE:<answer>:<p> puts probability <p> on <answer> and spreads
+ *    the rest evenly over the other outcomes. <answer> is an option for a
+ *    choice, a 0-based level index for a score, and true/false for yes-no.
+ *  - With no marker the first option, level 0, or yes gets probability 1.
+ *  - __TEST_FAIL fails the call; __TEST_DELAY:<ms>: delays it; __TEST_USAGE
+ *    attaches usage, as for chat.
+ * Free-text chat is refused through textUnsupportedMessage, as on TypeSafe.
+ */
+class DeterministicDecisionTestProvider(implicit ec: ExecutionContext)
+  extends DeterministicTestProvider with DecisionProvider {
+
+  private val testDecideRegex = """__TEST_DECIDE:([^:\s]+):([0-9.]+)""".r.unanchored
+  private val testDecisionDelayRegex = """__TEST_DELAY:(\d+):""".r.unanchored
+  private val testDecisionUsageRegex = """__TEST_USAGE:(\d+),(\d+)""".r.unanchored
+
+  override def providerName: String = "typesafe"
+
+  override def defaultModel: String = "jev-latest"
+
+  override def textUnsupportedMessage: Option[String] = Some(TypeSafeProvider.TextUnsupportedMessage)
+
+  /** `p` on outcome `picked` of `n`, the remainder shared evenly by the others. */
+  private def spread(n: Int, picked: Int, p: Double): Seq[Double] =
+    (0 until n).map(i => if (i == picked) p else if (n > 1) (1.0 - p) / (n - 1) else 0.0)
+
+  private def answer(prompt: String, question: DecisionQuestion): DecisionResult = {
+    val marker = prompt match {
+      case testDecideRegex(a, p) => Some((a, p.toDouble))
+      case _                     => None
+    }
+    question match {
+      case DecisionQuestion.Choice(options) =>
+        val (picked, p) = marker.getOrElse((options.head, 1.0))
+        val probs = spread(options.size, options.indexOf(picked), p)
+        DecisionResult.choice(options, picked, options.zip(probs).toMap)
+      case DecisionQuestion.Score(levels) =>
+        val (level, p) = marker.map { case (a, q) => (a.toInt, q) }.getOrElse((0, 1.0))
+        val probs = spread(levels.size, level, p)
+        val expected = probs.zipWithIndex.map { case (q, i) => q * i }.sum
+        DecisionResult.score(levels, expected, p, probs)
+      case DecisionQuestion.YesNo =>
+        val (yes, p) = marker.map { case (a, q) => (a.toBoolean, q) }.getOrElse((true, 1.0))
+        DecisionResult.yesNo(if (yes) p else 1.0 - p)
+    }
+  }
+
+  override def decide(prompt: String, question: DecisionQuestion): Future[(DecisionResult, Usage)] = {
+    val usage = prompt match {
+      case testDecisionUsageRegex(in, out) => Usage(in.toLong, out.toLong, in.toLong + out.toLong)
+      case _                               => Usage.empty
+    }
+    if (prompt.contains("__TEST_FAIL")) Future.failed(new RuntimeException("simulated provider failure"))
+    else prompt match {
+      case testDecisionDelayRegex(ms) =>
+        Future { Thread.sleep(ms.toLong) }.map(_ => (answer(prompt, question), usage))
+      case _ =>
+        Future.successful((answer(prompt, question), usage))
+    }
+  }
 }

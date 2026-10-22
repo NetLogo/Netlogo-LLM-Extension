@@ -447,6 +447,68 @@ Groq's model lineup changes frequently — check the
 [deprecations page](https://console.groq.com/docs/deprecations) before relying on
 a specific model in a long-lived model file.
 
+## TypeSafe (Jev) Configuration
+
+Jev, TypeSafe's System One model, does not write text. It answers a typed question
+about a prompt (pick an option, rate on levels, or yes/no) with a calibrated
+probability for every possible answer. Use it with `llm:decide`, `llm:decide-all`
+and `llm:choose`. The free-text primitives (`llm:chat` and friends) raise
+`typesafe (Jev) returns decisions, not text; use llm:decide, llm:decide-all or llm:choose`.
+
+### API Setup
+
+1. **Get API Key**: Visit [console.typesafe.ai](https://console.typesafe.ai/)
+2. **Rate Limits**: View your organization's limits at [console.typesafe.ai/rate-limits](https://console.typesafe.ai/rate-limits)
+3. **Docs**: [docs.typesafe.ai](https://docs.typesafe.ai)
+
+### Configuration Parameters
+
+```ini
+# Required Parameters
+provider=typesafe
+typesafe_api_key=your-typesafe-key-here
+model=jev-latest
+
+# Optional Parameters
+typesafe_base_url=https://api.typesafe.ai
+timeout_seconds=30
+```
+
+`temperature`, `max_tokens` and the thinking settings do not apply to Jev and are ignored.
+
+### Available Models
+
+| Model | Description | Price |
+|-------|-------------|-------|
+| `jev-latest` | Alias for the newest stable release (the default) | $0.042 per million input tokens; output free |
+| `jev-preview` | Alias for the newest release, stable or not | same |
+| `jev-1.13.0` | Pinned version | same |
+| `jev-1.14.0` | Pinned version | same |
+
+An alias can move to a new version without notice; pin a version if you calibrated
+thresholds against one. `llm:usage` reports `cost` for TypeSafe calls, computed from the
+input tokens the API reports at the published price.
+
+### How the primitives map to the API
+
+Each call sends `POST /v1/systemone` with your prompt as `state` and one question:
+
+| Spec | TypeSafe question | `answer` / `probability` |
+|------|-------------------|--------------------------|
+| `["choice" [options]]` | `choice` (1-255 options) | top option / its probability |
+| `["score" [levels]]` | `score` (2-10 levels, 0-based) | expected level / confidence |
+| `["yes-no"]` | `noul` | `true`/`false` / probability of that answer |
+
+HTTP 429 and 529 (overloaded) are retried with backoff like every other provider; a
+401 reports an invalid key and names `typesafe_api_key`.
+
+```netlogo
+llm:set-provider "typesafe"
+llm:set-api-key "your-typesafe-key"
+show llm:decide "Last week 70 of 100 went to the bar. Go tonight?" ["yes-no"]
+; => [false 0.71 [[true 0.29] [false 0.71]]]
+```
+
 ## Ollama (Local) Configuration
 
 ### Setup Requirements

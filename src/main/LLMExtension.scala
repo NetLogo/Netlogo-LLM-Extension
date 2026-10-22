@@ -3,8 +3,8 @@ package org.nlogo.extensions.llm
 import org.nlogo.api._
 import org.nlogo.core.{LogoList, Syntax}
 import org.nlogo.extensions.llm.config.{ConfigLoader, ConfigStore, ProfileStore}
-import org.nlogo.extensions.llm.providers.{LLMProvider, ProviderDescriptor, ProviderFactory, ProviderRegistry, ProviderRegistrations, ModelRegistry, OllamaProvider, ReadinessCheck, RetryPolicy}
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatResponse, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat, Usage}
+import org.nlogo.extensions.llm.providers.{DecisionProvider, LLMProvider, ProviderDescriptor, ProviderFactory, ProviderRegistry, ProviderRegistrations, ModelRegistry, OllamaProvider, ReadinessCheck, RetryPolicy}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatResponse, DecisionAnswer, DecisionQuestion, DecisionResult, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat, Usage}
 import org.nlogo.extensions.llm.utils.JsonToNetLogo
 import scala.collection.mutable.{ArrayBuffer, WeakHashMap}
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -64,6 +64,12 @@ object LLMExtension {
  */
 final class ModelRefusedException(val refusal: String)
   extends ExtensionException(s"model refused: $refusal")
+
+/** Raised by a free-text primitive on a provider that only returns decisions. */
+final class TextUnsupportedException(message: String) extends ExtensionException(message)
+
+/** Raised by llm:decide / llm:decide-all on a provider without a decision API. */
+final class NoDecisionApiException(message: String) extends ExtensionException(message)
 
 /**
  * Main extension class for NetLogo Multi-LLM Extension
@@ -152,6 +158,10 @@ class LLMExtension extends DefaultClassManager {
     manager.addPrimitive("chat-with-template", ChatWithTemplateReporter)
     manager.addPrimitive("chat-with-thinking", ChatWithThinkingReporter)
     manager.addPrimitive("choose", ChooseReporter)
+
+    // Decision primitives (providers with a DecisionProvider API)
+    manager.addPrimitive("decide", DecideReporter)
+    manager.addPrimitive("decide-all", DecideAllReporter)
 
     // Structured output primitives
     manager.addPrimitive("chat-with-schema", ChatWithSchemaReporter)
@@ -290,8 +300,12 @@ class LLMExtension extends DefaultClassManager {
    * counts. A call that never produced a response records nothing, and a
    * call launched before the latest clear-all (generation `gen`) is dropped.
    */
-  private def recordUsage(agent: Agent, gen: Long, response: ChatResponse): Unit = {
-    val delta = UsageTotals(response.usage.getOrElse(Usage.empty), 1L)
+  private def recordUsage(agent: Agent, gen: Long, response: ChatResponse): Unit =
+    recordUsage(agent, gen, response.usage.getOrElse(Usage.empty))
+
+  /** As above, for calls that report usage without a ChatResponse (decisions). */
+  private def recordUsage(agent: Agent, gen: Long, usage: Usage): Unit = {
+    val delta = UsageTotals(usage, 1L)
     usageLock.synchronized {
       if (gen == generation) {
         agentUsage.update(agent, agentUsage.getOrElse(agent, UsageTotals.empty).plus(delta))
@@ -308,6 +322,86 @@ class LLMExtension extends DefaultClassManager {
    */
   private def rejectRefusal(response: ChatResponse): Unit =
     response.refusal.foreach(text => throw new ModelRefusedException(text))
+
+  /**
+   * Fail a free-text call on a provider that only returns decisions, before
+   * anything is sent. Raised unwrapped so the modeler sees which primitives
+   * to use instead.
+   */
+  private def requireText(provider: LLMProvider): Unit =
+    provider match {
+      case d: DecisionProvider => d.textUnsupportedMessage.foreach(m => throw new TextUnsupportedException(m))
+      case _ => ()
+    }
+
+  /** The agent's provider as a DecisionProvider, or a clear error naming the configured provider. */
+  private def decisionProviderFor(agent: Agent): DecisionProvider =
+    ensureProvider(agent) match {
+      case d: DecisionProvider => d
+      case _ =>
+        val name = effectiveConfig(agent).getOrElse(ConfigStore.PROVIDER, ConfigStore.DEFAULT_PROVIDER)
+        throw new NoDecisionApiException(
+          s"""provider "$name" has no decision API; use llm:choose, or llm:set-provider "typesafe"""")
+    }
+
+  /**
+   * Read a llm:decide spec: ["choice" [options]], ["score" [levels]] or
+   * ["yes-no"]. Checked before any request so a bad spec costs nothing.
+   */
+  private def parseDecisionSpec(spec: LogoList, primName: String): DecisionQuestion = {
+    def fail(msg: String): Nothing = throw new ExtensionException(s"$primName: $msg")
+    spec.toVector match {
+      case (kind: String) +: rest =>
+        def strings(items: LogoList, what: String): Seq[String] =
+          items.toVector.map {
+            case s: String if s.nonEmpty => s
+            case _ => fail(s""""$kind" $what must be non-empty strings""")
+          }
+        kind match {
+          case "choice" =>
+            rest match {
+              case Vector(opts: LogoList) if opts.size >= 1 && opts.size <= DecisionQuestion.MaxChoiceOptions =>
+                val options = strings(opts, "options")
+                options.diff(options.distinct).headOption.foreach { dup =>
+                  fail(s""""choice" options must be distinct, but "$dup" appears more than once""")
+                }
+                DecisionQuestion.Choice(options)
+              case _ => fail(s""""choice" needs a list of 1 to ${DecisionQuestion.MaxChoiceOptions} options""")
+            }
+          case "score" =>
+            rest match {
+              case Vector(levels: LogoList)
+                  if levels.size >= DecisionQuestion.MinScoreLevels && levels.size <= DecisionQuestion.MaxScoreLevels =>
+                DecisionQuestion.Score(strings(levels, "levels"))
+              case _ =>
+                fail(s""""score" needs a list of ${DecisionQuestion.MinScoreLevels} to ${DecisionQuestion.MaxScoreLevels} levels""")
+            }
+          case "yes-no" =>
+            if (rest.isEmpty) DecisionQuestion.YesNo else fail(""""yes-no" takes no list""")
+          case other =>
+            fail(s"""unknown decision type "$other"; use "choice", "score" or "yes-no"""")
+        }
+      case _ =>
+        fail("""spec must be ["choice" [options]], ["score" [levels]] or ["yes-no"]""")
+    }
+  }
+
+  /**
+   * A decision as [answer probability distribution]. A yes-no answer and its
+   * distribution labels are NetLogo booleans; a score's answer is a number.
+   */
+  private def decisionToLogo(result: DecisionResult): LogoList = {
+    val (answer, yesNo): (AnyRef, scala.Boolean) = result.answer match {
+      case DecisionAnswer.Picked(option)  => (option, false)
+      case DecisionAnswer.Expected(value) => (Double.box(value), false)
+      case DecisionAnswer.Verdict(yes)    => (Boolean.box(yes), true)
+    }
+    val distribution = result.distribution.map { case (label, p) =>
+      val l: AnyRef = if (yesNo) Boolean.box(label == "true") else label
+      LogoList(l, Double.box(p))
+    }
+    LogoList(answer, Double.box(result.probability), LogoList.fromVector(distribution.toVector))
+  }
 
   private def usageFor(agent: Agent): UsageTotals =
     usageLock.synchronized { agentUsage.getOrElse(agent, UsageTotals.empty) }
@@ -625,6 +719,7 @@ class LLMExtension extends DefaultClassManager {
       try {
         val gen = generation
         val provider = ensureProvider(agent)
+        requireText(provider)
 
         val userMessage = ChatMessage.user(inputText)
 
@@ -642,6 +737,7 @@ class LLMExtension extends DefaultClassManager {
 
       } catch {
         case e: ModelRefusedException => throw e
+        case e: TextUnsupportedException => throw e
         case e: Exception =>
           throw new ExtensionException(s"LLM chat failed: ${e.getMessage}")
       }
@@ -661,6 +757,7 @@ class LLMExtension extends DefaultClassManager {
       try {
         val gen = generation
         val provider = ensureProvider(agent)
+        requireText(provider)
 
         val userMessage = ChatMessage.user(inputText)
 
@@ -678,6 +775,7 @@ class LLMExtension extends DefaultClassManager {
         createAwaitableReporter(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
 
       } catch {
+        case e: TextUnsupportedException => throw e
         case e: Exception =>
           throw new ExtensionException(s"Failed to start async LLM chat: ${e.getMessage}")
       }
@@ -750,6 +848,9 @@ class LLMExtension extends DefaultClassManager {
       // "send all" into "queue all, at most N in flight". Agents killed by a
       // later agent's prompt reporter are dropped here rather than sent.
       val live = slots.filter(_.agent.id != -1)
+      // A decision-only provider cannot serve any of the batch: raise before
+      // sending. A provider that fails to initialise stays a per-agent failure.
+      live.foreach(slot => Try(ensureProvider(slot.agent)).foreach(requireText))
       val gen = generation
       live.foreach { slot =>
         val userMessage = ChatMessage.user(slot.prompt)
@@ -850,6 +951,7 @@ class LLMExtension extends DefaultClassManager {
       try {
         val gen = generation
         val provider = ensureProvider(agent)
+        requireText(provider)
 
         // Extract model directory from workspace
         val modelDir = Option(context.workspace.getModelPath).flatMap { path =>
@@ -922,6 +1024,22 @@ class LLMExtension extends DefaultClassManager {
           throw new ExtensionException("Choice list cannot be empty")
         }
 
+        // A decision provider picks natively: ask it a choice question about
+        // the prompt alone. Like llm:decide, this sends no history and writes
+        // none; usage is still recorded.
+        provider match {
+          case d: DecisionProvider =>
+            val (result, usage) = Await.result(
+              d.decide(prompt, DecisionQuestion.Choice(choices.distinct)),
+              awaitTimeoutFor(effectiveConfig(agent)))
+            recordUsage(agent, gen, usage)
+            return result.answer match {
+              case DecisionAnswer.Picked(option) => option
+              case other => throw new ExtensionException(s"llm:choose: provider answered $other, not an option")
+            }
+          case _ => ()
+        }
+
         // The wording must describe the same shape as the EnumFormat schema
         // sent with the request. A provider that validates the reply against
         // the schema server-side (Groq does) rejects the whole response with
@@ -980,6 +1098,143 @@ class LLMExtension extends DefaultClassManager {
     }
   }
   
+  /**
+   * A typed decision about a prompt, with probabilities.
+   *
+   *   llm:decide prompt ["choice" [options]]
+   *   llm:decide prompt ["score" [levels]]
+   *   llm:decide prompt ["yes-no"]
+   *
+   * Reports [answer probability distribution]. Prompt only: no history is
+   * sent and none is written. Usage is recorded for the calling agent, and
+   * the request goes through the provider's throttle and retry path. Needs a
+   * provider with a decision API (DecisionProvider).
+   */
+  object DecideReporter extends Reporter {
+    override def getSyntax: Syntax = Syntax.reporterSyntax(
+      right = List(Syntax.StringType, Syntax.ListType),
+      ret = Syntax.ListType
+    )
+
+    override def report(args: Array[Argument], context: Context): AnyRef = {
+      val prompt = args(0).getString
+      // Validate before touching the provider so a bad spec costs nothing.
+      val question = parseDecisionSpec(args(1).getList, "llm:decide")
+      val agent = context.getAgent
+      val gen = generation
+      val provider = decisionProviderFor(agent)
+
+      try {
+        val (result, usage) = Await.result(provider.decide(prompt, question), awaitTimeoutFor(effectiveConfig(agent)))
+        recordUsage(agent, gen, usage)
+        decisionToLogo(result)
+      } catch {
+        case e: Exception if !e.isInstanceOf[ExtensionException] =>
+          throw new ExtensionException(s"llm:decide failed: ${e.getMessage}")
+      }
+    }
+  }
+
+  /**
+   * Batched decisions: one request per agent, sent together, one wait.
+   *
+   *   llm:decide-all agentset [ -> prompt ] spec
+   *
+   * Mirrors llm:chat-all: the prompt reporter runs as each agent, requests go
+   * out concurrently through the throttle, and one agent's failure is reported
+   * in its own [agent result ok?] triple. `result` is the [answer probability
+   * distribution] list, or the error text when ok? is false. Nothing is
+   * written to history; usage is recorded per agent.
+   */
+  object DecideAllReporter extends Reporter {
+    override def getSyntax: Syntax = Syntax.reporterSyntax(
+      right = List(Syntax.AgentsetType, Syntax.ReporterType, Syntax.ListType),
+      ret = Syntax.ListType
+    )
+
+    private final class Slot(val agent: org.nlogo.agent.Agent, val prompt: String) {
+      var future: Future[AnyRef] = Future.failed(new IllegalStateException("request not sent"))
+    }
+
+    override def report(args: Array[Argument], context: Context): AnyRef = {
+      val agents = args(0).getAgentSet
+      val promptReporter = args(1).getReporter
+      // Validate before building any prompt so a bad spec costs nothing.
+      val question = parseDecisionSpec(args(2).getList, "llm:decide-all")
+
+      val ext = context match {
+        case ec: org.nlogo.nvm.ExtensionContext => ec
+        case _ =>
+          throw new ExtensionException("llm:decide-all requires a NetLogo workspace and is unavailable in this context")
+      }
+      val caller = ext.nvmContext
+
+      // Build every prompt before sending anything, on a copy of the agentset,
+      // exactly as llm:chat-all does.
+      val slots = agents.agents.asScala.toList.collect {
+        case a: org.nlogo.agent.Agent if a.id != -1 =>
+          val agentContext = new org.nlogo.nvm.Context(
+            caller.job, a, caller.agent, caller.ip, caller.activation, ext.workspace)
+          promptReporter.report(agentContext, Array.empty[AnyRef]) match {
+            case prompt: String => new Slot(a, prompt)
+            case other =>
+              throw new ExtensionException(
+                s"llm:decide-all: the prompt reporter must report a string, but for " +
+                  s"${Dump.logoObject(a)} it reported ${Dump.logoObject(other, true, false)}")
+          }
+      }
+
+      val lastReply = new java.util.concurrent.atomic.AtomicLong(System.nanoTime)
+
+      val live = slots.filter(_.agent.id != -1)
+      // A provider without a decision API cannot serve any of the batch: raise
+      // before sending. A provider that fails to initialise stays per agent.
+      val providers = live.map { slot =>
+        Try(decisionProviderFor(slot.agent)) match {
+          case Failure(e: NoDecisionApiException) => throw e
+          case other => other
+        }
+      }
+      val gen = generation
+      live.zip(providers).foreach { case (slot, provider) =>
+        slot.future =
+          try {
+            val sent = provider.get.decide(slot.prompt, question)
+            sent.onComplete(_ => lastReply.set(System.nanoTime))
+            sent.map { case (result, usage) =>
+              recordUsage(slot.agent, gen, usage)
+              decisionToLogo(result)
+            }
+          } catch {
+            case e: Exception => Future.failed(e)
+          }
+      }
+
+      // Same wait as llm:chat-all: give up only when no reply has arrived for
+      // an agent's whole budget.
+      def settle(slot: Slot, budget: FiniteDuration): Try[AnyRef] = {
+        while (!slot.future.isCompleted) {
+          val remaining = lastReply.get + budget.toNanos - System.nanoTime
+          if (remaining <= 0) {
+            return Failure(new java.util.concurrent.TimeoutException(s"no reply within ${budget.toSeconds}s"))
+          }
+          try Await.ready(slot.future, remaining.nanos)
+          catch { case _: java.util.concurrent.TimeoutException => () }
+        }
+        slot.future.value.get
+      }
+
+      val entries = live.map { slot =>
+        settle(slot, awaitTimeoutFor(effectiveConfig(slot.agent))) match {
+          case Success(v) => LogoList(slot.agent, v, java.lang.Boolean.TRUE)
+          case Failure(e) => LogoList(slot.agent, s"llm:decide failed: ${e.getMessage}", java.lang.Boolean.FALSE)
+        }
+      }
+
+      LogoList.fromVector(entries.toVector)
+    }
+  }
+
   /**
    * Read the selected option out of an enum-constrained reply.
    *
@@ -1051,6 +1306,7 @@ class LLMExtension extends DefaultClassManager {
       try {
         val gen = generation
         val provider = ensureProvider(agent)
+        requireText(provider)
 
         val userMessage = ChatMessage.user(inputText)
 
@@ -1104,6 +1360,7 @@ class LLMExtension extends DefaultClassManager {
       try {
         val gen = generation
         val provider = ensureProvider(agent)
+        requireText(provider)
 
         // Anthropic has no schemaless JSON mode and Gemini's mime type alone is
         // only a hint, so the instruction is also stated in the prompt. Providers
@@ -1198,6 +1455,7 @@ class LLMExtension extends DefaultClassManager {
       try {
         val gen = generation
         val provider = ensureProvider(agent)
+        requireText(provider)
 
         val userMessage = ChatMessage.user(inputText)
 
@@ -1218,6 +1476,7 @@ class LLMExtension extends DefaultClassManager {
 
       } catch {
         case e: ModelRefusedException => throw e
+        case e: TextUnsupportedException => throw e
         case e: Exception =>
           throw new ExtensionException(s"LLM chat-with-thinking failed: ${e.getMessage}")
       }

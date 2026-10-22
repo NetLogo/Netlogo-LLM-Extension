@@ -6,7 +6,8 @@ import org.scalatest.BeforeAndAfterAll
 
 import java.io.File
 import org.nlogo.headless.TestLanguage
-import org.nlogo.extensions.llm.providers.DeterministicTestProvider
+import org.nlogo.extensions.llm.config.ConfigStore
+import org.nlogo.extensions.llm.providers.{DeterministicDecisionTestProvider, DeterministicTestProvider}
 import scala.util.Success
 
 object Tests {
@@ -21,7 +22,12 @@ class Tests extends TestLanguage(Tests.testFiles) with BeforeAndAfterAll {
     super.beforeAll()
 
     LLMExtension.setProviderFactoryOverride { (configStore, ec) =>
-      val provider = new DeterministicTestProvider()(using ec)
+      // "typesafe" gets the decision stand-in so llm:decide runs end to end;
+      // every other provider stays a plain chat provider with no decision API.
+      val provider =
+        if (configStore.get(ConfigStore.PROVIDER).contains("typesafe"))
+          new DeterministicDecisionTestProvider()(using ec)
+        else new DeterministicTestProvider()(using ec)
       configStore.toMap.foreach { case (key, value) =>
         provider.setConfig(key, value)
       }

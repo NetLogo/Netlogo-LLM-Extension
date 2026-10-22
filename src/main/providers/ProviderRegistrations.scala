@@ -252,5 +252,45 @@ object ProviderRegistrations {
           |Browse models: https://console.groq.com/docs/models""".stripMargin,
       factory = ec => new GroqProvider()(using ec)
     ))
+
+    ProviderRegistry.register(ProviderDescriptor(
+      name = "typesafe",
+      displayName = "TypeSafe (Jev)",
+      apiKeyConfigKey = "typesafe_api_key",
+      baseUrlConfigKey = "typesafe_base_url",
+      defaultBaseUrl = "https://api.typesafe.ai",
+      defaultModel = "jev-latest",
+      defaultMaxTokens = "1000",
+      requiresApiKey = true,
+      apiKeyPrefix = None,
+      readinessCheck = ReadinessCheck.ApiKey,
+      // Jev returns typed decisions with probabilities, never text or reasoning.
+      exposesThinking = false,
+      helpText =
+        """TypeSafe (Jev) Setup Instructions:
+          |
+          |Jev answers typed questions with calibrated probabilities instead of
+          |writing text. Use llm:decide, llm:decide-all or llm:choose with it;
+          |llm:chat and the other text primitives are not available.
+          |
+          |1. Get an API key:
+          |   - Visit https://console.typesafe.ai/
+          |   - Create a new API key
+          |
+          |2. Set the key:
+          |   - In config file: typesafe_api_key=your-key-here
+          |   - Or at runtime: llm:set-api-key "your-key-here"
+          |
+          |3. Set a model (optional):
+          |   - llm:set-model "jev-latest"   (stable, the default)
+          |   - llm:set-model "jev-preview"  (newest release)
+          |   - llm:set-model "jev-1.14.0"   (pinned version)
+          |
+          |4. Verify:
+          |   - Check llm:provider-status for "has-key: true"
+          |
+          |Docs: https://docs.typesafe.ai""".stripMargin,
+      factory = ec => new TypeSafeProvider()(using ec)
+    ))
   }
 }

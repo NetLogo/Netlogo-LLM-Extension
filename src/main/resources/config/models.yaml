@@ -144,6 +144,15 @@ groq:
     - minimaxai/minimax-m2.7
     - meta-models/muse-spark-open
 
+typesafe:
+  # Jev decision models (llm:decide, llm:decide-all, llm:choose only)
+  default: jev-latest
+  models:
+    - jev-latest
+    - jev-preview
+    - jev-1.13.0
+    - jev-1.14.0
+
 ollama:
   default: llama3.2
   models:

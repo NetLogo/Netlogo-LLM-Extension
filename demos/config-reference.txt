@@ -111,6 +111,25 @@
 # Run 'ollama list' to see installed models, 'ollama pull <model>' to download new ones
 
 # =============================================================================
+# TYPESAFE (JEV) CONFIGURATION
+# =============================================================================
+
+# Jev returns decisions with probabilities, not text. Use llm:decide,
+# llm:decide-all or llm:choose; llm:chat and the other text primitives raise
+# an error on this provider. temperature and max_tokens do not apply.
+
+# TypeSafe Models (choose one):
+# model=jev-latest              # Default - newest stable release (alias)
+# model=jev-preview             # Newest release, stable or not (alias)
+# model=jev-1.14.0              # Pinned version
+# model=jev-1.13.0              # Pinned version
+
+# TypeSafe API Configuration:
+# provider=typesafe
+# typesafe_api_key=your-typesafe-api-key-here
+# typesafe_base_url=https://api.typesafe.ai
+
+# =============================================================================
 # GENERATION PARAMETERS (ALL PROVIDERS)
 # =============================================================================
 

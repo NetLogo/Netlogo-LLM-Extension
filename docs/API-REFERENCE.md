@@ -14,6 +14,8 @@ The NetLogo Multi-LLM Extension provides a unified interface for multiple Large 
 | `llm:chat-with-template file vars` | Chat          | Send templated prompt with variable substitution           |
 | `llm:chat-with-thinking text`      | Chat          | Returns `[answer thinking]` for reasoning-capable models   |
 | `llm:choose prompt choices`        | Chat          | Force selection from provided options                      |
+| `llm:decide prompt spec`           | Decision      | Typed decision with probabilities: `[answer probability distribution]` (TypeSafe) |
+| `llm:decide-all agents [ -> prompt ] spec` | Decision | One decision per agent, sent together; returns `[agent result ok?]` triples |
 | `llm:chat-with-schema prompt schema` | Structured  | Schema-constrained chat, returns parsed nested lists       |
 | `llm:chat-json prompt`             | Structured    | Force valid JSON output, returns the raw JSON string       |
 | `llm:get parsed key`               | Structured    | Look up a key in a `[[key value] ...]` list                |
@@ -31,7 +33,7 @@ The NetLogo Multi-LLM Extension provides a unified interface for multiple Large 
 | `llm:use-profile name`             | Profiles      | Route the calling agent's calls through that profile       |
 | `llm:profile`                      | Profiles      | The calling agent's profile name (`"default"` if none)     |
 | `llm:profiles`                     | Profiles      | Names of the loaded profiles                               |
-| `llm:set-provider name`            | Configuration | Set active provider (openai, anthropic, gemini, ollama, openrouter, together) |
+| `llm:set-provider name`            | Configuration | Set active provider (openai, anthropic, gemini, ollama, openrouter, together, groq, typesafe) |
 | `llm:set-api-key key`              | Configuration | Set API key for current provider                           |
 | `llm:set-model name`               | Configuration | Set model to use for current provider                      |
 | `llm:providers`                    | Discovery     | List ready providers with configured keys/servers          |
@@ -319,6 +321,118 @@ set color read-from-string color-choice
   more reliable where the constraint is available.
 - Still raises an error if the reply matches no option. Wrap in `carefully` if a
   model should tolerate that.
+- On a provider with a decision API (`typesafe`), `llm:choose` asks a native choice
+  question and reports the top option. That call sends only the prompt, with no
+  history, and writes nothing to history; usage is still recorded. Use
+  `llm:decide` with `["choice" ...]` to also get the probabilities.
+
+## Decision Primitives
+
+Decision providers answer a typed question about a prompt with a probability for
+every possible answer, instead of writing text. The first one is TypeSafe's Jev
+(`llm:set-provider "typesafe"`, see the Provider Guide). On any other provider these
+primitives raise `provider "<name>" has no decision API; use llm:choose, or
+llm:set-provider "typesafe"`. On `typesafe`, the free-text primitives (`llm:chat`,
+`llm:chat-async`, `llm:chat-all`, `llm:chat-with-template`, `llm:chat-with-thinking`,
+`llm:chat-json`, `llm:chat-with-schema`) raise `typesafe (Jev) returns decisions, not
+text; use llm:decide, llm:decide-all or llm:choose`. `llm:choose` works on both.
+
+### llm:decide
+
+**Syntax**: `llm:decide prompt spec`
+
+**Description**: Asks one typed question about `prompt` and reports the answer with its
+probabilities.
+
+**Parameters**:
+
+- `prompt` (string): Everything the model should know. It is the whole context: no
+  history is sent.
+- `spec` (list): The question type and its answer space:
+  - `["choice" [options]]` — pick one of 1 to 255 distinct, non-empty strings
+  - `["score" [levels]]` — rate on 2 to 10 ordered levels, lowest first, numbered from 0
+  - `["yes-no"]` — answer yes or no
+
+**Returns**: A list `[answer probability distribution]`. `distribution` lists every
+possible answer with its probability, in the order of your spec.
+
+| Spec | Example result | `answer` | `probability` |
+| ---- | -------------- | -------- | ------------- |
+| `["choice" ["move" "stay"]]` | `["move" 0.7 [["move" 0.7] ["stay" 0.3]]]` | the most likely option | probability of that option |
+| `["score" ["low" "medium" "high"]]` | `[1.43 0.62 [["low" 0.1] ["medium" 0.37] ["high" 0.53]]]` | expected level on the 0-based scale, a number that can fall between levels | the model's confidence in the score (1 = all probability on one level) |
+| `["yes-no"]` | `[true 0.82 [[true 0.82] [false 0.18]]]` | `true` or `false`, whichever is likelier | probability of that answer |
+
+**Example**: El Farol bar. Each agent builds its own prompt from its own variables, then
+either takes the top pick or samples from the distribution:
+
+```netlogo
+turtles-own [ last-week-crowd times-went mood ]
+
+to-report decide-to-go  ;; turtle procedure
+  let prompt (word "You are deciding whether to go to the El Farol bar tonight. "
+                   "Last week " last-week-crowd " of 100 people went. "
+                   "It is fun only if fewer than 60 go. "
+                   "You have gone " times-went " times this month and feel " mood ".")
+  let result llm:decide prompt ["choice" ["go" "stay home"]]
+  ;; top pick: always the most likely answer
+  report item 0 result = "go"
+end
+
+to-report sample-decision [ result ]  ;; draw an answer with the model's probabilities
+  let r random-float 1
+  foreach item 2 result [ pair ->
+    set r r - item 1 pair
+    if r < 0 [ report item 0 pair ]
+  ]
+  report item 0 last item 2 result
+end
+```
+
+Sampling (`sample-decision`) keeps the population heterogeneous: with 0.6 on "go", about
+60% of identical agents go, where the top pick would send all of them.
+
+**Notes**:
+
+- The spec is checked before any request: an unknown type, an empty or oversized option
+  list, duplicate or empty options, fewer than 2 or more than 10 levels, or a list after
+  `"yes-no"` raises an error and costs nothing.
+- Nothing is written to history. Usage is recorded for the calling agent (`llm:usage`),
+  and a `clear-all` while a call is in flight drops its usage like any other call.
+- The request goes through the provider's throttle and retry path, like `llm:chat`.
+
+### llm:decide-all
+
+**Syntax**: `llm:decide-all agentset prompt-reporter spec`
+
+**Description**: `llm:chat-all` for decisions: one request per agent, all sent at once,
+one wait. The prompt reporter runs as each agent, so each prompt can read that agent's
+variables.
+
+**Returns**: A list of `[agent result ok?]` triples, one per agent. `result` is the
+`[answer probability distribution]` list when `ok?` is `true`, or the error text when that
+agent's call failed. One failure never aborts the batch.
+
+**Example**:
+
+```netlogo
+to go
+  let results llm:decide-all turtles
+    [ -> (word "Last week " last-week-crowd " of 100 went. You feel " mood ". Go tonight?") ]
+    ["yes-no"]
+  foreach results [ r ->
+    ask item 0 r [ set going? ifelse-value item 2 r [ item 0 item 1 r ] [ false ] ]
+  ]
+  tick
+end
+```
+
+**Notes**:
+
+- Same batching rules as `llm:chat-all`: every prompt is built before anything is sent,
+  requests go through each agent's provider and throttle, and the wait gives up only when
+  no reply has arrived for a whole timeout budget.
+- A provider without a decision API raises the error for the whole batch before anything
+  is sent. Nothing is written to history; usage is recorded per agent.
 
 ## Structured Output Primitives
 
