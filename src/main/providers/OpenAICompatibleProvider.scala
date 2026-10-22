@@ -154,13 +154,18 @@ abstract class OpenAICompatibleProvider(implicit ec: ExecutionContext) extends B
       val choices = parsed("choices").arr.zipWithIndex.map { case (choice, index) =>
         val message = choice("message")
         val role = message("role").str
-        val content = message("content").str
-        val finishReason = choice("finish_reason").str
+        // A refusal arrives as content: null plus a "refusal" string, and
+        // finish_reason may be null too. Read both null-safely so the usage
+        // below is still parsed and the refusal reaches the caller.
+        val content = message.obj.get("content").collect { case ujson.Str(s) => s }.getOrElse("")
+        val finishReason = choice.obj.get("finish_reason").collect { case ujson.Str(s) => s }.getOrElse("")
+        val refusal = message.obj.get("refusal").collect { case ujson.Str(s) => s }
 
         Choice(
           index = index,
           message = ChatMessage(role, content),
-          finishReason = finishReason
+          finishReason = finishReason,
+          refusal = refusal
         )
       }.toArray
 

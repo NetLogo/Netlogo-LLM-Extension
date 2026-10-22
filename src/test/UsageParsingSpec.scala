@@ -64,6 +64,22 @@ class UsageParsingSpec extends AnyFunSuite {
     assert(usage.contains(Usage(inputTokens = 5, outputTokens = 2, totalTokens = 7)))
   }
 
+  test("OpenAI-compatible parser reads a refusal with null content and still parses usage") {
+    val body =
+      """{"id":"chatcmpl-4","created":1700000000,"model":"gpt-4o-mini",
+        | "choices":[{"index":0,"message":{"role":"assistant","content":null,
+        |   "refusal":"I can't help with that."},"finish_reason":null}],
+        | "usage":{"prompt_tokens":8,"completion_tokens":6,"total_tokens":14}}""".stripMargin
+    val response = new InspectableOpenAIProvider().parse(body)
+    assert(response.usage.contains(Usage(inputTokens = 8, outputTokens = 6, totalTokens = 14)))
+    assert(response.refusal.contains("I can't help with that."))
+    assert(response.firstContent.contains(""))
+  }
+
+  test("OpenAI-compatible parser reports no refusal for an ordinary reply") {
+    assert(new InspectableOpenAIProvider().parse(openAiBody).refusal.isEmpty)
+  }
+
   test("OpenRouter parser exposes the reported dollar cost") {
     val body =
       """{"id":"gen-1","created":1700000000,"model":"openai/gpt-4o-mini",
@@ -97,6 +113,16 @@ class UsageParsingSpec extends AnyFunSuite {
         | "usage":{"input_tokens":3,"output_tokens":1}}""".stripMargin
     val usage = new InspectableClaudeParser().parse(body).usage
     assert(usage.contains(Usage(inputTokens = 3, outputTokens = 1, totalTokens = 4)))
+  }
+
+  test("Claude parser maps stop_reason refusal to the refusal field and keeps usage") {
+    val body =
+      """{"id":"msg_3","type":"message","role":"assistant","model":"m",
+        | "content":[{"type":"text","text":"I won't do that."}],"stop_reason":"refusal",
+        | "usage":{"input_tokens":4,"output_tokens":2}}""".stripMargin
+    val response = new InspectableClaudeParser().parse(body)
+    assert(response.refusal.contains("I won't do that."))
+    assert(response.usage.contains(Usage(inputTokens = 4, outputTokens = 2, totalTokens = 6)))
   }
 
   test("Gemini parser counts thinking tokens as output and reads cached content tokens") {

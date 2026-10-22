@@ -239,11 +239,20 @@ class ClaudeProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
 
       val thinking = if (thinkingTexts.nonEmpty) Some(thinkingTexts.mkString("\n")) else None
 
+      val stopReason = parsed.obj.get("stop_reason").collect { case ujson.Str(s) => s }.getOrElse("")
+
+      // Anthropic signals a refusal by stop_reason alone; any text produced
+      // before it stopped is the closest thing to an explanation.
+      val refusal =
+        if (stopReason == "refusal") Some(if (text.nonEmpty) text else "stop_reason refusal")
+        else None
+
       val choices = Array(
         org.nlogo.extensions.llm.models.Choice(
           index = 0,
           message = ChatMessage("assistant", text),
-          finishReason = parsed("stop_reason").str
+          finishReason = stopReason,
+          refusal = refusal
         )
       )
 

@@ -1234,3 +1234,47 @@ LLMChatAllRejectsExtraSchemas
   O> carefully [ set r (llm:chat-all turtles [ -> "hi" ] "{\"type\":\"object\"}" "{\"type\":\"object\"}") ] [ set err error-message ]
   member? "at most one schema" err => true
   O> clear-all
+
+LLMRefusalRaisesAfterRecordingUsage
+  extensions [llm]
+  globals [r err]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> llm:set-history [["user" "prior"] ["assistant" "context"]]
+  O> carefully [ set r llm:chat "__TEST_USAGE:5,2 __TEST_REFUSE:cannot help with that" ] [ set err error-message ]
+  err => "Extension exception: model refused: cannot help with that"
+  llm:get llm:usage-total "calls" => 1
+  llm:get llm:usage "input-tokens" => 5
+  llm:history => [["user" "prior"] ["assistant" "context"]]
+  O> clear-all
+
+LLMRefusalRaisesFromEveryChatPrimitive
+  extensions [llm]
+  globals [p r e2 e3 e4 e5 e6]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> set p llm:chat-async "__TEST_REFUSE:no async"
+  O> wait 0.3
+  llm:get llm:usage-total "calls" => 1
+  llm:history => []
+  O> carefully [ set r llm:chat-with-template "demos/simple-template.yaml" [["text" "__TEST_REFUSE:no template"]] ] [ set e2 error-message ]
+  member? "model refused: no template" e2 => true
+  O> carefully [ set r llm:choose "__TEST_REFUSE:no choice" ["north" "south"] ] [ set e3 error-message ]
+  member? "model refused: no choice" e3 => true
+  O> carefully [ set r llm:chat-with-schema "__TEST_REFUSE:no schema" "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}}}" ] [ set e4 error-message ]
+  member? "model refused: no schema" e4 => true
+  O> carefully [ set r llm:chat-json "__TEST_REFUSE:no json" ] [ set e5 error-message ]
+  member? "model refused: no json" e5 => true
+  O> carefully [ set r llm:chat-with-thinking "__TEST_REFUSE:no thinking" ] [ set e6 error-message ]
+  member? "model refused: no thinking" e6 => true
+  llm:get llm:usage-total "calls" => 6
+  llm:history => []
+  O> crt 1
+  O> set r llm:chat-all turtles [ -> "__TEST_REFUSE:no batch" ]
+  item 1 (item 0 r) => "model refused: no batch"
+  item 2 (item 0 r) => false
+  [llm:history] of turtle 0 => []
+  llm:get llm:usage-total "calls" => 7
+  O> clear-all

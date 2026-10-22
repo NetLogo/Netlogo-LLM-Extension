@@ -41,6 +41,13 @@ object LLMExtension {
 }
 
 /**
+ * Raised when the model declines to answer. Primitives let it through
+ * unwrapped so the modeler sees exactly "model refused: <reason>".
+ */
+final class ModelRefusedException(val refusal: String)
+  extends ExtensionException(s"model refused: $refusal")
+
+/**
  * Main extension class for NetLogo Multi-LLM Extension
  * 
  * This extension provides a unified interface for multiple LLM providers
@@ -93,6 +100,7 @@ class LLMExtension extends DefaultClassManager {
           // how long an already-pending call may take.
           Await.result(future, timeout)
         } catch {
+          case e: ModelRefusedException => throw e
           case e: Exception =>
             throw new ExtensionException(s"Async LLM operation failed: ${e.getMessage}")
         }
@@ -259,6 +267,15 @@ class LLMExtension extends DefaultClassManager {
       runUsage = runUsage.plus(delta)
     }
   }
+
+  /**
+   * Fail a call the model declined to answer.
+   *
+   * Called after recordUsage, so the billed tokens still count, and before any
+   * commitExchange, so the refused exchange never enters history.
+   */
+  private def rejectRefusal(response: ChatResponse): Unit =
+    response.refusal.foreach(text => throw new ModelRefusedException(text))
 
   private def usageFor(agent: Agent): UsageTotals =
     usageLock.synchronized { agentUsage.getOrElse(agent, UsageTotals.empty) }
@@ -608,6 +625,7 @@ class LLMExtension extends DefaultClassManager {
         val responseFuture = provider.chatWithFullResponse(snapshotHistory(agent) :+ userMessage)
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
+        rejectRefusal(response)
         val responseMessage = replyMessage(response)
 
         // Only commit both messages after success
@@ -616,6 +634,7 @@ class LLMExtension extends DefaultClassManager {
         responseMessage.content
 
       } catch {
+        case e: ModelRefusedException => throw e
         case e: Exception =>
           throw new ExtensionException(s"LLM chat failed: ${e.getMessage}")
       }
@@ -641,6 +660,7 @@ class LLMExtension extends DefaultClassManager {
         // from the completion thread so overlapping async calls can't interleave.
         val responseFuture = provider.chatWithFullResponse(snapshotHistory(agent) :+ userMessage).map { response =>
           recordUsage(agent, response)
+          rejectRefusal(response)
           val responseMessage = replyMessage(response)
           commitExchange(agent, userMessage, responseMessage)
           responseMessage.content
@@ -735,6 +755,7 @@ class LLMExtension extends DefaultClassManager {
             sent.onComplete(_ => lastReply.set(System.nanoTime))
             sent.map { response =>
               recordUsage(slot.agent, response)
+              rejectRefusal(response)
               val (value, assistant): (AnyRef, ChatMessage) = format match {
                 case Some(_) =>
                   // Parse before committing, as llm:chat-with-schema does.
@@ -789,6 +810,7 @@ class LLMExtension extends DefaultClassManager {
           live.map { slot =>
             settle(slot, awaitTimeoutFor(effectiveConfig(slot.agent))) match {
               case Success(v) => LogoList(slot.agent, v, java.lang.Boolean.TRUE)
+              case Failure(e: ModelRefusedException) => LogoList(slot.agent, e.getMessage, java.lang.Boolean.FALSE)
               case Failure(e) => LogoList(slot.agent, s"LLM chat failed: ${e.getMessage}", java.lang.Boolean.FALSE)
             }
           }
@@ -850,6 +872,7 @@ class LLMExtension extends DefaultClassManager {
         val responseFuture = provider.chatWithFullResponse(tempHistory.toSeq)
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
+        rejectRefusal(response)
         val responseMessage = replyMessage(response)
 
         // Commit both template message and response to permanent history on success
@@ -912,6 +935,7 @@ class LLMExtension extends DefaultClassManager {
         val responseFuture = provider.chatWithFormat(tempHistory.toSeq, EnumFormat(choices))
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
+        rejectRefusal(response)
 
         // Extract text: prefer content, fall back to thinking field
         val text = response.firstContent.filter(_.nonEmpty)
@@ -1021,6 +1045,7 @@ class LLMExtension extends DefaultClassManager {
         val responseFuture = provider.chatWithFormat(snapshotHistory(agent) :+ userMessage, format)
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
+        rejectRefusal(response)
 
         val content = response.firstContent.getOrElse("")
 
@@ -1082,6 +1107,7 @@ class LLMExtension extends DefaultClassManager {
         val responseFuture = provider.chatWithFormat(tempHistory.toSeq, JsonObjectFormat)
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
+        rejectRefusal(response)
 
         val content = response.firstContent.getOrElse("")
 
@@ -1165,6 +1191,7 @@ class LLMExtension extends DefaultClassManager {
         val responseFuture = provider.chatWithFullResponse(snapshotHistory(agent) :+ userMessage)
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, response)
+        rejectRefusal(response)
 
         val answerText = response.firstContent.getOrElse("")
         val thinkingText = response.thinking.getOrElse("")
@@ -1176,6 +1203,7 @@ class LLMExtension extends DefaultClassManager {
         LogoList(answerText, thinkingText)
 
       } catch {
+        case e: ModelRefusedException => throw e
         case e: Exception =>
           throw new ExtensionException(s"LLM chat-with-thinking failed: ${e.getMessage}")
       }

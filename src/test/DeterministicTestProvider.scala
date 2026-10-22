@@ -24,6 +24,9 @@ class DeterministicTestProvider(implicit ec: ExecutionContext) extends LLMProvid
   // response the rest of the stub produces, so accounting can be asserted
   // independently of which primitive made the call.
   private val testUsageRegex = """__TEST_USAGE:(\d+),(\d+)(?:,(\d+))?""".r.unanchored
+  // __TEST_REFUSE:<text> answers with empty content and a refusal, the shape a
+  // provider returns when the model declines. Captures to end of line.
+  private val testRefuseRegex = """__TEST_REFUSE:(.+)""".r
 
   private def lastUserContent(messages: Seq[ChatMessage]): String =
     messages.reverseIterator.find(_.role == "user").map(_.content).getOrElse("")
@@ -63,6 +66,14 @@ class DeterministicTestProvider(implicit ec: ExecutionContext) extends LLMProvid
 
     // Check for __TEST_THINKING: prefix — return empty content + thinking field
     lastUserMessage match {
+      case msg if msg.contains("__TEST_REFUSE:") =>
+        val refusal = testRefuseRegex.findFirstMatchIn(msg).map(_.group(1).trim).getOrElse("")
+        Future.successful(ChatResponse(
+          id = "deterministic-test-response",
+          created = System.currentTimeMillis() / 1000,
+          model = "deterministic-model",
+          choices = Array(Choice(0, ChatMessage.assistant(""), "", refusal = Some(refusal)))
+        ))
       case msg if msg.contains("__TEST_THINKING:") =>
         val thinking = testThinkingRegex.findFirstMatchIn(msg).map(_.group(1).trim).getOrElse("")
         Future.successful(ChatResponse(
@@ -101,7 +112,8 @@ class DeterministicTestProvider(implicit ec: ExecutionContext) extends LLMProvid
       .map(_.content)
       .getOrElse("")
 
-    if (lastUserMessage.contains("__TEST_RESPOND:") || lastUserMessage.contains("__TEST_FAIL")) {
+    if (lastUserMessage.contains("__TEST_RESPOND:") || lastUserMessage.contains("__TEST_FAIL") ||
+        lastUserMessage.contains("__TEST_REFUSE:")) {
       return chatWithFullResponse(messages)
     }
 
