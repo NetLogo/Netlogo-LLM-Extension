@@ -1277,4 +1277,28 @@ LLMRefusalRaisesFromEveryChatPrimitive
   item 2 (item 0 r) => false
   [llm:history] of turtle 0 => []
   llm:get llm:usage-total "calls" => 7
+
+LLMChatAsyncAfterClearAllWritesNothing
+  extensions [llm]
+  globals [r]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> let p llm:chat-async "__TEST_USAGE:4,3 __TEST_DELAY:300:slow" clear-all set r (runresult p)
+  r => "stub:slow"
+  llm:history => []
+  llm:get llm:usage "calls" => 0
+  llm:get llm:usage-total "calls" => 0
+  O> clear-all
+
+LLMChatAsyncAfterClearAllSkipsUnawaitedReply
+  extensions [llm]
+  globals [p]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> let q llm:chat-async "__TEST_USAGE:4,3 __TEST_DELAY:300:slow" clear-all set p q
+  O> wait 0.6
+  llm:history => []
+  llm:get llm:usage-total "calls" => 0
   O> clear-all

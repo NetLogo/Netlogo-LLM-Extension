@@ -100,6 +100,12 @@ class LLMExtension extends DefaultClassManager {
   private var runUsage: UsageTotals = UsageTotals.empty
   private val usageLock = new Object
 
+  // Run generation, bumped by clear-all. Each primitive captures it at launch
+  // and its history/usage writes are dropped if a clear-all has happened
+  // since, so a reply still in flight cannot leak into the next run. Volatile
+  // so the check inside historyLock/usageLock sees clear-all's bump.
+  @volatile private var generation: Long = 0L
+
   // Execution context for async operations
   implicit private val ec: ExecutionContext = ExecutionContext.global
   
@@ -189,6 +195,8 @@ class LLMExtension extends DefaultClassManager {
    * Called when NetLogo calls clear-all or when the model is reset
    */
   override def clearAll(): Unit = {
+    // Bump before clearing so any write that lands after the clear is stale.
+    historyLock.synchronized { usageLock.synchronized { generation += 1 } }
     historyLock.synchronized { messageHistory.clear() }
     usageLock.synchronized {
       agentUsage.clear()
@@ -261,13 +269,16 @@ class LLMExtension extends DefaultClassManager {
   /**
    * Append a user/assistant exchange to an agent's history atomically.
    * Re-resolves the buffer by agent so a commit racing set-history lands in
-   * the current buffer, not a detached stale one.
+   * the current buffer, not a detached stale one. Dropped if clear-all ran
+   * since the call launched in generation `gen`.
    */
-  private def commitExchange(agent: Agent, user: ChatMessage, assistant: ChatMessage): Unit =
+  private def commitExchange(agent: Agent, gen: Long, user: ChatMessage, assistant: ChatMessage): Unit =
     historyLock.synchronized {
-      val h = getAgentHistory(agent)
-      h += user
-      h += assistant
+      if (gen == generation) {
+        val h = getAgentHistory(agent)
+        h += user
+        h += assistant
+      }
     }
 
   /**
@@ -276,13 +287,16 @@ class LLMExtension extends DefaultClassManager {
    * Called as soon as a response arrives, before the caller decides whether
    * the reply is acceptable: tokens were billed either way, so a reply the
    * extension then rejects (schema parse failure, unmatched choice) still
-   * counts. A call that never produced a response records nothing.
+   * counts. A call that never produced a response records nothing, and a
+   * call launched before the latest clear-all (generation `gen`) is dropped.
    */
-  private def recordUsage(agent: Agent, response: ChatResponse): Unit = {
+  private def recordUsage(agent: Agent, gen: Long, response: ChatResponse): Unit = {
     val delta = UsageTotals(response.usage.getOrElse(Usage.empty), 1L)
     usageLock.synchronized {
-      agentUsage.update(agent, agentUsage.getOrElse(agent, UsageTotals.empty).plus(delta))
-      runUsage = runUsage.plus(delta)
+      if (gen == generation) {
+        agentUsage.update(agent, agentUsage.getOrElse(agent, UsageTotals.empty).plus(delta))
+        runUsage = runUsage.plus(delta)
+      }
     }
   }
 
@@ -609,6 +623,7 @@ class LLMExtension extends DefaultClassManager {
       val agent = context.getAgent
 
       try {
+        val gen = generation
         val provider = ensureProvider(agent)
 
         val userMessage = ChatMessage.user(inputText)
@@ -616,12 +631,12 @@ class LLMExtension extends DefaultClassManager {
         // Send chat request with user message included, but don't mutate history yet
         val responseFuture = provider.chatWithFullResponse(snapshotHistory(agent) :+ userMessage)
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
-        recordUsage(agent, response)
+        recordUsage(agent, gen, response)
         rejectRefusal(response)
         val responseMessage = replyMessage(response)
 
         // Only commit both messages after success
-        commitExchange(agent, userMessage, responseMessage)
+        commitExchange(agent, gen, userMessage, responseMessage)
 
         responseMessage.content
 
@@ -644,6 +659,7 @@ class LLMExtension extends DefaultClassManager {
       val agent = context.getAgent
 
       try {
+        val gen = generation
         val provider = ensureProvider(agent)
 
         val userMessage = ChatMessage.user(inputText)
@@ -651,10 +667,10 @@ class LLMExtension extends DefaultClassManager {
         // Snapshot on the NetLogo thread; commit the pair atomically on success
         // from the completion thread so overlapping async calls can't interleave.
         val responseFuture = provider.chatWithFullResponse(snapshotHistory(agent) :+ userMessage).map { response =>
-          recordUsage(agent, response)
+          recordUsage(agent, gen, response)
           rejectRefusal(response)
           val responseMessage = replyMessage(response)
-          commitExchange(agent, userMessage, responseMessage)
+          commitExchange(agent, gen, userMessage, responseMessage)
           responseMessage.content
         }
 
@@ -734,6 +750,7 @@ class LLMExtension extends DefaultClassManager {
       // "send all" into "queue all, at most N in flight". Agents killed by a
       // later agent's prompt reporter are dropped here rather than sent.
       val live = slots.filter(_.agent.id != -1)
+      val gen = generation
       live.foreach { slot =>
         val userMessage = ChatMessage.user(slot.prompt)
         slot.future =
@@ -746,7 +763,7 @@ class LLMExtension extends DefaultClassManager {
             }
             sent.onComplete(_ => lastReply.set(System.nanoTime))
             sent.map { response =>
-              recordUsage(slot.agent, response)
+              recordUsage(slot.agent, gen, response)
               rejectRefusal(response)
               val (value, assistant): (AnyRef, ChatMessage) = format match {
                 case Some(_) =>
@@ -763,7 +780,7 @@ class LLMExtension extends DefaultClassManager {
                 if (slot.abandoned) {
                   throw new java.util.concurrent.TimeoutException("reply arrived after the wait gave up")
                 }
-                commitExchange(slot.agent, userMessage, assistant)
+                commitExchange(slot.agent, gen, userMessage, assistant)
                 slot.result = Some(value)
               }
               value
@@ -831,6 +848,7 @@ class LLMExtension extends DefaultClassManager {
       val agent = context.getAgent
 
       try {
+        val gen = generation
         val provider = ensureProvider(agent)
 
         // Extract model directory from workspace
@@ -863,12 +881,12 @@ class LLMExtension extends DefaultClassManager {
         // Send chat request
         val responseFuture = provider.chatWithFullResponse(tempHistory.toSeq)
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
-        recordUsage(agent, response)
+        recordUsage(agent, gen, response)
         rejectRefusal(response)
         val responseMessage = replyMessage(response)
 
         // Commit both template message and response to permanent history on success
-        commitExchange(agent, userMessage, responseMessage)
+        commitExchange(agent, gen, userMessage, responseMessage)
 
         responseMessage.content
         
@@ -895,6 +913,7 @@ class LLMExtension extends DefaultClassManager {
       val agent = context.getAgent
 
       try {
+        val gen = generation
         val provider = ensureProvider(agent)
 
         val choices = choicesList.map(_.toString).toList
@@ -926,7 +945,7 @@ class LLMExtension extends DefaultClassManager {
         // the constraint behaves exactly as it did before.
         val responseFuture = provider.chatWithFormat(tempHistory.toSeq, EnumFormat(choices))
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
-        recordUsage(agent, response)
+        recordUsage(agent, gen, response)
         rejectRefusal(response)
 
         // Extract text: prefer content, fall back to thinking field
@@ -950,7 +969,7 @@ class LLMExtension extends DefaultClassManager {
           }
 
         // Only on success: store clean messages in permanent history
-        commitExchange(agent, ChatMessage.user(prompt), ChatMessage.assistant(chosenOption))
+        commitExchange(agent, gen, ChatMessage.user(prompt), ChatMessage.assistant(chosenOption))
 
         chosenOption
 
@@ -1030,13 +1049,14 @@ class LLMExtension extends DefaultClassManager {
       val format = parseObjectSchema(schemaText, "llm:chat-with-schema")
 
       try {
+        val gen = generation
         val provider = ensureProvider(agent)
 
         val userMessage = ChatMessage.user(inputText)
 
         val responseFuture = provider.chatWithFormat(snapshotHistory(agent) :+ userMessage, format)
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
-        recordUsage(agent, response)
+        recordUsage(agent, gen, response)
         rejectRefusal(response)
 
         val content = response.firstContent.getOrElse("")
@@ -1051,7 +1071,7 @@ class LLMExtension extends DefaultClassManager {
               throw new ExtensionException(s"llm:chat-with-schema: ${e.getMessage}")
           }
 
-        commitExchange(agent, userMessage, ChatMessage.assistant(content))
+        commitExchange(agent, gen, userMessage, ChatMessage.assistant(content))
 
         parsed
 
@@ -1082,6 +1102,7 @@ class LLMExtension extends DefaultClassManager {
       val agent = context.getAgent
 
       try {
+        val gen = generation
         val provider = ensureProvider(agent)
 
         // Anthropic has no schemaless JSON mode and Gemini's mime type alone is
@@ -1098,7 +1119,7 @@ class LLMExtension extends DefaultClassManager {
 
         val responseFuture = provider.chatWithFormat(tempHistory.toSeq, JsonObjectFormat)
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
-        recordUsage(agent, response)
+        recordUsage(agent, gen, response)
         rejectRefusal(response)
 
         val content = response.firstContent.getOrElse("")
@@ -1119,7 +1140,7 @@ class LLMExtension extends DefaultClassManager {
 
         // Store the clean exchange only — the JSON instruction is prompt
         // scaffolding, not part of the conversation.
-        commitExchange(agent, userMessage, ChatMessage.assistant(content))
+        commitExchange(agent, gen, userMessage, ChatMessage.assistant(content))
 
         content
 
@@ -1175,6 +1196,7 @@ class LLMExtension extends DefaultClassManager {
       val agent = context.getAgent
 
       try {
+        val gen = generation
         val provider = ensureProvider(agent)
 
         val userMessage = ChatMessage.user(inputText)
@@ -1182,14 +1204,14 @@ class LLMExtension extends DefaultClassManager {
         // Send with user message included, but don't mutate history yet
         val responseFuture = provider.chatWithFullResponse(snapshotHistory(agent) :+ userMessage)
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
-        recordUsage(agent, response)
+        recordUsage(agent, gen, response)
         rejectRefusal(response)
 
         val answerText = response.firstContent.getOrElse("")
         val thinkingText = response.thinking.getOrElse("")
 
         // Only commit both messages after success (clean answer only, not thinking text)
-        commitExchange(agent, userMessage, ChatMessage.assistant(answerText))
+        commitExchange(agent, gen, userMessage, ChatMessage.assistant(answerText))
 
         // Return [answer thinking] list — always 2 elements
         LogoList(answerText, thinkingText)
