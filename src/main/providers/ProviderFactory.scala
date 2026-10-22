@@ -47,8 +47,22 @@ object ProviderFactory {
    */
   def createProviderFromConfig(configStore: ConfigStore)(implicit ec: ExecutionContext): Try[LLMProvider] = {
     val providerName = configStore.getOrElse(ConfigStore.PROVIDER, ConfigStore.DEFAULT_PROVIDER)
-    val config = configStore.toMap
-    createProvider(providerName, config)
+    createProvider(providerName).map { provider =>
+      copyConfig(configStore, provider)
+      provider
+    }
+  }
+
+  /**
+   * Copy every entry of a ConfigStore into a provider, keeping seeded defaults
+   * marked as defaults so the provider can tell them from values the user set.
+   */
+  def copyConfig(configStore: ConfigStore, provider: LLMProvider): Unit = {
+    val defaults = configStore.defaultKeys
+    configStore.toMap.foreach { case (key, value) =>
+      if (defaults.contains(key)) provider.setDefaultConfig(key, value)
+      else provider.setConfig(key, value)
+    }
   }
 
   /**
@@ -162,7 +176,7 @@ object ProviderFactory {
     val defaults = getDefaultConfig(providerName)
     defaults.foreach { case (key, value) =>
       if (!configStore.contains(key) || key == ConfigStore.MODEL) {
-        configStore.set(key, value)
+        configStore.setDefault(key, value)
       }
     }
     configStore.set(ConfigStore.PROVIDER, providerName)

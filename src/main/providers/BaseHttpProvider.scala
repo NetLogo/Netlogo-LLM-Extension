@@ -251,10 +251,10 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
    * Initialize provider-specific default configuration
    */
   protected def initializeDefaults(): Unit = {
-    configStore.set(ConfigStore.PROVIDER, providerName)
-    configStore.set(ConfigStore.MODEL, defaultModel)
-    configStore.set(ConfigStore.TEMPERATURE, ConfigStore.DEFAULT_TEMPERATURE)
-    configStore.set(ConfigStore.MAX_TOKENS, defaultMaxTokens)
+    configStore.setDefault(ConfigStore.PROVIDER, providerName)
+    configStore.setDefault(ConfigStore.MODEL, defaultModel)
+    configStore.setDefault(ConfigStore.TEMPERATURE, ConfigStore.DEFAULT_TEMPERATURE)
+    configStore.setDefault(ConfigStore.MAX_TOKENS, defaultMaxTokens)
   }
 
   /**
@@ -534,6 +534,10 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
 
   override def setConfig(key: String, value: String): Unit = {
     configStore.set(key, value)
+  }
+
+  override def setDefaultConfig(key: String, value: String): Unit = {
+    configStore.setDefault(key, value)
   }
 
   override def getConfig(key: String): Option[String] = {

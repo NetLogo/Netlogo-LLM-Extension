@@ -27,6 +27,8 @@ class DeterministicTestProvider(implicit ec: ExecutionContext) extends LLMProvid
   // __TEST_REFUSE:<text> answers with empty content and a refusal, the shape a
   // provider returns when the model declines. Captures to end of line.
   private val testRefuseRegex = """__TEST_REFUSE:(.+)""".r
+  // __TEST_TRUNCATE answers with empty content and finish_reason "length", the
+  // shape a reasoning model returns when it spends the whole budget thinking.
 
   private def lastUserContent(messages: Seq[ChatMessage]): String =
     messages.reverseIterator.find(_.role == "user").map(_.content).getOrElse("")
@@ -66,6 +68,13 @@ class DeterministicTestProvider(implicit ec: ExecutionContext) extends LLMProvid
 
     // Check for __TEST_THINKING: prefix — return empty content + thinking field
     lastUserMessage match {
+      case msg if msg.contains("__TEST_TRUNCATE") =>
+        Future.successful(ChatResponse(
+          id = "deterministic-test-response",
+          created = System.currentTimeMillis() / 1000,
+          model = "deterministic-model",
+          choices = Array(Choice(0, ChatMessage.assistant(""), "length"))
+        ))
       case msg if msg.contains("__TEST_REFUSE:") =>
         val refusal = testRefuseRegex.findFirstMatchIn(msg).map(_.group(1).trim).getOrElse("")
         Future.successful(ChatResponse(

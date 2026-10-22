@@ -102,10 +102,10 @@ The suite runs the same 13 test procedures regardless of provider, plus two prov
 - `test-sync-chat`, `test-async-chat`, `test-choose`, `test-history` — core chat flow
 - `test-thinking-config`, `test-chat-with-thinking` — reasoning primitives and `[answer thinking]` return shape
 - `test-openrouter-vendor-prefix` — vendor-prefixed model names (skips unless `provider=openrouter`)
-- `test-together-thinking` — DeepSeek-R1 `<think>` tag extraction (skips unless `provider=together` AND model contains "DeepSeek")
+- `test-together-thinking` — DeepSeek `<think>` tag extraction (skips unless `provider=together` AND model contains "DeepSeek")
 - `test-reasoning-marker` — `[reasoning]` marker visible in `llm:list-models`
 
-To exercise everything, run the suite twice — once with `provider=openrouter`, once with `provider=together` (use `model=deepseek-ai/DeepSeek-R1` and `max_tokens=2000+` for the Together reasoning test).
+To exercise everything, run the suite twice — once with `provider=openrouter`, once with `provider=together` (use `model=deepseek-ai/DeepSeek-V4.1-Flash` and `max_tokens=2000+` for the Together reasoning test).
 
 Suggested usage:
 - run automated tests first (`sbt test`)

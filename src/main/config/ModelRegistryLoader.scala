@@ -130,8 +130,8 @@ object ModelRegistryLoader {
    *
    * Additive, unlike mergeConfigs: a user section adds its models to the
    * provider's existing list rather than replacing it, and its `default:`
-   * (when present) replaces the base default. Providers only the user file
-   * names are added as-is.
+   * (when present) replaces the base default and is added to the list. Providers
+   * only the user file names are added as-is, plus their own default.
    *
    * @param base The bundled (or fallback) catalog
    * @param user The user catalog
@@ -144,18 +144,26 @@ object ModelRegistryLoader {
     user.foldLeft(base) { case (acc, (provider, u)) =>
       acc.get(provider) match {
         case Some(b) =>
-          acc.updated(provider, b.copy(models = b.models ++ u.models, default = u.default.orElse(b.default)))
+          acc.updated(provider, b.copy(models = b.models ++ withOwnDefault(u).models, default = u.default.orElse(b.default)))
         case None =>
-          acc.updated(provider, u)
+          acc.updated(provider, withOwnDefault(u))
       }
     }
+
+  /**
+   * A section with its own `default:` added to its model list, so a default
+   * named only under `default:` is still a known model.
+   */
+  private def withOwnDefault(section: ProviderModels): ProviderModels =
+    section.copy(models = section.models ++ section.default)
 
   /**
    * Merge bundled and override configurations
    *
    * Override sections completely replace bundled sections for each provider.
    * If a provider exists in override config, its bundled model list is ignored.
-   * An override section without `default:` keeps the lower layer's default.
+   * An override section without `default:` keeps the lower layer's default;
+   * one with `default:` gets that model added to its list.
    *
    * @param bundled The bundled configuration from JAR resources
    * @param overrideConfig The override configuration from model directory
@@ -168,7 +176,7 @@ object ModelRegistryLoader {
     // Start with bundled config, then overlay override config
     // Override completely replaces bundled for each provider key
     bundled ++ overrideConfig.map { case (provider, o) =>
-      provider -> o.copy(default = o.default.orElse(bundled.get(provider).flatMap(_.default)))
+      provider -> withOwnDefault(o).copy(default = o.default.orElse(bundled.get(provider).flatMap(_.default)))
     }
   }
 

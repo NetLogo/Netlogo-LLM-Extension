@@ -159,6 +159,30 @@ class ModelCatalogSpec extends AnyFunSuite with BeforeAndAfterEach with Registry
     assert(ModelRegistry.defaultModel(SpecProvider) == "m1")
   }
 
+  test("a user catalog default missing from its models list is still a known model") {
+    useUserCatalog(
+      s"openai:\n  default: $AddedOpenAiModel\n$SpecProvider:\n  default: d1\n  models:\n    - m1\n"
+    )
+    assert(ModelRegistry.defaultModel("openai") == AddedOpenAiModel)
+    assert(ModelRegistry.isValidModel("openai", AddedOpenAiModel))
+    assert(ModelRegistry.isValidModel("openai", "gpt-6-luna"))
+    assert(ModelRegistry.defaultModel(SpecProvider) == "d1")
+    assert(ModelRegistry.isValidModel(SpecProvider, "d1"))
+    assert(ModelRegistry.isValidModel(SpecProvider, "m1"))
+  }
+
+  test("an override default missing from its models list is still a known model") {
+    Files.writeString(
+      dir.resolve("models-override.yaml"),
+      s"$SpecProvider:\n  default: d9\n  models:\n    - m9\n",
+      StandardCharsets.UTF_8
+    )
+    ModelRegistry.loadOverride(dir.toString)
+    assert(ModelRegistry.defaultModel(SpecProvider) == "d9")
+    assert(ModelRegistry.isValidModel(SpecProvider, "d9"))
+    assert(ModelRegistry.isValidModel(SpecProvider, "m9"))
+  }
+
   test("a missing user catalog file is not an error") {
     System.setProperty(ModelRegistryLoader.UserCatalogProperty, dir.resolve("absent.yaml").toString)
     ModelRegistry.reload()

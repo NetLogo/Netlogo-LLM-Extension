@@ -1459,3 +1459,32 @@ LLMTypeSafeProviderInfo
   item 2 first filter [ x -> first x = "typesafe" ] llm:provider-status => ["has-key" true]
   O> llm:set-model "jev-1.14.0"
   item 1 llm:active => "jev-1.14.0"
+
+LLMChooseOnDecisionProviderValidatesOptions
+  extensions [llm]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "typesafe"
+  O> clear-all
+  llm:choose "x" ["a" "a"] => ERROR Extension exception: llm:choose: "choice" options must be distinct, but "a" appears more than once
+  llm:choose "x" ["a" ""] => ERROR Extension exception: llm:choose: "choice" options must be non-empty strings
+  llm:choose "x" n-values 256 [ i -> (word "o" i) ] => ERROR Extension exception: llm:choose: "choice" needs a list of 1 to 255 options
+  llm:get llm:usage-total "calls" => 0
+  llm:choose "__TEST_DECIDE:west:0.9 where to?" ["north" "south"] => ERROR Extension exception: llm:choose: provider picked "west", which is not one of the options: north, south
+  llm:history => []
+  O> clear-all
+
+LLMEmptyReplyAtTokenLimitRaisesAfterRecordingUsage
+  extensions [llm]
+  globals [r err]
+  O> llm:set-api-key "test-key"
+  O> llm:set-provider "openai"
+  O> clear-all
+  O> llm:set-history [["user" "prior"] ["assistant" "context"]]
+  O> carefully [ set r llm:chat "__TEST_USAGE:5,4000,4000 __TEST_TRUNCATE" ] [ set err error-message ]
+  member? "empty reply" err => true
+  member? "max_tokens" err => true
+  member? "4000 output tokens" err => true
+  llm:get llm:usage-total "calls" => 1
+  llm:get llm:usage-total "output-tokens" => 4000
+  llm:history => [["user" "prior"] ["assistant" "context"]]
+  O> clear-all

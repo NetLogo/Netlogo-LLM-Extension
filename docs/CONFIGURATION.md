@@ -314,7 +314,9 @@ that provider is used.
 ### User catalog (~/.netlogo-llm/models.yaml)
 The user catalog **adds** to the bundled catalog rather than replacing it:
 - models you list are added to that provider's bundled list
-- a `default:` replaces the bundled default
+- a `default:` replaces the bundled default, and that model is added to the
+  provider's list even if you do not list it under `models:`, so it is never
+  reported as unknown
 - a provider the bundled catalog does not have is added
 
 ```yaml
@@ -361,6 +363,7 @@ ollama:
 - **Complete replacement**: Each provider section you include completely replaces the models for that provider
 - **Partial override**: You can override just one provider and leave others unchanged
 - **Defaults carry over**: a section without `default:` keeps the default from the layers below
+- **Default is a known model**: a section's `default:` is added to that section's model list
 - **Custom marker**: Models from the override file are marked with `[custom]` in `llm:list-models` output
 - **Validation**: `llm:set-model` warns (but still proceeds) when a model is not in the combined catalog
 

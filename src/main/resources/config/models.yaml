@@ -3,7 +3,9 @@
 # Only includes current/recommended models - legacy models removed.
 #
 # Each provider is either a plain list of model IDs, or a mapping with:
-#   default: the model used when no model is configured (must be in models)
+#   default: the model used when no model is configured (list it in models
+#            here; in a user catalog or models-override.yaml a default that
+#            is not listed is added to the known models automatically)
 #   models:  the list of known model IDs
 # When a provider has no default:, the default in ProviderRegistrations.scala applies.
 #

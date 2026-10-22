@@ -12,7 +12,7 @@ import scala.concurrent.ExecutionContext
  * Google, Meta, DeepSeek, etc.) using an OpenAI-compatible API format.
  *
  * Key differences from direct OpenAI:
- * - Model names are vendor-prefixed (e.g. "openai/gpt-4o", "anthropic/claude-3.5-sonnet")
+ * - Model names are vendor-prefixed (e.g. "openai/gpt-6-luna", "anthropic/claude-haiku-5.5")
  * - Extra headers: HTTP-Referer and X-Title for attribution
  * - Reasoning uses { reasoning: { effort: "..." } } instead of top-level reasoning_effort
  * - Thinking text is exposed in the response "reasoning" field

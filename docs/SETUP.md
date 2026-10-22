@@ -180,13 +180,32 @@ Browse the full catalog: [console.groq.com/docs/models](https://console.groq.com
 
 **Model lifecycle note:** Groq retires models often. If a model stops working, check [console.groq.com/docs/deprecations](https://console.groq.com/docs/deprecations).
 
+### TypeSafe (Jev) (typed decisions with probabilities)
+
+TypeSafe's Jev answers a typed question about a prompt (a choice, a score or a yes/no) with a probability for every possible answer, instead of writing text. It works only with `llm:decide`, `llm:decide-all` and `llm:choose`; `llm:chat` and the other text primitives raise an error on it.
+
+1. **Get API Key**: Visit [typesafe.ai](https://typesafe.ai) (keys are created in the console at [console.typesafe.ai](https://console.typesafe.ai/))
+2. **Create config.txt**:
+```
+provider=typesafe
+model=jev-latest
+typesafe_api_key=your-typesafe-key-here
+```
+
+**Available Models**:
+- `jev-latest` - Stable release (recommended, the default)
+- `jev-preview` - Newest release
+- `jev-1.14.0` / `jev-1.13.0` - Pinned versions
+
+`temperature` and `max_tokens` do not apply. Docs: [docs.typesafe.ai](https://docs.typesafe.ai)
+
 ## Configuration Parameters
 
 ### Core Settings
 
 | Parameter | Description | Required | Default |
 |-----------|-------------|----------|---------|
-| `provider` | LLM provider (`openai`, `anthropic`, `gemini`, `ollama`, `openrouter`, `together`, `groq`) | Yes | - |
+| `provider` | LLM provider (`openai`, `anthropic`, `gemini`, `ollama`, `openrouter`, `together`, `groq`, `typesafe`) | Yes | - |
 | `model` | Model identifier | Yes | Provider-specific |
 | `api_key` | API authentication key | Yes* | - |
 | `temperature` | Response randomness (0.0-1.0) | No | 0.7 |
@@ -312,6 +331,10 @@ call the LLM every N ticks) rather than only raising `retry_max_elapsed_seconds`
 - `base_url`: `https://api.groq.com/openai/v1`
 - `max_tokens`: 1000
 - API key config field: `groq_api_key`
+
+**TypeSafe (Jev)**:
+- `base_url`: `https://api.typesafe.ai`
+- API key config field: `typesafe_api_key`
 
 ## Testing Your Setup
 

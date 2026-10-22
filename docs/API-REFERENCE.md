@@ -324,7 +324,12 @@ set color read-from-string color-choice
 - On a provider with a decision API (`typesafe`), `llm:choose` asks a native choice
   question and reports the top option. That call sends only the prompt, with no
   history, and writes nothing to history; usage is still recorded. Use
-  `llm:decide` with `["choice" ...]` to also get the probabilities.
+  `llm:decide` with `["choice" ...]` to also get the probabilities. The options
+  follow the same rules as llm:decide's choice spec, checked before anything is
+  sent: 1 to 255 distinct, non-empty options (for example, `["a" "a"]` raises
+  `llm:choose: "choice" options must be distinct, but "a" appears more than once`).
+  If the provider picks something that is not one of the options, the call raises
+  `llm:choose: provider picked "<x>", which is not one of the options: ...`.
 
 ## Decision Primitives
 

@@ -48,6 +48,20 @@ object LLMExtension {
     }
   }
 
+  /**
+   * The error for a reply that is empty because the model stopped at its token
+   * limit (finish_reason "length") before writing any answer, or None.
+   */
+  private[llm] def emptyReplyMessage(response: ChatResponse): Option[String] =
+    response.choices.headOption.collect {
+      case c if c.finishReason == "length" && c.message.content.trim.isEmpty && c.refusal.isEmpty &&
+          response.thinking.forall(_.trim.isEmpty) =>
+        val used = response.usage.map(u => s" (${u.outputTokens} output tokens)").getOrElse("")
+        s"${response.model} returned an empty reply: it used its whole token budget$used before " +
+          "answering, and reasoning tokens count against that budget. Set max_tokens in your config " +
+          "above that, e.g. max_tokens=8000."
+    }
+
   private[llm] def createProvider(configStore: ConfigStore)(
     implicit ec: ExecutionContext
   ): Try[LLMProvider] = {
@@ -322,6 +336,14 @@ class LLMExtension extends DefaultClassManager {
    */
   private def rejectRefusal(response: ChatResponse): Unit =
     response.refusal.foreach(text => throw new ModelRefusedException(text))
+
+  /**
+   * Fail a call whose reply came back empty because the model hit its token
+   * limit (a reasoning model can spend the whole budget thinking). Called
+   * after recordUsage like rejectRefusal, so the billed tokens still count.
+   */
+  private def rejectEmptyReply(response: ChatResponse): Unit =
+    LLMExtension.emptyReplyMessage(response).foreach(m => throw new ExtensionException(m))
 
   /**
    * Fail a free-text call on a provider that only returns decisions, before
@@ -675,6 +697,7 @@ class LLMExtension extends DefaultClassManager {
 
           // Snapshot old config so we can roll back on readiness-check failure.
           val previousConfig = configStore.toMap
+          val previousDefaults = configStore.defaultKeys
           configStore.loadFromMap(config)
 
           // Load model override file if available
@@ -693,7 +716,7 @@ class LLMExtension extends DefaultClassManager {
             checkReadiness(desc, providerName, configStore)
           } catch {
             case e: ExtensionException =>
-              configStore.loadFromMap(previousConfig)
+              configStore.loadFromMap(previousConfig, previousDefaults)
               throw e
           }
 
@@ -728,6 +751,7 @@ class LLMExtension extends DefaultClassManager {
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, gen, response)
         rejectRefusal(response)
+        rejectEmptyReply(response)
         val responseMessage = replyMessage(response)
 
         // Only commit both messages after success
@@ -766,6 +790,7 @@ class LLMExtension extends DefaultClassManager {
         val responseFuture = provider.chatWithFullResponse(snapshotHistory(agent) :+ userMessage).map { response =>
           recordUsage(agent, gen, response)
           rejectRefusal(response)
+          rejectEmptyReply(response)
           val responseMessage = replyMessage(response)
           commitExchange(agent, gen, userMessage, responseMessage)
           responseMessage.content
@@ -866,6 +891,7 @@ class LLMExtension extends DefaultClassManager {
             sent.map { response =>
               recordUsage(slot.agent, gen, response)
               rejectRefusal(response)
+              rejectEmptyReply(response)
               val (value, assistant): (AnyRef, ChatMessage) = format match {
                 case Some(_) =>
                   // Parse before committing, as llm:chat-with-schema does.
@@ -985,6 +1011,7 @@ class LLMExtension extends DefaultClassManager {
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, gen, response)
         rejectRefusal(response)
+        rejectEmptyReply(response)
         val responseMessage = replyMessage(response)
 
         // Commit both template message and response to permanent history on success
@@ -1029,12 +1056,18 @@ class LLMExtension extends DefaultClassManager {
         // none; usage is still recorded.
         provider match {
           case d: DecisionProvider =>
+            // Same option rules as llm:decide's choice spec, checked before sending.
+            val question = parseDecisionSpec(
+              LogoList("choice", LogoList.fromVector(choices.toVector)), "llm:choose")
             val (result, usage) = Await.result(
-              d.decide(prompt, DecisionQuestion.Choice(choices.distinct)),
+              d.decide(prompt, question),
               awaitTimeoutFor(effectiveConfig(agent)))
             recordUsage(agent, gen, usage)
             return result.answer match {
-              case DecisionAnswer.Picked(option) => option
+              case DecisionAnswer.Picked(option) if choices.contains(option) => option
+              case DecisionAnswer.Picked(option) =>
+                throw new ExtensionException(
+                  s"""llm:choose: provider picked "$option", which is not one of the options: ${choices.mkString(", ")}""")
               case other => throw new ExtensionException(s"llm:choose: provider answered $other, not an option")
             }
           case _ => ()
@@ -1065,6 +1098,7 @@ class LLMExtension extends DefaultClassManager {
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, gen, response)
         rejectRefusal(response)
+        rejectEmptyReply(response)
 
         // Extract text: prefer content, fall back to thinking field
         val text = response.firstContent.filter(_.nonEmpty)
@@ -1314,6 +1348,7 @@ class LLMExtension extends DefaultClassManager {
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, gen, response)
         rejectRefusal(response)
+        rejectEmptyReply(response)
 
         val content = response.firstContent.getOrElse("")
 
@@ -1378,6 +1413,7 @@ class LLMExtension extends DefaultClassManager {
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, gen, response)
         rejectRefusal(response)
+        rejectEmptyReply(response)
 
         val content = response.firstContent.getOrElse("")
 
@@ -1464,6 +1500,7 @@ class LLMExtension extends DefaultClassManager {
         val response = Await.result(responseFuture, awaitTimeoutFor(effectiveConfig(agent)))
         recordUsage(agent, gen, response)
         rejectRefusal(response)
+        rejectEmptyReply(response)
 
         val answerText = response.firstContent.getOrElse("")
         val thinkingText = response.thinking.getOrElse("")

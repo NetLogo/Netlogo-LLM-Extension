@@ -487,7 +487,7 @@ Use `llm:chat-with-thinking` to get both the final answer and the model's interm
 extensions [llm]
 
 to setup-reasoning
-  llm:load-config "config.txt"        ;; e.g. provider=together, model=deepseek-ai/DeepSeek-R1
+  llm:load-config "config.txt"        ;; e.g. provider=together, model=deepseek-ai/DeepSeek-V4.1-Flash
   llm:set-thinking true
   llm:set-reasoning-effort "high"     ;; OpenAI o-series + OpenRouter + Together hybrid
   llm:set-thinking-budget 4096        ;; Anthropic + Gemini

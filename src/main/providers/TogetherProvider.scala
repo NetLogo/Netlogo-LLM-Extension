@@ -12,7 +12,7 @@ import scala.concurrent.ExecutionContext
  * Qwen, Gemma, Mistral, etc.) via an OpenAI-compatible API.
  *
  * Key differences from direct OpenAI:
- * - Model names are vendor-prefixed (e.g. "meta-llama/Llama-3.3-70B-Instruct-Turbo")
+ * - Model names are vendor-prefixed (e.g. "Qwen/Qwen3.8-Flash", "deepseek-ai/DeepSeek-V4.1-Flash")
  * - Hybrid reasoning models use { reasoning: { enabled: true } }
  * - DeepSeek-R1 embeds thinking in <think>...</think> tags within content
  */

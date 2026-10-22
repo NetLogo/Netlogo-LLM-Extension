@@ -50,6 +50,16 @@ extension sends them in reasoning format automatically: system prompts go as
 `temperature` is not sent. Set depth with `reasoning_effort`
 (`none|low|medium|high|xhigh`).
 
+Reasoning tokens count against `max_completion_tokens`. When you have not set
+`max_tokens`, reasoning models are sent `max_completion_tokens=4000` instead of
+the provider default (1000), so the model has room left to answer. Any
+`max_tokens` you set yourself, in a config file or a profile, is sent unchanged,
+even one below 4000. If a reply still comes back empty because the model used
+its whole budget (`finish_reason=length`), the call fails with an error that
+names the tokens used and tells you to set `max_tokens` above that. The tokens
+are still counted in `llm:usage` and `llm:usage-total`. The same applies to
+reasoning models on OpenRouter, Together AI and Groq.
+
 ### Hyperparameters
 
 #### temperature (float, 0.0-2.0, default: 0.7)
