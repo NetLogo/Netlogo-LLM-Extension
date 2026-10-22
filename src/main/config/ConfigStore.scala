@@ -178,7 +178,6 @@ object ConfigStore {
 
   // Default values
   val DEFAULT_PROVIDER = "openai"
-  val DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
   val DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
   val DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
   val DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
@@ -193,7 +192,9 @@ object ConfigStore {
   def withDefaults(): ConfigStore = {
     val store = new ConfigStore()
     store.set(PROVIDER, DEFAULT_PROVIDER)
-    store.set(MODEL, DEFAULT_OPENAI_MODEL)
+    // The default provider's default model comes from the model catalog
+    // (models.yaml `default:`), so it can be updated without a Scala change.
+    store.set(MODEL, org.nlogo.extensions.llm.providers.ModelRegistry.defaultModel(DEFAULT_PROVIDER))
     store.set(TEMPERATURE, DEFAULT_TEMPERATURE)
     store.set(MAX_TOKENS, DEFAULT_MAX_TOKENS)
     store.set(TIMEOUT_SECONDS, DEFAULT_TIMEOUT_SECONDS)

@@ -20,7 +20,7 @@ class TogetherProvider(implicit ec: ExecutionContext) extends OpenAICompatiblePr
 
   override def providerName: String = "together"
 
-  override def defaultModel: String = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+  override def defaultModel: String = ModelRegistry.defaultModel("together")
 
   override protected def defaultBaseUrl: String = "https://api.together.xyz/v1"
 

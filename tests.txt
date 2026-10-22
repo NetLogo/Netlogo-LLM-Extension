@@ -268,7 +268,7 @@ LLMOpenRouterProvider
   O> llm:set-api-key "test-key"
   O> llm:set-provider "openrouter"
   item 0 llm:active => "openrouter"
-  item 1 llm:active => "openai/gpt-4o-mini"
+  item 1 llm:active => "openai/gpt-oss-20b"
   empty? (llm:provider-help "openrouter") => false
   O> llm:set-model "openai/gpt-4o"
   item 1 llm:active => "openai/gpt-4o"
@@ -278,7 +278,7 @@ LLMTogetherProvider
   O> llm:set-api-key "test-key"
   O> llm:set-provider "together"
   item 0 llm:active => "together"
-  item 1 llm:active => "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+  item 1 llm:active => "Qwen/Qwen3.8-Flash"
   empty? (llm:provider-help "together") => false
   O> llm:set-model "deepseek-ai/DeepSeek-R1"
   item 1 llm:active => "deepseek-ai/DeepSeek-R1"
@@ -1014,7 +1014,7 @@ LLMProfileWithoutModelUsesProviderDefault
   O> llm:load-profile "claude" "demos/test-profile-anthropic"
   O> crt 1
   O> ask turtle 0 [ llm:use-profile "claude" ]
-  [llm:active] of turtle 0 => ["anthropic" "claude-haiku-4-5-20251001"]
+  [llm:active] of turtle 0 => ["anthropic" "claude-haiku-5-5"]
   O> clear-all
 
 LLMProfileUsesItsOwnWaitBudget

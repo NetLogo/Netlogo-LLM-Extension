@@ -133,12 +133,21 @@ class GeminiProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
 
     if (isThinking) {
       val thinkingObj = ujson.Obj()
-      // Map reasoning effort or set budget
-      request.thinkingConfig.flatMap(_.budgetTokens).foreach { budget =>
-        thinkingObj("thinkingBudget") = budget
-      }
-      request.thinkingConfig.flatMap(_.reasoningEffort).foreach { effort =>
-        thinkingObj("thinkingLevel") = effort.toUpperCase
+      // Map reasoning effort or set budget.
+      //
+      // Gemini 3+ steers depth with thinkingLevel and returns a 400 when
+      // thinkingLevel and thinkingBudget arrive together; it still takes a lone
+      // thinkingBudget. Gemini 2.5 only knows thinkingBudget. So the effort wins
+      // on 3+, and is dropped on 2.5.
+      val effort = request.thinkingConfig.flatMap(_.reasoningEffort)
+      val budget = request.thinkingConfig.flatMap(_.budgetTokens)
+      if (GeminiProvider.usesThinkingLevel(request.model)) {
+        effort match {
+          case Some(e) => thinkingObj("thinkingLevel") = GeminiProvider.thinkingLevel(e)
+          case None => budget.foreach(b => thinkingObj("thinkingBudget") = b)
+        }
+      } else {
+        budget.foreach(b => thinkingObj("thinkingBudget") = b)
       }
       generationConfig("thinkingConfig") = thinkingObj
       hasConfig = true
@@ -263,4 +272,28 @@ class GeminiProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
         throw new RuntimeException(s"Failed to parse Gemini response: ${e.getMessage}\nResponse: $responseBody", e)
     }
   }
+}
+
+object GeminiProvider {
+
+  private val Generation = """(?:^|/)gemini-(\d+)""".r
+
+  /**
+   * Whether a model takes thinkingLevel (Gemini 3 and later) rather than only
+   * thinkingBudget (2.5 and earlier). Unrecognized names count as newer, the
+   * direction new models move.
+   */
+  def usesThinkingLevel(model: String): Boolean =
+    Generation.findFirstMatchIn(model.toLowerCase).forall(_.group(1).toInt >= 3)
+
+  /**
+   * Map the extension's reasoning_effort onto Gemini's thinkingLevel. Gemini
+   * has MINIMAL where the extension has "none", and nothing above HIGH.
+   */
+  def thinkingLevel(effort: String): String =
+    effort.toLowerCase.trim match {
+      case "none" => "MINIMAL"
+      case "xhigh" | "max" => "HIGH"
+      case other => other.toUpperCase
+    }
 }

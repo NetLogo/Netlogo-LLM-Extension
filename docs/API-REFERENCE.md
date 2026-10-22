@@ -92,7 +92,7 @@ llm:load-config "models/gpt4-config.txt"
 
 ```netlogo
 llm:set-provider "openai"
-; Sets default model (gpt-4o-mini) and validates API key
+; Sets the default model from the model catalog (gpt-6-luna) and validates API key
 
 llm:set-provider "ollama"
 ; Sets default model (llama3.2) and checks if Ollama server is reachable
@@ -142,8 +142,8 @@ llm:set-api-key "sk-ant-your-claude-key-here"
 **Example**:
 
 ```netlogo
-llm:set-model "gpt-4o-mini"
-llm:set-model "claude-3-5-haiku-latest"
+llm:set-model "gpt-6-luna"
+llm:set-model "claude-haiku-5-5"
 llm:set-model "llama3.2"
 ```
 
@@ -578,7 +578,7 @@ end
 
 ## Reasoning / Thinking Primitives
 
-For models that expose intermediate reasoning (Anthropic Claude, Google Gemini, Ollama qwen3/deepseek-r1, OpenRouter, Together AI). OpenAI o-series uses internal reasoning that the API does not return.
+For models that expose intermediate reasoning (Anthropic Claude, Google Gemini, Ollama qwen3/deepseek-r1, OpenRouter, Together AI). OpenAI reasoning models (GPT-5.x, GPT-6.x, o-series) use internal reasoning that the API does not return.
 
 ### llm:chat-with-thinking
 
@@ -846,7 +846,7 @@ print llm:provider-help "openai"
 
 ```netlogo
 let current llm:active
-print current  ; ["openai" "gpt-4o-mini"]
+print current  ; ["openai" "gpt-6-luna"]
 print (word "Using " item 0 current " with " item 1 current)
 ```
 
@@ -867,7 +867,7 @@ print (word "Using " item 0 current " with " item 1 current)
 
 ```netlogo
 print llm:config
-; Output: provider=openai, model=gpt-4o-mini, openai_api_key=sk-pr...jYzQ, ...
+; Output: provider=openai, model=gpt-6-luna, openai_api_key=sk-pr...jYzQ, ...
 ```
 
 **Notes**:
@@ -895,29 +895,25 @@ print llm:config
 ```netlogo
 print llm:list-models
 
-; Output format:
-; === OpenAI Models ===
-; gpt-4o [ACTIVE]
-; gpt-4o-mini
-; gpt-4-turbo
-; gpt-3.5-turbo
-; o1-preview
-; o1-mini
+; Output format (abridged):
+; === Available Models ===
 ;
-; === Anthropic Models ===
-; claude-3-5-sonnet-20241022
-; claude-3-5-haiku-latest
-; claude-3-opus-latest
+; --- anthropic ---
+;   claude-haiku-5-5
+;   claude-sonnet-5-5
+;   ...
 ;
-; === Gemini Models === [ACTIVE]
-; gemini-2.0-flash-exp [custom] [ACTIVE]
-; gemini-1.5-pro
-; gemini-1.5-flash
+; --- gemini ---
+;   gemini-3.5-flash-lite [reasoning]
+;   gemini-3.8-flash [reasoning] [custom]
+;   ...
 ;
-; === Ollama Models ===
-; llama3.2
-; mistral
-; qwen2
+; --- openai ---
+;   gpt-4o-mini
+;   gpt-6-luna [ACTIVE] [reasoning]
+;   ...
+;
+; Currently using: openai / gpt-6-luna
 
 ; Use it to see what models are available
 llm:set-provider "anthropic"
@@ -931,6 +927,9 @@ print llm:list-models  ; Shows all providers, with Anthropic marked as ACTIVE
 - Use this to discover available models across all providers
 - Custom models added via `models-override.yaml` are marked with `[custom]`
 - The currently active provider and model are marked with `[ACTIVE]`
+- The list and each provider's default model come from the model catalog: the
+  bundled `models.yaml`, then your `~/.netlogo-llm/models.yaml` if present, then
+  `models-override.yaml` next to the model. See CONFIGURATION.md, "Model Catalog"
 
 ## Profiles: different models for different agents
 
@@ -1357,7 +1356,7 @@ For enterprise or custom deployments:
 provider=openai
 base_url=https://your-custom-openai-endpoint.com/v1
 api_key=your-key
-model=gpt-4o-mini
+model=gpt-6-luna
 ```
 
 ### Timeout Tuning

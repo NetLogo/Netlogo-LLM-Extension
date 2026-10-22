@@ -24,7 +24,7 @@ class GroqProvider(implicit ec: ExecutionContext) extends OpenAICompatibleProvid
 
   override def providerName: String = "groq"
 
-  override def defaultModel: String = "openai/gpt-oss-20b"
+  override def defaultModel: String = ModelRegistry.defaultModel("groq")
 
   override protected def defaultBaseUrl: String = "https://api.groq.com/openai/v1"
 

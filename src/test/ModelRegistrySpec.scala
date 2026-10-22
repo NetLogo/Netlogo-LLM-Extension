@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.util.Comparator
 
-class ModelRegistrySpec extends AnyFunSuite with BeforeAndAfterEach {
+class ModelRegistrySpec extends AnyFunSuite with BeforeAndAfterEach with RegistryLock {
 
   // A provider key no other spec uses, so suites running in parallel against the
   // shared registry never see this override touch their providers.
@@ -40,7 +40,7 @@ class ModelRegistrySpec extends AnyFunSuite with BeforeAndAfterEach {
 
   private def assertNoCustomModel(): Unit = {
     assert(!ModelRegistry.isValidModel(CustomProvider, CustomModel))
-    val listing = ModelRegistry.formatModelList("openai", "gpt-4o")
+    val listing = ModelRegistry.formatModelList("openai", "gpt-4o-mini")
     assert(!listing.contains(CustomProvider))
     assert(!listing.contains(CustomModel))
     assert(!listing.contains("[custom]"))
@@ -49,7 +49,7 @@ class ModelRegistrySpec extends AnyFunSuite with BeforeAndAfterEach {
   test("override from directory A is visible after loading A") {
     assert(ModelRegistry.loadOverride(dirA.toString).isDefined)
     assert(ModelRegistry.isValidModel(CustomProvider, CustomModel))
-    assert(ModelRegistry.formatModelList("openai", "gpt-4o").contains("[custom]"))
+    assert(ModelRegistry.formatModelList("openai", "gpt-4o-mini").contains("[custom]"))
   }
 
   test("loading a directory without an override drops the previous override") {
@@ -69,6 +69,6 @@ class ModelRegistrySpec extends AnyFunSuite with BeforeAndAfterEach {
     ModelRegistry.loadOverride(dirA.toString)
     ModelRegistry.clearOverride()
     assertNoCustomModel()
-    assert(ModelRegistry.isValidModel("openai", "gpt-4o"))
+    assert(ModelRegistry.isValidModel("openai", "gpt-4o-mini"))
   }
 }

@@ -1542,7 +1542,7 @@ class LLMExtension extends DefaultClassManager {
 
       // Mirror llm:load-config: the file is the whole configuration, with no
       // OpenAI-flavoured defaults layered underneath. A profile that names no
-      // model gets its own provider's default, not gpt-4o-mini.
+      // model gets its own provider's default, not the OpenAI default.
       val candidate = new ConfigStore()
       candidate.loadFromMap(config)
       checkReadiness(desc, providerName, candidate)

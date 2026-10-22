@@ -20,6 +20,9 @@ object ReasoningModelDetector {
    * Only returns true for models that return HTTP 400 without special handling:
    * - OpenAI o1, o3, o4 series: must strip temperature, use max_completion_tokens,
    *   convert system->developer role
+   * - OpenAI GPT-5.x and GPT-6.x: the same reasoning models under a new name
+   *   (no new o-series is coming). The `-chat` variants were non-reasoning and
+   *   are excluded.
    *
    * All other providers return false — they don't break, they just won't
    * activate thinking without explicit config.
@@ -27,17 +30,20 @@ object ReasoningModelDetector {
   def requiresReasoningFormat(provider: String, model: String): Boolean = {
     provider.toLowerCase.trim match {
       case "openai" =>
-        val m = model.toLowerCase
-        m.startsWith("o1") || m.startsWith("o3") || m.startsWith("o4")
+        isOpenAIReasoningModel(model)
       case "openrouter" =>
-        // Vendor-prefixed: check if the model after the prefix is an OpenAI o-series
+        // Vendor-prefixed: check if the model after the prefix is an OpenAI reasoning model
         val m = model.toLowerCase
-        if (m.startsWith("openai/")) {
-          val modelName = m.stripPrefix("openai/")
-          modelName.startsWith("o1") || modelName.startsWith("o3") || modelName.startsWith("o4")
-        } else false
+        if (m.startsWith("openai/")) isOpenAIReasoningModel(m.stripPrefix("openai/"))
+        else false
       case _ => false
     }
+  }
+
+  private def isOpenAIReasoningModel(model: String): Boolean = {
+    val m = model.toLowerCase
+    m.startsWith("o1") || m.startsWith("o3") || m.startsWith("o4") ||
+      ((m.startsWith("gpt-5") || m.startsWith("gpt-6")) && !m.contains("-chat"))
   }
 
   /**
@@ -90,8 +96,7 @@ object ReasoningModelDetector {
   def isReasoningModel(provider: String, model: String): Boolean = {
     provider.toLowerCase.trim match {
       case "openai" =>
-        val m = model.toLowerCase
-        m.startsWith("o1") || m.startsWith("o3") || m.startsWith("o4")
+        isOpenAIReasoningModel(model)
       case "anthropic" =>
         model.contains("claude-3-7") || model.contains("claude-4")
       case "gemini" =>
@@ -102,7 +107,7 @@ object ReasoningModelDetector {
       case "openrouter" =>
         // Vendor-prefixed model names: detect reasoning models across vendors
         val m = model.toLowerCase
-        m.startsWith("openai/o1") || m.startsWith("openai/o3") || m.startsWith("openai/o4") ||
+        (m.startsWith("openai/") && isOpenAIReasoningModel(m.stripPrefix("openai/"))) ||
         m.contains("claude-3-7") || m.contains("claude-4") ||
         m.contains("deepseek-r1") || m.contains("qwq")
       case "together" =>

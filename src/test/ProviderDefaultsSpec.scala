@@ -48,20 +48,15 @@ class ProviderDefaultsSpec extends AnyFunSuite {
     assert(empty.isEmpty, s"providers with no models in models.yaml: ${empty.mkString(", ")}")
   }
 
-  test("every provider default model is present in the YAML-load fallback too") {
-    // The check above reads the LOADED registry, so a stale entry in
-    // FALLBACK_CONFIG survives it. That map is what the extension falls back on
-    // when models.yaml cannot be read, and it kept retired models long after
-    // they were removed from the YAML.
+  test("every provider's effective default model is present in the loaded registry") {
+    // The effective default comes from models.yaml's default: key when set, so
+    // it can drift from the descriptor default checked above. Both must be
+    // models the extension accepts. (The YAML-load fallback is built from the
+    // descriptor defaults alone, so it cannot drift; ModelCatalogSpec covers it.)
     val drifted = descriptors.flatMap { d =>
-      ModelRegistry.FALLBACK_CONFIG.get(d.name) match {
-        case None =>
-          Some(s"provider '${d.name}' has no FALLBACK_CONFIG entry")
-        case Some(pm) if !pm.models.contains(d.defaultModel) =>
-          Some(s"provider '${d.name}' default '${d.defaultModel}' missing from FALLBACK_CONFIG " +
-            s"(has: ${pm.models.toSeq.sorted.mkString(", ")})")
-        case _ => None
-      }
+      val effective = ModelRegistry.defaultModel(d.name)
+      if (ModelRegistry.isValidModel(d.name, effective)) None
+      else Some(s"provider '${d.name}' effective default '$effective' is not in the loaded registry")
     }
     assert(drifted.isEmpty, s"\n${drifted.mkString("\n")}")
   }

@@ -174,7 +174,7 @@ object ProviderFactory {
   def getDefaultConfig(providerName: String): Map[String, String] = {
     ProviderRegistry.get(providerName.toLowerCase.trim) match {
       case Some(desc) => Map(
-        ConfigStore.MODEL -> desc.defaultModel,
+        ConfigStore.MODEL -> ModelRegistry.defaultModel(desc.name),
         ConfigStore.TEMPERATURE -> ConfigStore.DEFAULT_TEMPERATURE,
         ConfigStore.MAX_TOKENS -> desc.defaultMaxTokens
       )

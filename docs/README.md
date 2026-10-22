@@ -24,7 +24,7 @@ See `docs/CONFIGURATION.md` for ready-to-copy examples (OpenAI, Anthropic, Gemin
 ```
 llm:set-provider "openai"
 llm:set-api-key "sk-REPLACE_ME"
-llm:set-model "gpt-4o-mini"
+llm:set-model "gpt-6-luna"
 ```
 3) Chat:
 ```

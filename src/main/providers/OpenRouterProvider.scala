@@ -21,7 +21,7 @@ class OpenRouterProvider(implicit ec: ExecutionContext) extends OpenAICompatible
 
   override def providerName: String = "openrouter"
 
-  override def defaultModel: String = "openai/gpt-4o-mini"
+  override def defaultModel: String = ModelRegistry.defaultModel("openrouter")
 
   override protected def defaultBaseUrl: String = "https://openrouter.ai/api/v1"
 
