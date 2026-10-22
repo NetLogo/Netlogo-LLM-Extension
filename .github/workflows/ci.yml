@@ -33,3 +33,9 @@ jobs:
 
       - name: Run tests
         run: sbt test
+
+      - name: Build release zip
+        run: sbt packageZip
+
+      - name: Check release zip contents
+        run: scripts/check-zip.sh
