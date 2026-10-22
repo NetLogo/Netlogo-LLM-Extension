@@ -561,10 +561,13 @@ class LLMExtension extends DefaultClassManager {
           configStore.loadFromMap(config)
 
           // Load model override file if available
-          modelDir.foreach { dir =>
-            ModelRegistry.loadOverride(dir).foreach { message =>
-              println(message)
-            }
+          modelDir match {
+            case Some(dir) =>
+              ModelRegistry.loadOverride(dir).foreach { message =>
+                println(message)
+              }
+            case None =>
+              ModelRegistry.clearOverride()
           }
 
           // Readiness check uses the now-loaded config (needs apiKeyConfigKey lookup).
@@ -1622,8 +1625,9 @@ class LLMExtension extends DefaultClassManager {
         // Load override from model directory if available
         Option(context.workspace.getModelPath).flatMap { path =>
           Option(new java.io.File(path).getParent)
-        }.foreach { modelDir =>
-          ModelRegistry.loadOverride(modelDir)
+        } match {
+          case Some(modelDir) => ModelRegistry.loadOverride(modelDir)
+          case None => ModelRegistry.clearOverride()
         }
 
         val providerName = configStore.getOrElse(ConfigStore.PROVIDER, ConfigStore.DEFAULT_PROVIDER)

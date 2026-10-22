@@ -23,6 +23,8 @@ object ModelRegistry {
 
   // Mutable state for dynamic loading (access must be synchronized)
   private var providers: Map[String, ProviderModels] = Map.empty
+  // Bundled (or fallback) catalog, kept apart so each override is applied to it fresh
+  private var bundled: Map[String, ProviderModels] = Map.empty
   private var isInitialized: Boolean = false
   private var modelDirLoaded: Option[String] = None
   private var overrideLoadMessage: Option[String] = None
@@ -57,6 +59,7 @@ object ModelRegistry {
 
     ModelRegistryLoader.loadBundledConfig() match {
       case Success(config) =>
+        bundled = config
         providers = config
         isInitialized = true
 
@@ -64,6 +67,7 @@ object ModelRegistry {
         // Fall back to hardcoded minimal config if YAML loading fails
         System.err.println(s"WARNING: Failed to load bundled model config: ${error.getMessage}")
         System.err.println("WARNING: Using fallback hardcoded model registry")
+        bundled = FALLBACK_CONFIG
         providers = FALLBACK_CONFIG
         isInitialized = true
     }
@@ -73,6 +77,8 @@ object ModelRegistry {
    * Load override configuration from a model directory
    *
    * Merges override config with bundled config. Override takes precedence.
+   * Always rebuilds from the bundled catalog, so an override from a previously
+   * loaded directory never survives a load from a directory without one.
    * Returns a notification message if custom models were loaded.
    *
    * @param modelDir Directory containing models-override.yaml
@@ -84,19 +90,37 @@ object ModelRegistry {
     ModelRegistryLoader.loadOverrideConfig(modelDir) match {
       case Success((overrideConfig, customCount)) =>
         if (overrideConfig.nonEmpty) {
-          providers = ModelRegistryLoader.mergeConfigs(providers, overrideConfig)
+          providers = ModelRegistryLoader.mergeConfigs(bundled, overrideConfig)
           modelDirLoaded = Some(modelDir)
           val message = s"Loaded $customCount custom models from override config"
           overrideLoadMessage = Some(message)
           Some(message)
         } else {
+          clearOverrideState()
           None
         }
 
       case Failure(error) =>
         System.err.println(s"WARNING: Failed to load override config: ${error.getMessage}")
+        clearOverrideState()
         None
     }
+  }
+
+  /**
+   * Drop any loaded override and restore the bundled catalog
+   *
+   * Used when there is no model directory (e.g. an unsaved model).
+   */
+  def clearOverride(): Unit = lock.synchronized {
+    ensureInitialized()
+    clearOverrideState()
+  }
+
+  private def clearOverrideState(): Unit = {
+    providers = bundled
+    modelDirLoaded = None
+    overrideLoadMessage = None
   }
 
   /**
@@ -182,6 +206,7 @@ object ModelRegistry {
    */
   def reset(): Unit = lock.synchronized {
     providers = Map.empty
+    bundled = Map.empty
     isInitialized = false
     modelDirLoaded = None
     overrideLoadMessage = None
