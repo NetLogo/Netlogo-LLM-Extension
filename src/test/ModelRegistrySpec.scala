@@ -2,11 +2,12 @@
 // ABOUTME: Asserts that a models-override.yaml from one directory does not leak into later loads (#29)
 package org.nlogo.extensions.llm.providers
 
-import org.scalatest.BeforeAndAfterEach
-import org.scalatest.funsuite.AnyFunSuite
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.util.Comparator
+
+import org.scalatest.BeforeAndAfterEach
+import org.scalatest.funsuite.AnyFunSuite
 
 class ModelRegistrySpec extends AnyFunSuite with BeforeAndAfterEach with RegistryLock {
 

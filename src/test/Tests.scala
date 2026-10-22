@@ -2,13 +2,15 @@
 
 package org.nlogo.extensions.llm
 
+import java.io.File
+
+import scala.util.Success
+
 import org.scalatest.BeforeAndAfterAll
 
-import java.io.File
-import org.nlogo.headless.TestLanguage
 import org.nlogo.extensions.llm.config.ConfigStore
 import org.nlogo.extensions.llm.providers.{DeterministicDecisionTestProvider, DeterministicTestProvider}
-import scala.util.Success
+import org.nlogo.headless.TestLanguage
 
 object Tests {
   val testFileNames = Seq("tests.txt")

@@ -2,14 +2,17 @@
 // ABOUTME: Also pins the refreshed bundled defaults and the request shape their APIs require (#64)
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.config.{ModelRegistryLoader, ProviderModels}
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ThinkingConfig}
-import org.scalatest.BeforeAndAfterEach
-import org.scalatest.funsuite.AnyFunSuite
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.util.Comparator
+
 import scala.concurrent.ExecutionContext.Implicits.global
+
+import org.scalatest.BeforeAndAfterEach
+import org.scalatest.funsuite.AnyFunSuite
+
+import org.nlogo.extensions.llm.config.{ModelRegistryLoader, ProviderModels}
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ThinkingConfig}
 
 private class CatalogInspectableGemini extends GeminiProvider {
   def body(r: ChatRequest): ujson.Value = createProviderRequest(r)

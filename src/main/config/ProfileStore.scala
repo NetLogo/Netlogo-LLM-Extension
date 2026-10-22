@@ -2,8 +2,9 @@
 // ABOUTME: Backs per-agent model selection: an agent bound to a profile calls through that profile's provider
 package org.nlogo.extensions.llm.config
 
-import org.nlogo.extensions.llm.providers.LLMProvider
 import scala.util.{Failure, Success, Try}
+
+import org.nlogo.extensions.llm.providers.LLMProvider
 
 /**
  * One named configuration and the provider built from it.

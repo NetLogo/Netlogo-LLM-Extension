@@ -2,9 +2,10 @@
 // ABOUTME: Delegates creation, validation, and defaults to ProviderDescriptor — no per-provider match/case
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.config.ConfigStore
 import scala.concurrent.ExecutionContext
-import scala.util.{Try, Success, Failure}
+import scala.util.{Failure, Success, Try}
+
+import org.nlogo.extensions.llm.config.ConfigStore
 
 /**
  * Factory for creating LLM provider instances.

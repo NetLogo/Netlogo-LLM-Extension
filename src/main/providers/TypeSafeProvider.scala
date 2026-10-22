@@ -2,12 +2,14 @@
 // ABOUTME: Implements DecisionProvider (choice, score, noul) over BaseHttpProvider's retry and throttle path
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.config.ConfigStore
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, Choice, DecisionQuestion, DecisionResult, Usage}
-import sttp.client4._
-import sttp.model.Uri
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
+
+import sttp.client4._
+import sttp.model.Uri
+
+import org.nlogo.extensions.llm.config.ConfigStore
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, Choice, DecisionQuestion, DecisionResult, Usage}
 
 object TypeSafeProvider {
   /** Raised by every free-text primitive while TypeSafe is the active provider. */

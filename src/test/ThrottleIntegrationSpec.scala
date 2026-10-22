@@ -2,16 +2,19 @@
 // ABOUTME: Covers cap enforcement over real sends, retry interaction, and the unthrottled default
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatRequest, ChatResponse, ChatMessage, Choice}
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicInteger
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future, blocking}
+
 import org.scalatest.funsuite.AnyFunSuite
 import sttp.client4._
 import sttp.client4.testing.{BackendStub, ResponseStub}
 import sttp.model.{StatusCode, Uri}
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.{Await, Future, blocking}
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
+
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, Choice}
 
 /**
  * Provider backed by a stub backend that holds every send open until released,

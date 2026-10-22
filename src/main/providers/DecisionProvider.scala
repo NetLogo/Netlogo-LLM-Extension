@@ -2,8 +2,9 @@
 // ABOUTME: llm:decide, llm:decide-all and llm:choose route through it; any decision-style API implements only this
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{DecisionQuestion, DecisionResult, Usage}
 import scala.concurrent.Future
+
+import org.nlogo.extensions.llm.models.{DecisionQuestion, DecisionResult, Usage}
 
 /**
  * A provider that answers typed questions with calibrated probabilities

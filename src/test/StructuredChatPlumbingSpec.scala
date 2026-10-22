@@ -2,10 +2,12 @@
 // ABOUTME: Covers the LLMProvider entry point used by llm:chat-with-schema and llm:chat-json
 package org.nlogo.extensions.llm.providers
 
+import scala.concurrent.ExecutionContext.Implicits.global
+
+import org.scalatest.funsuite.AnyFunSuite
+
 import org.nlogo.extensions.llm.config.ConfigStore
 import org.nlogo.extensions.llm.models._
-import org.scalatest.funsuite.AnyFunSuite
-import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
  * Captures the ChatRequest that would have been sent, without any network I/O.

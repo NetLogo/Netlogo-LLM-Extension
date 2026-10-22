@@ -2,9 +2,11 @@
 // ABOUTME: Asserts the cross-provider Usage record is filled consistently, or absent when not reported
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatResponse, Usage}
-import org.scalatest.funsuite.AnyFunSuite
 import scala.concurrent.ExecutionContext.Implicits.global
+
+import org.scalatest.funsuite.AnyFunSuite
+
+import org.nlogo.extensions.llm.models.{ChatResponse, Usage}
 
 class InspectableOpenAIProvider extends OpenAIProvider()(using global) {
   def parse(body: String): ChatResponse = parseProviderResponse(body, "test-model")

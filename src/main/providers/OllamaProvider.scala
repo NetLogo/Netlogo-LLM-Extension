@@ -3,12 +3,14 @@
 
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat, Usage}
-import org.nlogo.extensions.llm.config.ConfigStore
+import scala.concurrent.{ExecutionContext, Future}
+
 import sttp.client4._
 import sttp.model.Uri
 import ujson._
-import scala.concurrent.{Future, ExecutionContext}
+
+import org.nlogo.extensions.llm.config.ConfigStore
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat, Usage}
 
 /**
  * Ollama provider implementation for local Ollama models

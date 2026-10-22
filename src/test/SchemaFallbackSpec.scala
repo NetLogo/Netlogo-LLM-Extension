@@ -2,16 +2,19 @@
 // ABOUTME: Uses an sttp BackendStub behind an OpenAIProvider so the real wire format is exercised
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatMessage, EnumFormat}
+import java.util.concurrent.ConcurrentLinkedQueue
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
+import scala.jdk.CollectionConverters._
+
 import org.scalatest.funsuite.AnyFunSuite
 import sttp.client4._
 import sttp.client4.testing.{BackendStub, ResponseStub}
 import sttp.model.StatusCode
-import java.util.concurrent.ConcurrentLinkedQueue
-import scala.concurrent.{Await, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.jdk.CollectionConverters._
+
+import org.nlogo.extensions.llm.models.{ChatMessage, EnumFormat}
 
 /** OpenAI provider whose backend is a stub and whose fallback notices are recorded. */
 class SchemaFallbackProvider(stub: BackendStub[Future]) extends OpenAIProvider()(using global) {

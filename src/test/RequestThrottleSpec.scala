@@ -2,11 +2,12 @@
 // ABOUTME: Uses a manual clock so pacing is asserted deterministically, never on wall-clock timing
 package org.nlogo.extensions.llm.providers
 
-import org.scalatest.funsuite.AnyFunSuite
 import scala.collection.mutable
-import scala.concurrent.{Await, Future, Promise}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future, Promise}
+
+import org.scalatest.funsuite.AnyFunSuite
 
 /**
  * Clock whose time only moves when a test moves it.

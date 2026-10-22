@@ -3,8 +3,8 @@
 
 package org.nlogo.util
 
-import org.scalatest.{ Failed, Outcome, Succeeded }
 import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.{ Failed, Outcome, Succeeded }
 
 // Copied verbatim from NetLogo v7.0.4 parser-jvm/src/test/util/AnyFunSuiteEx.scala.
 // Remove once NetLogo publishes it in the tests artifact.

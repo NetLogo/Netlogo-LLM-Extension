@@ -2,8 +2,9 @@
 // ABOUTME: Covers every JSON type, nesting, and the lookup semantics behind llm:get
 package org.nlogo.extensions.llm.utils
 
-import org.nlogo.core.LogoList
 import org.scalatest.funsuite.AnyFunSuite
+
+import org.nlogo.core.LogoList
 
 class JsonToNetLogoSpec extends AnyFunSuite {
 

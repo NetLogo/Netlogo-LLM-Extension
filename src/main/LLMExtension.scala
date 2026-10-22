@@ -1,20 +1,23 @@
 package org.nlogo.extensions.llm
 
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Paths}
+
+import scala.collection.mutable.{ArrayBuffer, WeakHashMap}
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success, Try}
+
+import io.circe.yaml.parser
+import io.circe.{HCursor, Json}
+
 import org.nlogo.api._
 import org.nlogo.core.{LogoList, Syntax}
 import org.nlogo.extensions.llm.config.{ConfigLoader, ConfigStore, ProfileStore}
-import org.nlogo.extensions.llm.providers.{DecisionProvider, LLMProvider, ProviderDescriptor, ProviderFactory, ProviderRegistry, ProviderRegistrations, ModelRegistry, OllamaProvider, ReadinessCheck, RetryPolicy}
 import org.nlogo.extensions.llm.models.{ChatMessage, ChatResponse, DecisionAnswer, DecisionQuestion, DecisionResult, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat, Usage}
+import org.nlogo.extensions.llm.providers.{DecisionProvider, LLMProvider, ModelRegistry, OllamaProvider, ProviderDescriptor, ProviderFactory, ProviderRegistrations, ProviderRegistry, ReadinessCheck, RetryPolicy}
 import org.nlogo.extensions.llm.utils.JsonToNetLogo
-import scala.collection.mutable.{ArrayBuffer, WeakHashMap}
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.concurrent.duration._
-import scala.util.{Try, Success, Failure}
-import scala.jdk.CollectionConverters._
-import io.circe.yaml.parser
-import io.circe.{Json, HCursor}
-import java.nio.file.{Files, Paths}
-import java.nio.charset.StandardCharsets
 
 object LLMExtension {
   @volatile private var providerFactoryOverride:

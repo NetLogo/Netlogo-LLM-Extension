@@ -1,8 +1,9 @@
 package org.nlogo.extensions.llm.config
 
 import java.util.concurrent.ConcurrentHashMap
+
 import scala.jdk.CollectionConverters._
-import scala.util.{Try, Success, Failure}
+import scala.util.{Failure, Success, Try}
 
 /**
  * In-memory configuration storage and management

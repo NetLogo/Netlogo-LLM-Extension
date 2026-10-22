@@ -1,8 +1,9 @@
 package org.nlogo.extensions.llm.config
 
-import scala.io.Source
-import scala.util.{Try, Success, Failure}
 import java.io.File
+
+import scala.io.Source
+import scala.util.{Failure, Success, Try}
 
 /**
  * Utility for loading configuration from key=value format files

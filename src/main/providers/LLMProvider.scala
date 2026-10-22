@@ -1,8 +1,9 @@
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, ResponseFormat}
 import scala.concurrent.Future
 import scala.util.Try
+
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, ResponseFormat}
 
 /**
  * Abstract interface for all LLM providers

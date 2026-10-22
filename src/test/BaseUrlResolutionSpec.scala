@@ -2,19 +2,22 @@
 // ABOUTME: Uses sttp BackendStub to capture the URL each provider actually sends to, with no real HTTP
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.LLMExtension
-import org.nlogo.extensions.llm.config.ConfigStore
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest}
+import java.util.concurrent.ConcurrentLinkedQueue
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
+import scala.jdk.CollectionConverters._
+import scala.util.Try
+
 import org.scalatest.funsuite.AnyFunSuite
 import sttp.client4._
 import sttp.client4.testing.{BackendStub, ResponseStub}
 import sttp.model.StatusCode
-import java.util.concurrent.ConcurrentLinkedQueue
-import scala.concurrent.{Await, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.jdk.CollectionConverters._
-import scala.util.Try
+
+import org.nlogo.extensions.llm.LLMExtension
+import org.nlogo.extensions.llm.config.ConfigStore
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest}
 
 /** A stub backend that records every request URL and answers 200 with `body`. */
 class UrlCapture(body: String) {
