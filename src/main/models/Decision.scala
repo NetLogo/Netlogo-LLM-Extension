@@ -74,10 +74,18 @@ object DecisionResult {
   /** A YesNo result from the probability of yes; the answer is whichever side is likelier. */
   def yesNo(probabilityYes: Double): DecisionResult = {
     val yes = probabilityYes >= 0.5
+    val probabilityNo = complement(probabilityYes)
     DecisionResult(
       DecisionAnswer.Verdict(yes),
-      if (yes) probabilityYes else 1.0 - probabilityYes,
-      Seq("true" -> probabilityYes, "false" -> (1.0 - probabilityYes))
+      if (yes) probabilityYes else probabilityNo,
+      Seq("true" -> probabilityYes, "false" -> probabilityNo)
     )
   }
+
+  /**
+   * 1 - p in decimal rather than binary arithmetic, so a provider's 0.56 gives
+   * 0.44 instead of 0.43999999999999995 in a modeler's monitors.
+   */
+  private def complement(p: Double): Double =
+    (BigDecimal(1) - BigDecimal(p.toString)).toDouble
 }

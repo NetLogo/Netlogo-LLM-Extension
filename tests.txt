@@ -1337,6 +1337,7 @@ LLMDecideYesNo
   O> clear-all
   llm:decide "__TEST_DECIDE:true:0.75 go?" ["yes-no"] => [true 0.75 [[true 0.75] [false 0.25]]]
   llm:decide "__TEST_DECIDE:false:0.75 go?" ["yes-no"] => [false 0.75 [[true 0.25] [false 0.75]]]
+  llm:decide "__TEST_DECIDE:true:0.56 go?" ["yes-no"] => [true 0.56 [[true 0.56] [false 0.44]]]
   llm:history => []
   O> clear-all
 
