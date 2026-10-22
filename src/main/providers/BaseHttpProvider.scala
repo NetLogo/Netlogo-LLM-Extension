@@ -242,6 +242,7 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
   /** Base URL for requests: provider-specific key, then legacy base_url, then default. */
   protected def resolvedBaseUrl: String =
     ConfigStore.resolveBaseUrl(configStore, baseUrlConfigKey, defaultBaseUrl)
+
   protected def buildHeaders(apiKey: Option[String]): Map[String, String]
   protected def createProviderRequest(request: ChatRequest): ujson.Value
   protected def parseProviderResponse(responseBody: String, model: String): ChatResponse
@@ -441,7 +442,7 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
     val rng = retryRandom
     val startedAt = System.currentTimeMillis()
 
-    val baseUrl = configStore.get(baseUrlConfigKey).getOrElse(defaultBaseUrl)
+    val baseUrl = resolvedBaseUrl
 
     def isRateLimited(code: StatusCode, error: String): Boolean =
       code.code == 429 || error.toLowerCase.contains("rate_limit")
