@@ -1092,7 +1092,7 @@ class LLMExtension extends DefaultClassManager {
         catch {
           case e: Exception =>
             throw new ExtensionException(
-              s"llm:chat-json: Response was not valid JSON: ${e.getMessage}. Response text: $content"
+              s"llm:chat-json: Response was not valid JSON: ${JsonToNetLogo.parseErrorMessage(e)}. Response text: $content"
             )
         }
 

@@ -54,6 +54,18 @@ config-*.txt
 !demos/provider-sensitivity/config-multi-provider.txt
 !demos/provider-sensitivity/config.txt
 !demos/social-deduction-game/config.txt
+!demos/config-reference.txt
+!demos/config-placeholder.txt
+
+# Flattened demo copies staged into demos/ by `packageZip` (build artifacts;
+# the canonical sources live in demos/<demo-name>/ subfolders)
+/demos/color-sharing.nlogox
+/demos/social-deduction-game.nlogox
+/demos/topology-tournament.nlogox
+/demos/provider-sensitivity.nlogox
+/demos/description-template.yaml
+/demos/vote-template.yaml
+/llm-*.zip
 
 # Live e2e harness run artifact
 demos/e2e-tests/e2e-results.txt

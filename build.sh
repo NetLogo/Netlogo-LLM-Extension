@@ -4,8 +4,8 @@
 
 set -e
 
-# Set Java 17
-export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+# NetLogo 7.0.4 is compiled for Java 21, so the build needs JDK 21 or newer
+export JAVA_HOME=${JAVA_HOME:-$(/usr/libexec/java_home -v 21+)}
 
 echo "Building LLM Extension..."
 sbt clean assembly
@@ -18,7 +18,7 @@ mkdir -p dist/llm
 cp target/scala-3.7.0/llm.jar dist/llm/
 
 # Auto-install to NetLogo if NETLOGO_DIR is set
-# Usage: NETLOGO_DIR="/Applications/NetLogo 7.0.3" ./build.sh
+# Usage: NETLOGO_DIR="/Applications/NetLogo 7.0.4" ./build.sh
 if [ -n "$NETLOGO_DIR" ]; then
   NETLOGO_EXT="$NETLOGO_DIR/extensions/llm"
   mkdir -p "$NETLOGO_EXT"
@@ -27,7 +27,7 @@ if [ -n "$NETLOGO_DIR" ]; then
 else
   echo ""
   echo "To auto-install, re-run with your NetLogo path:"
-  echo "  NETLOGO_DIR=\"/Applications/NetLogo 7.0.3\" ./build.sh"
+  echo "  NETLOGO_DIR=\"/Applications/NetLogo 7.0.4\" ./build.sh"
   echo ""
   echo "Or manually copy:"
   echo "  mkdir -p /path/to/NetLogo/extensions/llm"

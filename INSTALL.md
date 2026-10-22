@@ -5,7 +5,7 @@
 ### 1. Build the Extension
 
 ```bash
-export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 sbt clean assembly
 ```
 
@@ -13,14 +13,14 @@ sbt clean assembly
 
 **macOS:**
 ```bash
-mkdir -p "/Applications/NetLogo 7.0.0/extensions/llm"
-cp target/scala-3.7.0/llm.jar "/Applications/NetLogo 7.0.0/extensions/llm/"
+mkdir -p "/Applications/NetLogo 7.0.4/extensions/llm"
+cp target/scala-3.7.0/llm.jar "/Applications/NetLogo 7.0.4/extensions/llm/"
 ```
 
 **Windows:**
 ```bash
-mkdir "C:\Program Files\NetLogo 7.0.0\extensions\llm"
-copy target\scala-3.7.0\llm.jar "C:\Program Files\NetLogo 7.0.0\extensions\llm\"
+mkdir "C:\Program Files\NetLogo 7.0.4\extensions\llm"
+copy target\scala-3.7.0\llm.jar "C:\Program Files\NetLogo 7.0.4\extensions\llm\"
 ```
 
 **Linux:**
@@ -31,36 +31,36 @@ cp target/scala-3.7.0/llm.jar "/usr/local/NetLogo-7.0.0/extensions/llm/"
 
 ## Install from ZIP Package (Alternative)
 
-If you have a pre-built `llm-0.1.0.zip`:
+If you have a pre-built `llm-1.1.0.zip`:
 
 ### 1. Extract the ZIP
 
 ```bash
-unzip llm-0.1.0.zip
+unzip llm-1.1.0.zip
 ```
 
 ### 2. Copy to NetLogo
 
 **macOS:**
 ```bash
-cp -r llm-0.1.0 "/Applications/NetLogo 7.0.0/extensions/llm"
+cp -r llm-1.1.0 "/Applications/NetLogo 7.0.4/extensions/llm"
 ```
 
 **Windows:**
 ```bash
-xcopy llm-0.1.0 "C:\Program Files\NetLogo 7.0.0\extensions\llm" /E /I
+xcopy llm-1.1.0 "C:\Program Files\NetLogo 7.0.4\extensions\llm" /E /I
 ```
 
 **Linux:**
 ```bash
-cp -r llm-0.1.0 "/usr/local/NetLogo-7.0.0/extensions/llm"
+cp -r llm-1.1.0 "/usr/local/NetLogo-7.0.0/extensions/llm"
 ```
 
 ## Verify Installation
 
 ### 1. Open NetLogo
 
-Launch NetLogo 7.0.0 (or newer)
+Launch NetLogo 7.0.4 (or newer)
 
 ### 2. Test the Extension
 
@@ -114,24 +114,24 @@ Click Setup, then run `test-llm` from the Command Center.
 The extension must be in NetLogo's `extensions/llm/` folder:
 
 **macOS:**
-- `/Applications/NetLogo 7.0.0/extensions/llm/`
+- `/Applications/NetLogo 7.0.4/extensions/llm/`
 
 **Windows:**
-- `C:\Program Files\NetLogo 7.0.0\extensions\llm\`
+- `C:\Program Files\NetLogo 7.0.4\extensions\llm\`
 
 **Linux:**
 - `/usr/local/NetLogo-7.0.0/extensions/llm/`
 
 **Expected structure:**
 ```
-NetLogo 7.0.0/
+NetLogo 7.0.4/
 └── extensions/
     └── llm/
         └── llm.jar          (for Fat JAR install)
 
 OR
 
-NetLogo 7.0.0/
+NetLogo 7.0.4/
 └── extensions/
     └── llm/
         ├── llm.jar

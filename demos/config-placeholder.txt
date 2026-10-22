@@ -1,0 +1,31 @@
+# NetLogo LLM Extension - configuration used by the bundled demos
+# Pick one provider block, set its key, and save. Full option list: config-reference.txt
+# Never share this file once it holds a real API key.
+
+# Local Ollama (free, no key; install from https://ollama.com, then `ollama pull llama3.2`)
+provider=ollama
+model=llama3.2
+
+# Anthropic Claude
+# provider=anthropic
+# model=claude-haiku-4-5-20251001
+# anthropic_api_key=YOUR_ANTHROPIC_API_KEY
+
+# OpenAI
+# provider=openai
+# model=gpt-4o-mini
+# openai_api_key=YOUR_OPENAI_API_KEY
+
+# Google Gemini (free tier available)
+# provider=gemini
+# model=gemini-2.5-flash
+# gemini_api_key=YOUR_GEMINI_API_KEY
+
+# Groq (fast, free tier available)
+# provider=groq
+# model=openai/gpt-oss-20b
+# groq_api_key=YOUR_GROQ_API_KEY
+
+temperature=0.7
+max_tokens=500
+timeout_seconds=60

@@ -2,8 +2,8 @@
 
 ## Prerequisites
 
-- **Java 17** (required for building)
-- **SBT 1.10.6+** (Scala Build Tool)
+- **Java 21** (required for building; NetLogo 7.0.4 is compiled for Java 21)
+- **SBT 1.10.1** (Scala Build Tool)
 
 ## Run Tests
 
@@ -24,8 +24,8 @@ What this does not validate:
 ### For Development (Fat JAR)
 
 ```bash
-# Set Java 17
-export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+# Set Java 21 (NetLogo 7.0.4 is compiled for Java 21)
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 
 # Build single JAR with all dependencies
 sbt clean assembly
@@ -36,8 +36,8 @@ sbt clean assembly
 ### For Distribution (ZIP Package)
 
 ```bash
-# Set Java 17
-export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+# Set Java 21 (NetLogo 7.0.4 is compiled for Java 21)
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 
 # Build distribution package
 sbt clean packageZip
@@ -73,15 +73,15 @@ sbt clean packageZip
 ## Common Issues
 
 **Problem**: Build fails with SBT parser errors
-**Solution**: Upgrade SBT to 1.10.6+ in `project/build.properties`:
+**Solution**: Use the SBT version pinned in `project/build.properties`:
 ```
-sbt.version=1.10.6
+sbt.version=1.10.1
 ```
 
 **Problem**: Build fails with Java version errors
-**Solution**: Make sure you're using Java 17:
+**Solution**: Make sure you're using Java 21:
 ```bash
-java -version  # Should show 17.x.x
+java -version  # Should show 21.x.x or newer
 ```
 
 **Problem**: Old JAR still being used

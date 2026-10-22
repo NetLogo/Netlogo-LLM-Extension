@@ -12,8 +12,8 @@ version := "0.2.0"  // Update version number
 ### 2. Build Release Package
 
 ```bash
-# Set Java 17
-export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+# Set Java 21 (NetLogo 7.0.4 is compiled for Java 21)
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 
 # Build distribution ZIP
 sbt clean packageZip
