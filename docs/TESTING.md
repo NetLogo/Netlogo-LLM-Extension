@@ -149,3 +149,30 @@ Typical setup later:
 - separate workflow (manual trigger and/or nightly schedule)
 - secrets like `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `TOGETHER_API_KEY`
 - not required for normal PR merges (to avoid flaky/costly gating)
+
+## Live end-to-end harness
+
+`demos/e2e-tests/e2e-tests.nlogox` makes real API calls through the extension: T1–T11
+cover chat providers (chat, thinking, compile-error, history, structured output, choose,
+throttling, usage, profiles, chat-all) and T12 covers decision providers (TypeSafe Jev:
+`llm:decide`, `llm:decide-all`, `llm:choose`, cost, and the refusal of free-text chat).
+
+Put a key config beside the model (`config-groq.txt`, `config-typesafe.txt`, ...; see the
+`.example` files; these names are gitignored), pick the provider in the chooser, and press
+**run all tests**. Results go to the output area and `e2e-results.txt`.
+
+To run it headless (no GUI), from the repo root with JDK 21+:
+
+```bash
+sbt package "export Runtime/dependencyClasspath" | tail -1 > target/nl-cp.txt
+mkdir -p extensions/llm && cp llm.jar *.jar extensions/llm/   # the extension and its jars
+cd demos/e2e-tests
+# set the provider-under-test chooser's current="N" in a copy of the model, then:
+java -Djava.awt.headless=true -Dnetlogo.extensions.dir=$PWD/../../extensions \
+  -cp "$(cat ../../target/nl-cp.txt)" org.nlogo.headless.Main \
+  --model e2e-tests.nlogox --experiment e2e --table -
+cat e2e-results.txt
+```
+
+NetLogo 7 headless only runs experiments embedded in the `.nlogox`; an external
+`--setup-file` is silently ignored.

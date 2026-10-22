@@ -10,7 +10,7 @@ netLogoExtName      := "llm"
 netLogoClassManager := "org.nlogo.extensions.llm.LLMExtension"
 netLogoVersion      := "7.0.4"
 netLogoShortDescription := "Multi-provider LLM extension for NetLogo agents"
-netLogoLongDescription := "A NetLogo extension providing a unified interface to multiple LLM providers — OpenAI, Anthropic/Claude, Google/Gemini, local Ollama, OpenRouter, Together AI, and Groq — with per-agent conversation memory, synchronous, asynchronous and batched chat, prompt templates, constrained choices, structured outputs, and reasoning/thinking-model support."
+netLogoLongDescription := "A NetLogo extension providing a unified interface to multiple LLM providers — OpenAI, Anthropic/Claude, Google/Gemini, local Ollama, OpenRouter, Together AI, and Groq — plus TypeSafe (Jev) for calibrated typed decisions, with per-agent conversation memory, synchronous, asynchronous and batched chat, prompt templates, constrained choices, typed decisions with probabilities, structured outputs, token and cost tracking, and reasoning/thinking-model support."
 netLogoHomepage := "https://github.com/NetLogo/Netlogo-LLM-Extension"
 
 // Package essential files in the zip distribution: docs, the config reference,
