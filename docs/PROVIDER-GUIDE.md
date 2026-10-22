@@ -499,6 +499,9 @@ An alias can move to a new version without notice; pin a version if you calibrat
 thresholds against one. `llm:usage` reports `cost` for TypeSafe calls, computed from the
 input tokens the API reports at the published price.
 
+`demos/el-farol-decisions` is a complete Jev model: 150 agents, three `llm:decide-all`
+batches per tick, and monitors for cost and latency per tick.
+
 ### How the primitives map to the API
 
 Each call sends `POST /v1/systemone` with your prompt as `state` and one question:

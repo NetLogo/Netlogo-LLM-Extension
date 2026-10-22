@@ -63,6 +63,7 @@ config-*.txt
 /demos/social-deduction-game.nlogox
 /demos/topology-tournament.nlogox
 /demos/provider-sensitivity.nlogox
+/demos/el-farol-decisions.nlogox
 /demos/description-template.yaml
 /demos/vote-template.yaml
 /llm-*.zip

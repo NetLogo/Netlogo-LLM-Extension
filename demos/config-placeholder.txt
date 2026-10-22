@@ -26,6 +26,11 @@ model=llama3.2
 # model=openai/gpt-oss-20b
 # groq_api_key=YOUR_GROQ_API_KEY
 
+# TypeSafe Jev (decision API for llm:decide / llm:decide-all; used by el-farol-decisions)
+# provider=typesafe
+# model=jev-latest
+# typesafe_api_key=YOUR_TYPESAFE_API_KEY
+
 temperature=0.7
 max_tokens=500
 timeout_seconds=60

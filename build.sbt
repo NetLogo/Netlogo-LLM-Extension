@@ -38,7 +38,8 @@ netLogoZipExtras := {
     base / "demos" / "social-deduction-game" / "description-template.yaml",
     base / "demos" / "social-deduction-game" / "vote-template.yaml",
     base / "demos" / "topology-tournament" / "topology-tournament.nlogox",
-    base / "demos" / "provider-sensitivity" / "provider-sensitivity.nlogox"
+    base / "demos" / "provider-sensitivity" / "provider-sensitivity.nlogox",
+    base / "demos" / "el-farol-decisions" / "el-farol-decisions.nlogox"
   )
 
   val missing = (topLevel ++ demoSources).filterNot(_.exists())

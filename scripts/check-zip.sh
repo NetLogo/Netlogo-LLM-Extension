@@ -38,6 +38,7 @@ required=(
   demos/social-deduction-game.nlogox
   demos/topology-tournament.nlogox
   demos/provider-sensitivity.nlogox
+  demos/el-farol-decisions.nlogox
 )
 
 status=0

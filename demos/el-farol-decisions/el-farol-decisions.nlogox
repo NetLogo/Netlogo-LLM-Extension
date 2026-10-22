@@ -1,0 +1,700 @@
+<?xml version="1.0" encoding="utf-8"?>
+<model version="NetLogo 7.0.4" snapToGrid="true">
+  <code><![CDATA[;; ABOUTME: El Farol, calibrated: patrons ask a model if they go out
+;; ABOUTME: and where, then sample its probabilities or take its top pick.
+
+extensions [ llm ]
+
+breed [ patrons patron ]
+
+globals [
+  bar-names        ;; display name of each bar, in bar-index order
+  bar-colors       ;; base patch colour of each bar's region
+  crowd-levels     ;; the forecast levels, lowest first
+  personas         ;; the persona descriptions patrons are drawn from
+  capacity         ;; a bar is fun only with at most this many patrons
+  attendance       ;; how many patrons went to each bar tonight
+  config-ok?       ;; true once the backend's config file has loaded
+  config-backend   ;; the backend whose config file is loaded
+  night-ms         ;; wall time of tonight's model calls, in milliseconds
+  night-cost       ;; dollars spent tonight, or "n/a" if the provider reports none
+  failed-calls     ;; patrons whose call failed, summed over the run
+  mean-p-go        ;; mean probability of going out among patrons who answered
+  forecast-shares  ;; mean probability on each crowd level tonight
+]
+
+patches-own [
+  region  ;; bar-index of the bar this patch belongs to; -1 home; -2 street or wall
+]
+
+patrons-own [
+  persona                ;; one-line description that opens every prompt
+  remembered-attendance  ;; per bar: attendance on the last 3 nights, oldest first
+  last-experience        ;; per bar: "fun", "too crowded" or "not visited yet"
+  forecast               ;; expected crowd level, 0 (empty) to 3 (packed)
+  forecast-distribution  ;; probability the model put on each crowd level
+  p-go                   ;; the model's probability that this patron goes out
+  going?                 ;; true when the patron goes out tonight
+  chosen-bar             ;; bar-index of tonight's bar, or -1 when at home
+  failed?                ;; true when one of tonight's calls failed
+]
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; SETUP
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to setup
+  clear-all
+  set bar-names sublist [ "The Owl" "Blue Note" "Corner Pub" "Dockside" ] 0 num-bars
+  set bar-colors sublist (list blue violet turquoise brown) 0 num-bars
+  set crowd-levels [ "empty" "comfortable" "busy" "packed" ]
+  set personas [
+    "university student who loves a lively crowd"
+    "cautious retiree who dislikes crowds and noise"
+    "regular who hates missing out on a good night"
+    "night-shift nurse with few free evenings, who wants each one to be good"
+    "newcomer to town who is still working out which bar is best"
+  ]
+  ;; capacity-percent of all patrons can have fun, split evenly across the bars
+  set capacity round (capacity-percent / 100 * num-patrons / num-bars)
+  set forecast-shares n-values length crowd-levels [ 0 ]
+  set night-cost 0
+  setup-town
+  setup-patrons
+  load-backend-config
+  recolor-bars
+  reset-ticks
+end
+
+;; Bars fill the top half of the view, one column each; home is the bottom strip.
+to setup-town
+  ask patches [
+    set region -2
+    if pycor <= min-pycor + 5 [ set region -1 ]
+    if pycor >= 0 [
+      set region floor ((pxcor - min-pxcor) * num-bars / world-width)
+    ]
+  ]
+  ;; a one-patch wall between neighbouring bars keeps the regions readable
+  let walls patches with [
+    region >= 0 and patch-at 1 0 != nobody and [ region ] of patch-at 1 0 != region
+  ]
+  ask walls [ set region -2 ]
+  ask patches with [ region = -1 ] [ set pcolor gray - 4 ]
+end
+
+;; Every patron starts from the same three random nights of history, so any
+;; difference between them comes from persona and from the decision rule.
+to setup-patrons
+  let history n-values num-bars [ n-values 3 [ random (2 * capacity + 1) ] ]
+  set attendance map [ nights -> last nights ] history
+  create-patrons num-patrons [
+    set shape "person"
+    set size 0.9
+    set color gray
+    set persona one-of personas
+    set remembered-attendance history
+    set last-experience n-values num-bars [ "not visited yet" ]
+    set forecast-distribution n-values length crowd-levels [ 0 ]
+    set going? false
+    set chosen-bar -1
+    set failed? false
+    move-to-spot one-of patches with [ region = -1 ]
+  ]
+end
+
+;; Jev reads config.txt; a text LLM reads config-text.txt. Both sit beside the model.
+to load-backend-config
+  let config-file ifelse-value jev-backend? [ "config.txt" ] [ "config-text.txt" ]
+  set config-ok? false
+  set config-backend backend
+  ifelse file-exists? config-file [
+    carefully [
+      llm:load-config config-file
+      set config-ok? true
+    ] [
+      explain-config-problem (word "Could not load " config-file ": " error-message)
+    ]
+  ] [
+    explain-config-problem (word "No " config-file " beside this model. Copy "
+      config-file ".example to " config-file " and put your API key in it.")
+  ]
+  ;; the extension's zip ships one shared config.txt, which may name a chat provider
+  if config-ok? and jev-backend? and item 0 llm:active != "typesafe" [
+    set config-ok? false
+    explain-config-problem (word config-file " uses provider " item 0 llm:active
+      ", but the typesafe (Jev) backend needs provider=typesafe, model=jev-latest"
+      " and typesafe_api_key=YOUR_KEY in it.")
+  ]
+end
+
+;; Shows a config problem in the output area, and as a dialog when not in
+;; BehaviorSpace (a dialog would block a headless run).
+to explain-config-problem [ message ]
+  output-print message
+  if behaviorspace-run-number = 0 [ user-message message ]
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; GO: one tick is one night
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to go
+  ;; the backend chooser changed since setup: load the other backend's config
+  if backend != config-backend [ load-backend-config ]
+  if not config-ok? [
+    explain-config-problem "Fix the config file, then press setup again."
+    stop
+  ]
+  ask patrons [
+    set going? false
+    set chosen-bar -1
+    set failed? false
+  ]
+  let cost-before total-cost
+  reset-timer
+  let night-ok? true
+  carefully [
+    ifelse jev-backend? [ decide-with-jev ] [ decide-with-text-llm ]
+  ] [
+    ;; an error for the whole batch, such as a bad API key: report it and stop
+    output-print (word "Night " (ticks + 1) " failed: " error-message)
+    set night-ok? false
+  ]
+  if not night-ok? [ stop ]
+  set night-ms round (timer * 1000)
+  let cost-after total-cost
+  set night-cost ifelse-value is-number? cost-after
+    [ cost-after - cost-before ] [ "n/a" ]
+  let answered patrons with [ not failed? ]
+  set mean-p-go ifelse-value any? answered [ mean [ p-go ] of answered ] [ 0 ]
+  set attendance n-values num-bars [ i -> count patrons with [ chosen-bar = i ] ]
+  remember-night
+  if show-observations? [ show-one-prompt ]
+  walk-to-destinations
+  recolor-bars
+  tick
+end
+
+;; Jev answers three typed questions per patron, each batch sent all at once.
+to decide-with-jev
+  ;; (a) crowd forecast: a score over crowd-levels; it colours the patron and
+  ;;     goes into the go-out prompt
+  let results llm:decide-all patrons [ -> forecast-prompt ]
+    (list "score" crowd-levels)
+  foreach results [ r ->
+    ask item 0 r [
+      ifelse item 2 r [
+        set forecast item 0 item 1 r
+        set forecast-distribution map [ pair -> item 1 pair ] item 2 item 1 r
+        set color item (round forecast) [ lime yellow orange magenta ]
+      ] [ note-failure ]
+    ]
+  ]
+  set forecast-shares forecast-averages
+
+  ;; (b) yes-no: go out tonight?
+  if any? patrons with [ not failed? ] [
+    set results llm:decide-all patrons with [ not failed? ] [ -> go-prompt ]
+      [ "yes-no" ]
+    foreach results [ r ->
+      ask item 0 r [
+        ifelse item 2 r [
+          set p-go probability-of true item 2 item 1 r
+          ;; THE LESSON: draw from the probability, or always take the top pick
+          set going? ifelse-value sampling?
+            [ random-float 1 < p-go ] [ item 0 item 1 r ]
+        ] [ note-failure ]
+      ]
+    ]
+  ]
+
+  ;; (c) choice: which bar, for those going out
+  let goers patrons with [ going? ]
+  if any? goers [
+    set results llm:decide-all goers [ -> bar-prompt ] (list "choice" bar-names)
+    foreach results [ r ->
+      ask item 0 r [
+        ifelse item 2 r [
+          let picked ifelse-value sampling?
+            [ sample-answer item 2 item 1 r ] [ item 0 item 1 r ]
+          set chosen-bar position picked bar-names
+        ] [ note-failure ]
+      ]
+    ]
+  ]
+end
+
+;; A text LLM can only name its top pick, so every patron asks one llm:choose
+;; question, one after another. There is no forecast and no probability to
+;; sample: the decision rule has no effect, and P(go) is just 1 or 0.
+to decide-with-text-llm
+  let first-error ""
+  ask patrons [
+    let picked "stay home"
+    ;; the prompt already holds the whole memory, so send no chat history
+    llm:clear-history
+    carefully [
+      set picked llm:choose text-prompt lput "stay home" bar-names
+    ] [
+      if first-error = "" [ set first-error error-message ]
+      note-failure
+    ]
+    if not failed? and picked != "stay home" [
+      set going? true
+      set chosen-bar position picked bar-names
+    ]
+    set p-go ifelse-value going? [ 1 ] [ 0 ]
+    set color gray
+  ]
+  ;; one line per night is enough to show why calls failed
+  if first-error != "" [
+    output-print (word "Night " (ticks + 1) ": some calls failed, first error: "
+      first-error)
+  ]
+end
+
+;; A failed call sends the patron home and is counted, never aborting the night.
+to note-failure  ;; patron procedure
+  set failed? true
+  set going? false
+  set chosen-bar -1
+  set color gray - 2
+  set failed-calls failed-calls + 1
+end
+
+;; Each patron adds tonight to its memory and remembers how its own bar felt.
+to remember-night
+  ask patrons [
+    set remembered-attendance (map [ [nights tonight] ->
+      lput tonight but-first nights ] remembered-attendance attendance)
+    if chosen-bar >= 0 [
+      let felt ifelse-value item chosen-bar attendance <= capacity
+        [ "fun" ] [ "too crowded" ]
+      set last-experience replace-item chosen-bar last-experience felt
+    ]
+  ]
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; PROMPTS: Jev is stateless, so each prompt carries the patron's whole memory
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to-report situation  ;; patron reporter
+  report (word "You are a " persona ". There are " num-bars " bars in town. "
+    "A bar is fun only when at most " capacity " people show up; with more "
+    "it is too crowded and you would rather have stayed home. " memory-text)
+end
+
+to-report memory-text  ;; patron reporter
+  let text ""
+  foreach range num-bars [ i ->
+    let nights item i remembered-attendance
+    set text (word text item i bar-names ": " item 0 nights ", " item 1 nights
+      " and " item 2 nights " people on the last three nights (most recent last)"
+      ", so it was " ifelse-value last nights <= capacity [ "fun" ] [ "too crowded" ]
+      " last night. The last time you went there it was "
+      item i last-experience ". ")
+  ]
+  report text
+end
+
+to-report forecast-prompt  ;; patron reporter
+  report (word situation "How crowded do you expect the bars to be tonight?")
+end
+
+to-report go-prompt  ;; patron reporter
+  report (word situation "You expect the bars to be "
+    item (round forecast) crowd-levels " tonight. Do you go out tonight?")
+end
+
+to-report bar-prompt  ;; patron reporter
+  report (word situation
+    "You have decided to go out tonight. Which bar do you go to?")
+end
+
+to-report text-prompt  ;; patron reporter
+  report (word situation "Do you go out tonight, and if so, to which bar?")
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; HELPERS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to-report jev-backend?
+  report backend = "typesafe (Jev)"
+end
+
+to-report sampling?
+  report decision-rule = "sample from probabilities"
+end
+
+;; Draws one answer from a [[answer probability] ...] distribution.
+to-report sample-answer [ distribution ]
+  let r random-float 1
+  foreach distribution [ pair ->
+    set r r - item 1 pair
+    if r < 0 [ report item 0 pair ]
+  ]
+  report item 0 last distribution
+end
+
+;; The probability a distribution puts on one answer.
+to-report probability-of [ answer distribution ]
+  let matches filter [ pair -> item 0 pair = answer ] distribution
+  report ifelse-value empty? matches [ 0 ] [ item 1 first matches ]
+end
+
+;; Mean probability on each crowd level, over patrons whose forecast succeeded.
+to-report forecast-averages
+  let answered patrons with [ not failed? ]
+  if not any? answered [ report n-values length crowd-levels [ 0 ] ]
+  report n-values length crowd-levels [ i ->
+    mean [ item i forecast-distribution ] of answered
+  ]
+end
+
+;; Dollars spent since setup, or "n/a" when the provider reports no cost.
+;; Before the first call nothing has been spent, so that is 0, not "n/a".
+to-report total-cost
+  if llm:get llm:usage-total "calls" = 0 [ report 0 ]
+  let cost llm:get llm:usage-total "cost"
+  report ifelse-value is-number? cost [ cost ] [ "n/a" ]
+end
+
+to-report fraction-out
+  report count patrons with [ chosen-bar >= 0 ] / num-patrons
+end
+
+;; Fraction of all patrons the bars can hold while still being fun.
+to-report fun-fraction
+  report capacity * num-bars / num-patrons
+end
+
+to show-one-prompt
+  let someone one-of patrons
+  output-print (word "Night " (ticks + 1) ", a " [ persona ] of someone ":")
+  output-print [ go-prompt ] of someone
+  output-print ""
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; VISUALS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Patrons walk together, in a few steps, to a spot in their bar or at home.
+to walk-to-destinations
+  let steps 8
+  let targets [ ]
+  ask patrons [
+    let spot ifelse-value chosen-bar >= 0
+      [ one-of patches with [ region = [ chosen-bar ] of myself ] ]
+      [ one-of patches with [ region = -1 ] ]
+    face spot
+    set targets lput (list self spot (distance spot / steps)) targets
+  ]
+  repeat steps [
+    foreach targets [ t -> ask item 0 t [ forward item 2 t ] ]
+    display
+  ]
+  foreach targets [ t -> ask item 0 t [ move-to-spot item 1 t ] ]
+end
+
+;; Moves to a random point inside a patch so patrons on one patch stay visible.
+to move-to-spot [ spot ]  ;; patron procedure
+  move-to spot
+  setxy (xcor + random-float 0.8 - 0.4) (ycor + random-float 0.8 - 0.4)
+end
+
+;; A bar turns red when it holds more than capacity tonight.
+to recolor-bars
+  ask patches with [ region >= 0 ] [
+    set pcolor ifelse-value item region attendance > capacity
+      [ red - 2 ] [ item region bar-colors - 3 ]
+  ]
+  foreach range num-bars [ i ->
+    let top-row sort-on [ pxcor ] patches with [ region = i and pycor = max-pycor ]
+    ask item (floor (length top-row / 2)) top-row [
+      set plabel (word item i bar-names " " item i attendance "/" capacity)
+    ]
+  ]
+end
+]]></code>
+  <widgets>
+    <view x="440" y="10" width="555" height="389"
+          minPxcor="-18" maxPxcor="18" minPycor="-12" maxPycor="12"
+          patchSize="15.0" frameRate="30.0" fontSize="10"
+          wrappingAllowedX="false" wrappingAllowedY="false"
+          showTickCounter="true" tickCounterLabel="nights" updateMode="1"/>
+    <button x="15" y="10" width="95" height="40" kind="Observer" display="setup" forever="false" disableUntilTicks="false">setup</button>
+    <button x="120" y="10" width="95" height="40" kind="Observer" display="go" forever="true" disableUntilTicks="true">go</button>
+    <button x="225" y="10" width="95" height="40" kind="Observer" display="one night" forever="false" disableUntilTicks="true">go</button>
+    <chooser x="15" y="60" width="205" height="60" variable="backend" current="0" display="backend">
+      <choice type="string" value="typesafe (Jev)"></choice>
+      <choice type="string" value="text LLM"></choice>
+    </chooser>
+    <chooser x="225" y="60" width="205" height="60" variable="decision-rule" current="0" display="decision-rule">
+      <choice type="string" value="sample from probabilities"></choice>
+      <choice type="string" value="always take the top pick"></choice>
+    </chooser>
+    <slider x="15" y="125" width="205" height="50" variable="num-patrons" display="num-patrons" min="10" max="300" step="10" default="150.0" direction="Horizontal"/>
+    <slider x="225" y="125" width="205" height="50" variable="capacity-percent" display="capacity-percent" min="10" max="100" step="5" default="60.0" direction="Horizontal" units="%"/>
+    <slider x="15" y="180" width="205" height="50" variable="num-bars" display="num-bars" min="2" max="4" step="1" default="3.0" direction="Horizontal"/>
+    <switch x="225" y="180" width="205" height="40" variable="show-observations?" display="show-observations?" on="false"/>
+    <monitor x="15" y="240" width="100" height="45" display="ms per night" precision="0" fontSize="11">night-ms</monitor>
+    <monitor x="120" y="240" width="100" height="45" display="cost per night $" precision="5" fontSize="11">night-cost</monitor>
+    <monitor x="225" y="240" width="100" height="45" display="total cost $" precision="5" fontSize="11">total-cost</monitor>
+    <monitor x="330" y="240" width="100" height="45" display="failed calls" precision="0" fontSize="11">failed-calls</monitor>
+    <monitor x="15" y="290" width="100" height="45" display="capacity per bar" precision="0" fontSize="11">capacity</monitor>
+    <monitor x="120" y="290" width="100" height="45" display="out tonight" precision="0" fontSize="11">count patrons with [ chosen-bar &gt;= 0 ]</monitor>
+    <monitor x="225" y="290" width="100" height="45" display="mean P(go)" precision="2" fontSize="11">mean-p-go</monitor>
+    <monitor x="330" y="290" width="100" height="45" display="fraction out" precision="2" fontSize="11">fraction-out</monitor>
+    <output x="15" y="345" width="415" height="150" fontSize="10"/>
+    <plot x="440" y="410" width="555" height="215" display="Attendance per bar" xAxis="night" yAxis="patrons" xMin="0.0" xMax="10.0" yMin="0.0" yMax="10.0" autoPlotX="true" autoPlotY="true" legend="true">
+      <setup><![CDATA[foreach range num-bars [ i ->
+  create-temporary-plot-pen item i bar-names
+  set-plot-pen-color item i bar-colors + 1
+]
+create-temporary-plot-pen "capacity"
+set-plot-pen-color red]]></setup>
+      <update><![CDATA[foreach range num-bars [ i ->
+  set-current-plot-pen item i bar-names
+  plot item i attendance
+]
+set-current-plot-pen "capacity"
+plot capacity]]></update>
+    </plot>
+    <plot x="15" y="505" width="415" height="200" display="Calibration: P(go) vs going out" xAxis="night" yAxis="fraction" xMin="0.0" xMax="10.0" yMin="0.0" yMax="1.0" autoPlotX="true" autoPlotY="false" legend="true">
+      <setup></setup>
+      <update></update>
+      <pen display="mean P(go)" color="-13345367" interval="1.0" mode="0" legend="true">
+        <setup></setup>
+        <update>if ticks &gt; 0 [ plot mean-p-go ]</update>
+      </pen>
+      <pen display="went out" color="-10899396" interval="1.0" mode="0" legend="true">
+        <setup></setup>
+        <update>if ticks &gt; 0 [ plot fraction-out ]</update>
+      </pen>
+      <pen display="fun limit" color="-2674135" interval="1.0" mode="0" legend="true">
+        <setup></setup>
+        <update>if ticks &gt; 0 [ plot fun-fraction ]</update>
+      </pen>
+    </plot>
+    <plot x="440" y="635" width="555" height="170" display="Crowd forecast (tonight)" xAxis="empty | comfortable | busy | packed" yAxis="mean probability" xMin="0.0" xMax="4.0" yMin="0.0" yMax="1.0" autoPlotX="false" autoPlotY="false" legend="false">
+      <setup></setup>
+      <update></update>
+      <pen display="forecast" color="-955883" interval="1.0" mode="1" legend="false">
+        <setup></setup>
+        <update><![CDATA[plot-pen-reset
+foreach range length forecast-shares [ i -> plotxy i item i forecast-shares ]]]></update>
+      </pen>
+    </plot>
+    <note x="15" y="715" width="415" height="90" fontSize="11" backgroundDark="0" backgroundLight="0" textColorDark="-1" textColorLight="-16777216" markdown="false">Patron colour is its crowd forecast: lime empty, yellow comfortable, orange busy, magenta packed. A bar turns red when more than its capacity show up. Switch decision-rule and compare the attendance plot: top pick herds, sampling spreads.</note>
+  </widgets>
+  <info><![CDATA[## WHAT IS IT?
+
+The El Farol bar problem (W. Brian Arthur, 1994), played by patrons who ask a
+calibrated decision model what to do. Each night every patron decides whether to go
+out and, if so, which bar to visit. A bar is fun only when no more than its capacity
+show up. If everyone expects a quiet night, everyone goes and every bar is packed; if
+everyone expects a packed night, nobody goes. There is no forecast that works when
+everyone uses it.
+
+The model is a lesson about one choice every LLM-driven agent model makes: when the
+model gives you probabilities, do you **sample** from them or **take the top pick**?
+
+## HOW IT WORKS
+
+One tick is one night. Each patron has a persona (student, cautious retiree,
+fear-of-missing-out regular, night-shift nurse, newcomer) and a memory, in turtle
+variables, of the last three nights' attendance at each bar and how its own last visit
+to each bar went. Jev, TypeSafe's decision model, is stateless, so a reporter builds
+the whole situation into every prompt (`forecast-prompt`, `go-prompt`, `bar-prompt`).
+
+With the **typesafe (Jev)** backend, `llm:decide-all` sends one question per patron, all
+at once, three times a night:
+
+1. a score: how crowded will the bars be? (`empty`, `comfortable`, `busy`, `packed`).
+   The expected level colours the patron and goes into the next prompt.
+2. a yes-no: go out tonight? Jev reports P(yes).
+3. a choice among the bars, for the patrons going out.
+
+What a patron does with each answer depends on **decision-rule**:
+
+- **sample from probabilities**: go if `random-float 1 < P(yes)`, and draw the bar from
+  the choice distribution. Ten patrons with P(go) = 0.6 send about six.
+- **always take the top pick**: go if yes is likelier, and take the likeliest bar. Ten
+  patrons with P(go) = 0.6 send all ten.
+
+With the **text LLM** backend, each patron instead asks one `llm:choose` question, one
+patron after another: pick a bar or "stay home". A text model only names its top pick,
+so there is no forecast and nothing to sample, and the decision rule has no effect.
+
+A failed call sends that patron home and adds to **failed calls**; it never stops the
+night.
+
+## HOW TO USE IT
+
+1. Copy `config.txt.example` to `config.txt` beside this model and put your TypeSafe
+   key in it. For the text LLM backend, also copy `config-text.txt.example` to
+   `config-text.txt`.
+   If you got this model from the extension's zip, there are no `.example` files:
+   edit the shared `config.txt` beside the model and turn on its TypeSafe block
+   (`provider=typesafe`, `model=jev-latest`, your `typesafe_api_key`).
+2. Choose a **backend** and a **decision-rule**, then press **setup**. Changing the
+   backend later loads that backend's config on the next **go**.
+3. Press **one night** a few times, or **go**.
+4. Turn on **show-observations?** to print one patron's prompt each night.
+
+**ms per night** is the wall time of the night's model calls. **cost per night** and
+**total cost** come from `llm:usage-total` (TypeSafe reports cost; a text provider that
+does not shows `n/a`).
+
+## THINGS TO NOTICE
+
+Watch the **Attendance per bar** plot against the red capacity line. With top pick,
+patrons who share a persona and a memory get the same answer, so whole groups go or stay
+together: attendance swings between packed and empty. With sampling, the same
+probabilities produce a spread of choices, and the number going out tends to settle
+near what the bars can hold (the **fun limit** line on the Calibration plot).
+
+Sampling does not fix everything. Every patron remembers the same attendance, so the
+bar choice often puts most of its probability on the one bar that was quiet last
+night, and many patrons still land there. Sampling spreads choices only as much as the
+probabilities are spread. Private memories (see EXTENDING THE MODEL) would help.
+
+The **Calibration** plot compares mean P(go) with the fraction who actually went out.
+With sampling the two lines track each other; with top pick the fraction out jumps to
+whichever side of 0.5 the probabilities fall.
+
+Compare **ms per night** between backends. Jev answers 150 patrons three times in
+about the time of a few calls; the text backend asks one patron at a time.
+
+## THINGS TO TRY
+
+- Lower **capacity-percent**: do the patrons learn to stay home more?
+- Use **num-bars** 2 or 4: does the choice question spread patrons evenly?
+- Turn on **show-observations?** and edit `situation` to change what patrons remember.
+
+## EXTENDING THE MODEL
+
+- Give patrons private information, such as a friend's report from last night, so
+  memories differ.
+- Add a fixed group of non-LLM patrons who always go, and watch the others adapt.
+- Use `llm:use-profile` to give different personas different models.
+
+## NETLOGO FEATURES
+
+`llm:decide-all` sends every patron's question at once and waits once. Each prompt is
+built by an anonymous reporter run as the patron, so it reads that patron's variables.
+Results come back as `[agent result ok?]` triples; `ok?` false marks a failed call.
+
+## RELATED MODELS
+
+El Farol, in the NetLogo Models Library (Social Science).
+
+## CREDITS AND REFERENCES
+
+Arthur, W. B. (1994). Inductive reasoning and bounded rationality. *American Economic
+Review*, 84(2), 406-411.
+
+Rand, W. and Wilensky, U. (2007). NetLogo El Farol model. Center for Connected Learning
+and Computer-Based Modeling, Northwestern University, Evanston, IL.
+
+Wilensky, U. (1999). NetLogo. Center for Connected Learning and Computer-Based
+Modeling, Northwestern University, Evanston, IL.
+]]></info>
+  <turtleShapes>
+    <shape name="default" rotatable="true" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="5"/>
+        <point x="40" y="250"/>
+        <point x="150" y="205"/>
+        <point x="260" y="250"/>
+      </polygon>
+    </shape>
+    <shape name="person" rotatable="false" editableColorIndex="0">
+      <circle x="110" y="5" marked="true" color="-1920102913" diameter="80" filled="true"></circle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="105" y="90"></point>
+        <point x="120" y="195"></point>
+        <point x="90" y="285"></point>
+        <point x="105" y="300"></point>
+        <point x="135" y="300"></point>
+        <point x="150" y="225"></point>
+        <point x="165" y="300"></point>
+        <point x="195" y="300"></point>
+        <point x="210" y="285"></point>
+        <point x="180" y="195"></point>
+        <point x="195" y="90"></point>
+      </polygon>
+      <rectangle endX="172" startY="79" marked="true" color="-1920102913" endY="94" startX="127" filled="true"></rectangle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="195" y="90"></point>
+        <point x="240" y="150"></point>
+        <point x="225" y="180"></point>
+        <point x="165" y="105"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="105" y="90"></point>
+        <point x="60" y="150"></point>
+        <point x="75" y="180"></point>
+        <point x="135" y="105"></point>
+      </polygon>
+    </shape>
+  </turtleShapes>
+  <linkShapes>
+    <shape name="default" curviness="0.0">
+      <lines>
+        <line x="-0.2" visible="false"><dash value="0.0"/><dash value="1.0"/></line>
+        <line x="0.0" visible="true"><dash value="1.0"/><dash value="0.0"/></line>
+        <line x="0.2" visible="false"><dash value="0.0"/><dash value="1.0"/></line>
+      </lines>
+      <indicator>
+        <shape name="link direction" rotatable="true" editableColorIndex="0">
+          <line startX="150" startY="150" endX="90" endY="180" marked="true" color="-1920102913"/>
+          <line startX="150" startY="150" endX="210" endY="180" marked="true" color="-1920102913"/>
+        </shape>
+      </indicator>
+    </shape>
+  </linkShapes>
+  <experiments>
+    <experiment name="headless-check" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="true" timeLimit="10">
+      <setup>setup</setup>
+      <go>go</go>
+      <metrics>
+        <metric>item 0 attendance</metric>
+        <metric>item 1 attendance</metric>
+        <metric>item 2 attendance</metric>
+        <metric>capacity</metric>
+        <metric>mean-p-go</metric>
+        <metric>fraction-out</metric>
+        <metric>night-ms</metric>
+        <metric>night-cost</metric>
+        <metric>total-cost</metric>
+        <metric>failed-calls</metric>
+      </metrics>
+      <constants>
+        <enumeratedValueSet variable="backend">
+          <value value="&quot;typesafe (Jev)&quot;"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="decision-rule">
+          <value value="&quot;sample from probabilities&quot;"/>
+          <value value="&quot;always take the top pick&quot;"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="num-patrons">
+          <value value="150"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="capacity-percent">
+          <value value="60"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="num-bars">
+          <value value="3"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="show-observations?">
+          <value value="false"/>
+        </enumeratedValueSet>
+      </constants>
+    </experiment>
+  </experiments>
+</model>

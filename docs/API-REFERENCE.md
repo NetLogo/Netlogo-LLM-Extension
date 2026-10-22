@@ -395,6 +395,8 @@ end
 
 Sampling (`sample-decision`) keeps the population heterogeneous: with 0.6 on "go", about
 60% of identical agents go, where the top pick would send all of them.
+The full model, with a forecast, a bar choice, plots and measured cost, is
+`demos/el-farol-decisions/el-farol-decisions.nlogox`.
 
 **Notes**:
 
