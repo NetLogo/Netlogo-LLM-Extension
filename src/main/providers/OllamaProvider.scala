@@ -25,6 +25,7 @@ class OllamaProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
   override protected def apiKeyConfigKey: String = ConfigStore.API_KEY
   override protected def defaultMaxTokens: String = "2048"
   override protected def requiresApiKey: Boolean = false
+  override protected def unreachableHint: String = "Is the Ollama server running?"
 
   override protected def buildApiUrl(baseUrl: String): Uri = {
     uri"$baseUrl/api/chat"

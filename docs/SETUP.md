@@ -189,8 +189,8 @@ Browse the full catalog: [console.groq.com/docs/models](https://console.groq.com
 | `temperature` | Response randomness (0.0-1.0) | No | 0.7 |
 | `max_tokens` | Maximum response length | No | 1000 |
 | `timeout_seconds` | Request timeout | No | 30 |
-| `retry_max_retries` | Retry attempts after a rate-limit (HTTP 429) response | No | 6 |
-| `retry_max_elapsed_seconds` | Total time allowed waiting out rate limits | No | 65 |
+| `retry_max_retries` | Retry attempts after a rate limit (HTTP 429), server error (500/502/503/504), Anthropic overload (529) or connection timeout | No | 6 |
+| `retry_max_elapsed_seconds` | Total time allowed waiting out rate limits and other transient errors | No | 65 |
 | `max_concurrent_requests` | Maximum requests in flight at once, per provider | No | 0 (off) |
 | `min_request_interval_ms` | Minimum milliseconds between request starts | No | 0 (off) |
 
