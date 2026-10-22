@@ -30,6 +30,24 @@ object LLMExtension {
     providerFactoryOverride = None
   }
 
+  /**
+   * Probe an Ollama server for reachability (synchronous, short timeout).
+   * Takes the provider so tests can hand in one backed by a stub.
+   */
+  private[llm] def probeOllama(config: ConfigStore, provider: OllamaProvider): Boolean = {
+    try {
+      val baseUrl = ConfigStore.resolveBaseUrl(config, ConfigStore.OLLAMA_BASE_URL, ConfigStore.DEFAULT_OLLAMA_BASE_URL)
+      provider.setConfig(ConfigStore.OLLAMA_BASE_URL, baseUrl)
+
+      val checkFuture = provider.checkServerConnection()
+      Await.result(checkFuture, 1.second)
+    } catch {
+      case ex: Exception =>
+        System.err.println(s"WARNING: Ollama reachability check failed: ${ex.getMessage}")
+        false
+    }
+  }
+
   private[llm] def createProvider(configStore: ConfigStore)(
     implicit ec: ExecutionContext
   ): Try[LLMProvider] = {
@@ -352,9 +370,7 @@ class LLMExtension extends DefaultClassManager {
     desc.readinessCheck match {
       case ReadinessCheck.ServerReachable =>
         if (!isOllamaReachable(config)) {
-          val baseUrl = config.get(desc.baseUrlConfigKey)
-            .orElse(config.get(ConfigStore.BASE_URL))
-            .getOrElse(desc.defaultBaseUrl)
+          val baseUrl = ConfigStore.resolveBaseUrl(config, desc.baseUrlConfigKey, desc.defaultBaseUrl)
           throw new ExtensionException(
             s"Config loaded but ${desc.displayName} not reachable at $baseUrl. Please start the server or change ${desc.baseUrlConfigKey} in config. For help: print llm:provider-help \"${desc.name}\""
           )
@@ -372,22 +388,8 @@ class LLMExtension extends DefaultClassManager {
    */
   private def isOllamaReachable: Boolean = isOllamaReachable(configStore)
 
-  private def isOllamaReachable(config: ConfigStore): Boolean = {
-    try {
-      val provider = new OllamaProvider()
-      val baseUrl = config.get(ConfigStore.OLLAMA_BASE_URL)
-        .orElse(config.get(ConfigStore.BASE_URL))
-        .getOrElse(ConfigStore.DEFAULT_OLLAMA_BASE_URL)
-      provider.setConfig(ConfigStore.BASE_URL, baseUrl)
-
-      val checkFuture = provider.checkServerConnection()
-      Await.result(checkFuture, 1.second)
-    } catch {
-      case ex: Exception =>
-        System.err.println(s"WARNING: Ollama reachability check failed: ${ex.getMessage}")
-        false
-    }
-  }
+  private def isOllamaReachable(config: ConfigStore): Boolean =
+    LLMExtension.probeOllama(config, new OllamaProvider())
   
   /**
    * Check if a provider is ready to use.
@@ -480,25 +482,15 @@ class LLMExtension extends DefaultClassManager {
         )
       }
       
-      // Apply provider defaults
-      val defaults = ProviderFactory.getDefaultConfig(providerName)
-      defaults.foreach { case (key, value) =>
-        if (!configStore.contains(key) || key == ConfigStore.MODEL) {
-          configStore.set(key, value)
-        }
-      }
-      
-      // Set provider
-      configStore.set(ConfigStore.PROVIDER, providerName)
+      // Apply provider defaults and set provider
+      ProviderFactory.applyProviderSwitch(configStore, providerName)
       
       // Validate immediately using descriptor
       ProviderRegistry.get(providerName).foreach { desc =>
         desc.readinessCheck match {
           case ReadinessCheck.ServerReachable =>
             if (!isOllamaReachable) {
-              val baseUrl = configStore.get(desc.baseUrlConfigKey)
-                .orElse(configStore.get(ConfigStore.BASE_URL))
-                .getOrElse(desc.defaultBaseUrl)
+              val baseUrl = ConfigStore.resolveBaseUrl(configStore, desc.baseUrlConfigKey, desc.defaultBaseUrl)
               throw new ExtensionException(
                 s"${desc.displayName} not reachable at $baseUrl. Please start the server or change ${desc.baseUrlConfigKey}. For help: print llm:provider-help \"$providerName\""
               )
@@ -1458,9 +1450,7 @@ class LLMExtension extends DefaultClassManager {
           
           val details = provider.toLowerCase.trim match {
             case "ollama" =>
-              val baseUrl = configStore.get(ConfigStore.OLLAMA_BASE_URL)
-                .orElse(configStore.get(ConfigStore.BASE_URL))
-                .getOrElse(ConfigStore.DEFAULT_OLLAMA_BASE_URL)
+              val baseUrl = ConfigStore.resolveBaseUrl(configStore, ConfigStore.OLLAMA_BASE_URL, ConfigStore.DEFAULT_OLLAMA_BASE_URL)
               LogoList(
                 provider,
                 LogoList("ready", Boolean.box(ready)),

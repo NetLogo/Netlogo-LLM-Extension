@@ -47,7 +47,7 @@ class GeminiProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
       .orElse(configStore.get(ConfigStore.API_KEY))
       .getOrElse(throw new IllegalStateException("API key not configured"))
 
-    val baseUrl = configStore.get(baseUrlConfigKey).getOrElse(defaultBaseUrl)
+    val baseUrl = resolvedBaseUrl
     val apiUrl = uri"$baseUrl/models/${request.model}:generateContent?key=$apiKey"
 
     val headers = Map("Content-Type" -> "application/json")

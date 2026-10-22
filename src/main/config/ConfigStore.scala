@@ -194,7 +194,6 @@ object ConfigStore {
     val store = new ConfigStore()
     store.set(PROVIDER, DEFAULT_PROVIDER)
     store.set(MODEL, DEFAULT_OPENAI_MODEL)
-    store.set(BASE_URL, DEFAULT_OPENAI_BASE_URL)
     store.set(TEMPERATURE, DEFAULT_TEMPERATURE)
     store.set(MAX_TOKENS, DEFAULT_MAX_TOKENS)
     store.set(TIMEOUT_SECONDS, DEFAULT_TIMEOUT_SECONDS)
@@ -214,6 +213,18 @@ object ConfigStore {
    */
   def getProviderBaseUrlName(provider: String): String =
     org.nlogo.extensions.llm.providers.ProviderRegistry.baseUrlConfigKey(provider)
+
+  /**
+   * Resolve the base URL a provider should send to.
+   *
+   * The provider-specific key (e.g. "anthropic_base_url") wins, then the legacy
+   * generic BASE_URL, then the provider's built-in default. Neither key is ever
+   * seeded with a default, so a value present here is one the user set.
+   */
+  def resolveBaseUrl(config: ConfigStore, providerBaseUrlKey: String, defaultBaseUrl: String): String =
+    config.get(providerBaseUrlKey)
+      .orElse(config.get(BASE_URL))
+      .getOrElse(defaultBaseUrl)
 
   /**
    * Get default base URL for a provider.

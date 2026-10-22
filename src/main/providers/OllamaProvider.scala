@@ -132,8 +132,7 @@ class OllamaProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
    * Check if Ollama server is accessible
    */
   def checkServerConnection(): Future[Boolean] = {
-    val baseUrl = configStore.get(ConfigStore.OLLAMA_BASE_URL)
-      .getOrElse("http://localhost:11434")
+    val baseUrl = resolvedBaseUrl
     val apiUrl = uri"$baseUrl/api/tags"
 
     val httpRequest = basicRequest.get(apiUrl)
@@ -153,8 +152,7 @@ class OllamaProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
    * @return Future containing set of installed model names
    */
   def listInstalledModels(): Future[Set[String]] = {
-    val baseUrl = configStore.get(ConfigStore.OLLAMA_BASE_URL)
-      .getOrElse("http://localhost:11434")
+    val baseUrl = resolvedBaseUrl
     val apiUrl = uri"$baseUrl/api/tags"
 
     val httpRequest = basicRequest.get(apiUrl)

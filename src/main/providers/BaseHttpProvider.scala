@@ -188,7 +188,7 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
   protected def requestThrottle: Option[RequestThrottle] =
     RequestThrottle.forProvider(
       providerName,
-      configStore.get(baseUrlConfigKey).getOrElse(defaultBaseUrl),
+      resolvedBaseUrl,
       configStore.get(RequestThrottle.MAX_CONCURRENT_REQUESTS),
       configStore.get(RequestThrottle.MIN_REQUEST_INTERVAL_MS)
     )
@@ -238,6 +238,10 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
   protected def requiresApiKey: Boolean
 
   protected def buildApiUrl(baseUrl: String): Uri
+
+  /** Base URL for requests: provider-specific key, then legacy base_url, then default. */
+  protected def resolvedBaseUrl: String =
+    ConfigStore.resolveBaseUrl(configStore, baseUrlConfigKey, defaultBaseUrl)
   protected def buildHeaders(apiKey: Option[String]): Map[String, String]
   protected def createProviderRequest(request: ChatRequest): ujson.Value
   protected def parseProviderResponse(responseBody: String, model: String): ChatResponse
@@ -248,7 +252,6 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
   protected def initializeDefaults(): Unit = {
     configStore.set(ConfigStore.PROVIDER, providerName)
     configStore.set(ConfigStore.MODEL, defaultModel)
-    configStore.set(baseUrlConfigKey, defaultBaseUrl)
     configStore.set(ConfigStore.TEMPERATURE, ConfigStore.DEFAULT_TEMPERATURE)
     configStore.set(ConfigStore.MAX_TOKENS, defaultMaxTokens)
   }
@@ -339,7 +342,7 @@ abstract class BaseHttpProvider(implicit ec: ExecutionContext) extends LLMProvid
       configStore.get(apiKeyConfigKey).orElse(configStore.get(ConfigStore.API_KEY))
     }
 
-    val baseUrl = configStore.get(baseUrlConfigKey).getOrElse(defaultBaseUrl)
+    val baseUrl = resolvedBaseUrl
     val apiUrl = buildApiUrl(baseUrl)
     val headers = buildHeaders(apiKey)
     val requestBody = createProviderRequest(request).toString()

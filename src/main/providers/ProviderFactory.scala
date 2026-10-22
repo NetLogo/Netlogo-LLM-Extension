@@ -141,13 +141,40 @@ object ProviderFactory {
   }
 
   /**
+   * Apply the config changes llm:set-provider makes when switching to `providerName`.
+   *
+   * The legacy generic base_url belongs to the provider that was active when it
+   * was set. On a switch to a different provider it is moved to the previous
+   * provider's own key (unless the user already set that key) and cleared, so
+   * it keeps applying to that provider but never leaks to the new one. A
+   * base_url set again after the switch applies to the new provider.
+   */
+  def applyProviderSwitch(configStore: ConfigStore, providerName: String): Unit = {
+    val previous = configStore.getOrElse(ConfigStore.PROVIDER, ConfigStore.DEFAULT_PROVIDER).toLowerCase.trim
+    if (previous != providerName) {
+      configStore.remove(ConfigStore.BASE_URL).foreach { url =>
+        val previousKey = ConfigStore.getProviderBaseUrlName(previous)
+        if (previousKey != ConfigStore.BASE_URL && !configStore.contains(previousKey)) {
+          configStore.set(previousKey, url)
+        }
+      }
+    }
+    val defaults = getDefaultConfig(providerName)
+    defaults.foreach { case (key, value) =>
+      if (!configStore.contains(key) || key == ConfigStore.MODEL) {
+        configStore.set(key, value)
+      }
+    }
+    configStore.set(ConfigStore.PROVIDER, providerName)
+  }
+
+  /**
    * Get provider-specific default configuration.
    */
   def getDefaultConfig(providerName: String): Map[String, String] = {
     ProviderRegistry.get(providerName.toLowerCase.trim) match {
       case Some(desc) => Map(
         ConfigStore.MODEL -> desc.defaultModel,
-        ConfigStore.BASE_URL -> desc.defaultBaseUrl,
         ConfigStore.TEMPERATURE -> ConfigStore.DEFAULT_TEMPERATURE,
         ConfigStore.MAX_TOKENS -> desc.defaultMaxTokens
       )
