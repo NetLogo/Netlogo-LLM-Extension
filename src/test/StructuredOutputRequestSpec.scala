@@ -205,6 +205,36 @@ class StructuredOutputRequestSpec extends AnyFunSuite {
     assert(!keys(body("generationConfig")).contains("responseJsonSchema"))
   }
 
+  test("Gemini sends system messages as systemInstruction, not user turns (#28)") {
+    val r = ChatRequest(
+      model = "gemini-2.5-flash",
+      messages = Seq(
+        ChatMessage.system("be terse"),
+        ChatMessage.user("hi"),
+        ChatMessage("assistant", "hello"),
+        ChatMessage.system("answer in French"),
+        ChatMessage.user("again")
+      ),
+      maxTokens = Some(4000),
+      responseFormat = Some(schemaFormat),
+      thinkingConfig = Some(ThinkingConfig(enabled = true, budgetTokens = Some(2048)))
+    )
+    val body = (new InspectableGemini).body(r)
+    assert(body("systemInstruction")("parts")(0)("text").str == "be terse\n\nanswer in French")
+    val contents = body("contents").arr
+    assert(contents.map(_("role").str).toSeq == Seq("user", "model", "user"))
+    assert(contents.map(_("parts")(0)("text").str).toSeq == Seq("hi", "hello", "again"))
+    val gc = body("generationConfig")
+    assert(gc("responseMimeType").str == "application/json")
+    assert(gc("thinkingConfig")("thinkingBudget").num == 2048)
+  }
+
+  test("Gemini omits systemInstruction when there are no system messages") {
+    val body = (new InspectableGemini).body(request("gemini-2.5-flash", None))
+    assert(!keys(body).contains("systemInstruction"))
+    assert(body("contents").arr.map(_("role").str).toSeq == Seq("user"))
+  }
+
   // --- Ollama ---
 
   test("Ollama puts the raw schema in format") {

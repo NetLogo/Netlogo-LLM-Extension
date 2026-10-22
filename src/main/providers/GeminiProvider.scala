@@ -83,12 +83,17 @@ class GeminiProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
    * Gemini expects:
    * - "contents" array with "role" and "parts"
    * - Role mapping: "assistant" → "model", "user" → "user"
+   * - System messages in a top-level "systemInstruction", not in "contents"
    * - "generationConfig" for optional parameters (temperature, maxOutputTokens)
    */
   override protected def createProviderRequest(request: ChatRequest): ujson.Value = {
+    // Gemini takes system prompts as a top-level systemInstruction, not as a
+    // turn in contents; several system messages are joined into one.
+    val (systemMessages, chatMessages) = request.messages.partition(_.role == "system")
+
     // Convert messages to Gemini's format
     val contents = ujson.Arr(
-      request.messages.map { msg =>
+      chatMessages.map { msg =>
         val role = if (msg.role == "assistant") "model" else "user"
         ujson.Obj(
           "role" -> role,
@@ -102,6 +107,14 @@ class GeminiProvider(implicit ec: ExecutionContext) extends BaseHttpProvider {
     val baseRequest = ujson.Obj(
       "contents" -> contents
     )
+
+    if (systemMessages.nonEmpty) {
+      baseRequest("systemInstruction") = ujson.Obj(
+        "parts" -> ujson.Arr(
+          ujson.Obj("text" -> systemMessages.map(_.content).mkString("\n\n"))
+        )
+      )
+    }
 
     // Add generation config if parameters are specified
     val generationConfig = ujson.Obj()
