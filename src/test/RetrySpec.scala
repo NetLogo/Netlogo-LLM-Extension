@@ -2,15 +2,18 @@
 // ABOUTME: Uses an sttp BackendStub to script 429/5xx/200 responses and failed sends without real HTTP
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatRequest, ChatResponse, ChatMessage, Choice}
+import java.util.concurrent.atomic.AtomicInteger
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
+
 import org.scalatest.funsuite.AnyFunSuite
 import sttp.client4._
 import sttp.client4.testing.{BackendStub, ResponseStub, StubBody}
 import sttp.model.{Header, StatusCode, Uri}
-import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.{Await, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
+
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, Choice}
 
 /**
  * Minimal concrete provider whose backend is a scripted stub. retryBaseDelayMs

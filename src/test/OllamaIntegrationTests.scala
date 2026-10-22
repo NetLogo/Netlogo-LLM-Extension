@@ -3,9 +3,10 @@
 
 package org.nlogo.extensions.llm
 
+import java.io.File
+
 import org.scalatest.BeforeAndAfterAll
 
-import java.io.File
 import org.nlogo.headless.TestLanguage
 
 object OllamaIntegrationTests {

@@ -2,12 +2,14 @@
 // ABOUTME: Provides model lists and optional default models per provider, with custom model counting
 package org.nlogo.extensions.llm.config
 
-import scala.util.{Try, Success, Failure}
-import scala.io.Source
-import io.circe.yaml.parser
-import io.circe.{ACursor, Json, HCursor}
-import java.nio.file.{Files, Path, Paths}
 import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Path, Paths}
+
+import scala.io.Source
+import scala.util.{Failure, Success, Try}
+
+import io.circe.yaml.parser
+import io.circe.{ACursor, HCursor, Json}
 
 /**
  * Container for provider model lists

@@ -2,11 +2,14 @@
 // ABOUTME: Asserts load/replace semantics, reserved names, and that each profile caches exactly one provider
 package org.nlogo.extensions.llm.config
 
-import org.nlogo.extensions.llm.providers.{DeterministicTestProvider, LLMProvider}
-import org.scalatest.funsuite.AnyFunSuite
 import java.util.concurrent.atomic.AtomicInteger
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success, Try}
+
+import org.scalatest.funsuite.AnyFunSuite
+
+import org.nlogo.extensions.llm.providers.{DeterministicTestProvider, LLMProvider}
 
 class ProfileStoreSpec extends AnyFunSuite {
 

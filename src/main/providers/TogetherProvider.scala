@@ -2,8 +2,9 @@
 // ABOUTME: Extends OpenAICompatibleProvider with Together-specific reasoning and thinking extraction
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.ChatRequest
 import scala.concurrent.ExecutionContext
+
+import org.nlogo.extensions.llm.models.ChatRequest
 
 /**
  * Together AI provider implementation.

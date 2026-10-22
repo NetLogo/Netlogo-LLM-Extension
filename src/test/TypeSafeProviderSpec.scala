@@ -2,16 +2,19 @@
 // ABOUTME: A BackendStub captures URL, headers and body and scripts System One replies; no real HTTP
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.config.ConfigStore
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, DecisionAnswer, DecisionQuestion, DecisionResult, Usage}
+import java.util.concurrent.atomic.AtomicReference
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
+
 import org.scalatest.funsuite.AnyFunSuite
 import sttp.client4._
 import sttp.client4.testing.{BackendStub, ResponseStub}
 import sttp.model.StatusCode
-import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{Await, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
+
+import org.nlogo.extensions.llm.config.ConfigStore
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, DecisionAnswer, DecisionQuestion, DecisionResult, Usage}
 
 /** Records the last request sent and answers every request with `status` / `body`. */
 class SystemOneStub(status: StatusCode, body: String) {

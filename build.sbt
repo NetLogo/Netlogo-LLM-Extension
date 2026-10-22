@@ -87,7 +87,7 @@ Test / testOptions += Tests.Filter { name =>
   else
     true
 }
-scalacOptions        ++= Seq("-deprecation", "-unchecked", "-Xfatal-warnings", "-encoding", "us-ascii", "-release", "17")
+scalacOptions        ++= Seq("-deprecation", "-unchecked", "-Xfatal-warnings", "-encoding", "utf-8", "-release", "17")
 
 libraryDependencies ++= Seq(
   "io.circe" %% "circe-yaml" % "0.15.0",
@@ -104,6 +104,8 @@ dependencyOverrides += "org.scalatest" %% "scalatest" % "3.2.19"
 dependencyOverrides += "org.nlogo" % "netlogo" % netLogoVersion.value
 
 ThisBuild / scalafixDependencies += "com.github.liancheng" %% "organize-imports" % "0.6.0"
+// OrganizeImports is a semantic rule, so `sbt scalafixAll` needs semanticdb output
+ThisBuild / semanticdbEnabled := true
 
 // Assembly configuration for fat JAR with all dependencies
 assembly / assemblyMergeStrategy := {

@@ -2,8 +2,9 @@
 // ABOUTME: Asserts extended vs adaptive thinking and that temperature is omitted on 4.7+ models
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ThinkingConfig}
 import org.scalatest.funsuite.AnyFunSuite
+
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ThinkingConfig}
 
 /**
  * Exposes the protected request builder so the JSON body can be asserted

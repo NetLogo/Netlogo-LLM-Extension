@@ -1,9 +1,10 @@
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.config.ConfigStore
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, Choice, DecisionQuestion, DecisionResult, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat, Usage}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
+
+import org.nlogo.extensions.llm.config.ConfigStore
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, Choice, DecisionQuestion, DecisionResult, EnumFormat, JsonObjectFormat, JsonSchemaFormat, ResponseFormat, Usage}
 
 /**
  * Deterministic provider used only by tests.

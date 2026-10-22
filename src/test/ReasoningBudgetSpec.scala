@@ -2,11 +2,13 @@
 // ABOUTME: Covers lifting the default max_tokens and the clear error for an empty reply cut off at the limit
 package org.nlogo.extensions.llm.providers
 
+import scala.concurrent.ExecutionContext.Implicits.global
+
+import org.scalatest.funsuite.AnyFunSuite
+
 import org.nlogo.extensions.llm.LLMExtension
 import org.nlogo.extensions.llm.config.ConfigStore
 import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse}
-import org.scalatest.funsuite.AnyFunSuite
-import scala.concurrent.ExecutionContext.Implicits.global
 
 /** Builds requests from the provider's own config, as a real call would. */
 private class BudgetInspectableOpenAI extends OpenAIProvider {

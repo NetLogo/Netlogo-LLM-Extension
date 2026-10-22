@@ -1,7 +1,8 @@
 package org.nlogo.extensions.llm.providers
 
+import scala.util.{Failure, Success, Try}
+
 import org.nlogo.extensions.llm.config.{ModelRegistryLoader, ProviderModels}
-import scala.util.{Try, Success, Failure}
 
 /**
  * Central registry for supported LLM models across all providers

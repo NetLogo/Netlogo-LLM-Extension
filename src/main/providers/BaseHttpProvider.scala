@@ -2,16 +2,19 @@
 // ABOUTME: Reduces boilerplate by providing shared implementation of config, validation, and HTTP request handling
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, ResponseFormat, Usage}
-import org.nlogo.extensions.llm.config.ConfigStore
+import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
+
+import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success, Try}
+
 import sttp.client4._
 import sttp.client4.httpclient.HttpClientFutureBackend
 import sttp.model.{StatusCode, Uri}
 import ujson._
-import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
-import scala.concurrent.{Future, ExecutionContext, Promise}
-import scala.concurrent.duration._
-import scala.util.{Try, Success, Failure}
+
+import org.nlogo.extensions.llm.config.ConfigStore
+import org.nlogo.extensions.llm.models.{ChatMessage, ChatRequest, ChatResponse, ResponseFormat, Usage}
 
 /** A non-success HTTP response, carrying the status code so callers can branch on it. */
 class HttpStatusException(val statusCode: Int, val errorBody: String, message: String)

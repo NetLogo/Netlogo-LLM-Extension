@@ -2,8 +2,9 @@
 // ABOUTME: Extends OpenAICompatibleProvider with OpenRouter-specific headers, reasoning format, and thinking extraction
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models.ChatRequest
 import scala.concurrent.ExecutionContext
+
+import org.nlogo.extensions.llm.models.ChatRequest
 
 /**
  * OpenRouter provider implementation.

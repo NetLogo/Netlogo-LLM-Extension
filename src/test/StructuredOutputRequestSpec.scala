@@ -2,9 +2,11 @@
 // ABOUTME: No network I/O — only the JSON body each provider would have posted
 package org.nlogo.extensions.llm.providers
 
-import org.nlogo.extensions.llm.models._
-import org.scalatest.funsuite.AnyFunSuite
 import scala.concurrent.ExecutionContext.Implicits.global
+
+import org.scalatest.funsuite.AnyFunSuite
+
+import org.nlogo.extensions.llm.models._
 
 /** Exposes each provider's protected request builder for body assertions. */
 private class InspectableOpenAI extends OpenAIProvider {
